@@ -30,8 +30,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -56,7 +58,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     private val container = AppContainer.get(application)
 
     val session: StateFlow<SessionState> = container.authRepository.sessionState
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SessionState(null))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SessionState(null, ""))
 
     private val _dataError = MutableStateFlow<String?>(null)
     /** Surfaces live-query failures (e.g. Firestore permission-denied) instead of silently showing empty lists. */
@@ -73,7 +75,8 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
      * confusing PERMISSION_DENIED that has nothing to do with real data access problems.
      */
     private fun <T> onlyWhenLoggedIn(source: String, query: () -> Flow<List<T>>): Flow<List<T>> =
-        session.flatMapLatest { s -> if (s.isLoggedIn) query().recoverToEmpty(source) else flowOf(emptyList()) }
+        session.map { it.isLoggedIn }.distinctUntilChanged()
+            .flatMapLatest { loggedIn -> if (loggedIn) query().recoverToEmpty(source) else flowOf(emptyList()) }
 
     val workers: StateFlow<List<Worker>> = onlyWhenLoggedIn("Workers") { container.workersRepository.liveWorkers() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
