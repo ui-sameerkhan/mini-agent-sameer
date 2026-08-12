@@ -17,7 +17,7 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
     fun liveLast14Days(): Flow<List<Blocked>> {
         val cutoff = LocalDate.now(ZoneOffset.UTC).minusDays(14).format(DateTimeFormatter.ISO_LOCAL_DATE)
         return collection.whereGreaterThanOrEqualTo("date", cutoff).asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(Blocked::class.java) } }
+            .map { docs -> docs.mapNotNull { it.toObjectSafe(Blocked::class.java, "blocked") } }
     }
 
     suspend fun log(blocked: Blocked) {

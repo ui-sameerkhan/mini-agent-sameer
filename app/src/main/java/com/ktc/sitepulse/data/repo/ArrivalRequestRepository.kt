@@ -14,7 +14,7 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
     /** Admin-only live subscription to pending requests. */
     fun livePending(): Flow<List<ArrivalRequest>> =
         collection.whereEqualTo("status", "pending").asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java) } }
+            .map { docs -> docs.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java, "arrivalRequests") } }
 
     suspend fun submit(request: ArrivalRequest): String {
         val ref = collection.add(request).await()

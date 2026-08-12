@@ -18,12 +18,12 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
     fun liveToday(): Flow<List<Attendance>> {
         val today = DateUtils.todayStrUtc()
         return collection.whereEqualTo("date", today).asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(Attendance::class.java) } }
+            .map { docs -> docs.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") } }
     }
 
     suspend fun getForDate(date: String): List<Attendance> =
         collection.whereEqualTo("date", date).get().await().documents
-            .mapNotNull { it.toObjectSafe(Attendance::class.java) }
+            .mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
 
     suspend fun getForMonth(monthStr: String): List<Attendance> {
         val start = DateUtils.monthStart(monthStr)
@@ -33,11 +33,11 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
             .whereLessThan("date", endExclusive)
             .get().await()
             .documents
-            .mapNotNull { it.toObjectSafe(Attendance::class.java) }
+            .mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
     }
 
     suspend fun getRecord(date: String, workerId: String): Attendance? =
-        collection.document(docId(date, workerId)).get().await().toObjectSafe(Attendance::class.java)
+        collection.document(docId(date, workerId)).get().await().toObjectSafe(Attendance::class.java, "attendance")
 
     suspend fun writeMark(date: String, workerId: String, fields: Map<String, Any?>) {
         collection.document(docId(date, workerId)).set(fields, SetOptions.merge()).await()

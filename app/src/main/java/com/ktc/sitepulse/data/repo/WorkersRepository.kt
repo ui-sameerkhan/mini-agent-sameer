@@ -12,12 +12,19 @@ class WorkersRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
 
     private val collection get() = db.collection("workers")
 
-    /** Live-subscribed list of every worker, ordered by sno (matches the web app's default query). */
+    /**
+     * Live-subscribed list of every worker, sorted by sno client-side (matches the web
+     * app's ordering intent, but without Firestore's orderBy() silently excluding any
+     * document that happens to be missing the "sno" field from the results).
+     */
     fun liveWorkers(): Flow<List<Worker>> =
-        collection.orderBy("sno").asFlow().map { docs -> docs.mapNotNull { it.toObjectSafe(Worker::class.java) } }
+        collection.asFlow().map { docs ->
+            if (docs.isEmpty()) ParseDiagnostics.reportEmptyResult("workers", "all documents")
+            docs.mapNotNull { it.toObjectSafe(Worker::class.java, "workers") }.sortedBy { it.sno }
+        }
 
     suspend fun findById(id: String): Worker? =
-        collection.document(id).get().await().toObjectSafe(Worker::class.java)
+        collection.document(id).get().await().toObjectSafe(Worker::class.java, "workers")
 
     suspend fun isEmpty(): Boolean = collection.limit(1).get().await().isEmpty
 

@@ -20,7 +20,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.collectAsState
+import com.ktc.sitepulse.data.repo.ParseDiagnostics
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.theme.SpAmber
+import com.ktc.sitepulse.ui.theme.SpAmberSoft
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.ui.theme.SpRedSoft
 import com.ktc.sitepulse.ui.attendance.AttendanceScreen
@@ -88,6 +91,19 @@ fun SitePulseRoot() {
                         .fillMaxWidth()
                         .background(SpRedSoft)
                         .clickable { viewModel.dismissDataError() }
+                        .padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            val parseDiagnostic by ParseDiagnostics.lastMessage.collectAsState()
+            parseDiagnostic?.let { msg ->
+                Text(
+                    "$msg (tap to dismiss)",
+                    color = SpAmber,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SpAmberSoft)
+                        .clickable { ParseDiagnostics.clear() }
                         .padding(12.dp),
                     style = MaterialTheme.typography.bodyMedium,
                 )

@@ -16,11 +16,11 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
     /** All leave records for a worker (fetched on demand — used by the leave-aware Absent Report). */
     suspend fun forWorker(workerId: String): List<Leave> =
         collection.whereEqualTo("workerId", workerId).get().await().documents
-            .mapNotNull { it.toObjectSafe(Leave::class.java) }
+            .mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") }
 
     /** All leave records overlapping a date range, used by monthly Absent Report generation. */
     suspend fun all(): List<Leave> =
-        collection.get().await().documents.mapNotNull { it.toObjectSafe(Leave::class.java) }
+        collection.get().await().documents.mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") }
 
     fun isOnLeave(leaves: List<Leave>, workerId: String, dateStr: String): Boolean =
         leaves.any { it.workerId == workerId && DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
