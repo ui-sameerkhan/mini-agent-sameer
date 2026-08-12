@@ -92,7 +92,17 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
             modifier = Modifier.padding(top = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("Developed by Sameer Khan", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            Text(
+                "Guidance of Gopi Krishnan and Shaj Lakshmanan",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+            )
+            Text(
+                "Developed by Sameer Khan",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }
