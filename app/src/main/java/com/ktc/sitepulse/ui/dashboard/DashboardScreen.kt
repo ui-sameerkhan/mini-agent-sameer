@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.ui.dashboard
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,11 +11,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +30,7 @@ import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.Geo
+import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpBlue
@@ -41,8 +50,9 @@ fun DashboardScreen(viewModel: SitePulseViewModel) {
     val checkedOut = today.count { it.hasOut }
 
     LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
+        item { WorkerLocatorCard(viewModel, workers) }
         item {
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 KpiTile("Present (on-site)", present.toString(), SpGreenMid, Modifier.weight(1f))
                 KpiTile("Blocked (outside)", todayBlocked.size.toString(), SpRed, Modifier.weight(1f))
             }
@@ -91,6 +101,68 @@ private fun SectionCard(title: String, content: @Composable androidx.compose.fou
         Column(Modifier.padding(16.dp)) {
             Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             content()
+        }
+    }
+}
+
+@Composable
+private fun WorkerLocatorCard(viewModel: SitePulseViewModel, workers: List<com.ktc.sitepulse.data.model.Worker>) {
+    val context = LocalContext.current
+    var locId by remember { mutableStateOf("") }
+    var locDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
+    var result by remember { mutableStateOf<Attendance?>(null) }
+    var searched by remember { mutableStateOf(false) }
+
+    // Guards against a stale response landing after the id/date has since changed again.
+    LaunchedEffect(locId, locDate) {
+        if (locId.isBlank()) {
+            result = null
+            searched = false
+            return@LaunchedEffect
+        }
+        val requestedId = locId
+        val requestedDate = locDate
+        val found = viewModel.locateWorker(requestedId, requestedDate)
+        if (requestedId == locId && requestedDate == locDate) {
+            result = found
+            searched = true
+        }
+    }
+
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("WORKER LOCATOR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                value = locId, onValueChange = { locId = it },
+                placeholder = { Text("WORKER ID") },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp), singleLine = true,
+            )
+            OutlinedButton(
+                onClick = {
+                    val (y, m, d) = locDate.split("-").map { it.toInt() }
+                    DatePickerDialog(context, { _, yy, mm, dd ->
+                        locDate = "%04d-%02d-%02d".format(yy, mm + 1, dd)
+                    }, y, m - 1, d).show()
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("📅 $locDate") }
+
+            if (searched) {
+                val worker = WorkerSearch.findExact(workers, locId)
+                Column(Modifier.padding(top = 10.dp)) {
+                    when {
+                        worker == null -> Text("❌ No worker found with ID \"$locId\".", color = SpRed)
+                        result == null -> Text("⚠ ${worker.name} has no attendance record on $locDate.", color = SpAmberMid)
+                        else -> {
+                            val a = result!!
+                            Text("${worker.name} — ${worker.designation}", fontWeight = FontWeight.Bold)
+                            Text("${a.siteName} (${a.siteCode})", color = SpBlue, fontSize = 13.sp)
+                            if (a.hasIn) Text("IN: ${DateUtils.formatTimeHm(a.checkIn)}" + (a.inGps?.let { " · ${it.lat}, ${it.lng}" } ?: ""), color = SpGreenMid, fontSize = 12.sp)
+                            if (a.hasOut) Text("OUT: ${DateUtils.formatTimeHm(a.out)}" + (a.outGps?.let { " · ${it.lat}, ${it.lng}" } ?: ""), color = SpRed, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }

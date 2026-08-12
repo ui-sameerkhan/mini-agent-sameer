@@ -381,6 +381,11 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         if (date == DateUtils.todayStrUtc()) todayAttendance.value
         else container.attendanceRepository.getForDate(date)
 
+    /** Worker Locator (Dashboard): where a specific worker was marked on a given date. */
+    suspend fun locateWorker(workerId: String, date: String): Attendance? =
+        if (date == DateUtils.todayStrUtc()) todayAttendance.value.find { it.workerId == workerId }
+        else container.attendanceRepository.getRecord(date, workerId)
+
     suspend fun generateReport(params: ReportEngine.Params): File {
         val attendanceRows = if (params.range == "day") {
             if (params.dateOrMonth == DateUtils.todayStrUtc()) todayAttendance.value
