@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
@@ -47,6 +49,7 @@ fun SitePulseHeader(statusLabel: String, showSignOut: Boolean, onSignOut: () -> 
             modifier = Modifier
                 .background(Brush.linearGradient(listOf(SpGreenDark, SpGreen)))
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -93,7 +96,7 @@ enum class SpTab(val route: String, val label: String) {
 @Composable
 fun SitePulseTabBar(current: SpTab, onSelect: (SpTab) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding()) {
             SpTab.entries.forEach { tab ->
                 TabItem(tab = tab, selected = tab == current, onClick = { onSelect(tab) })
             }
