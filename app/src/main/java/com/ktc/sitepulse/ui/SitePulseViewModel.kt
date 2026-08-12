@@ -23,6 +23,7 @@ import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
 import com.ktc.sitepulse.domain.WorkersImport
 import com.ktc.sitepulse.util.NetworkStatus
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -51,25 +52,36 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val session: StateFlow<SessionState> = container.authRepository.sessionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SessionState(null))
 
+    private val _dataError = MutableStateFlow<String?>(null)
+    /** Surfaces live-query failures (e.g. Firestore permission-denied) instead of silently showing empty lists. */
+    val dataError: StateFlow<String?> = _dataError
+
+    private fun <T> Flow<List<T>>.recoverToEmpty(source: String): Flow<List<T>> = catch { e ->
+        _dataError.value = "⚠ $source failed to load: ${e.message}"
+        emit(emptyList())
+    }
+
     val workers: StateFlow<List<Worker>> = container.workersRepository.liveWorkers()
-        .catch { emit(emptyList()) }
+        .recoverToEmpty("Workers")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val sites: StateFlow<List<Site>> = container.sitesRepository.liveSites()
-        .catch { emit(emptyList()) }
+        .recoverToEmpty("Sites")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val todayAttendance: StateFlow<List<Attendance>> = container.attendanceRepository.liveToday()
-        .catch { emit(emptyList()) }
+        .recoverToEmpty("Attendance")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val blocked: StateFlow<List<Blocked>> = container.blockedRepository.liveLast14Days()
-        .catch { emit(emptyList()) }
+        .recoverToEmpty("Blocked attempts")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingArrivals: StateFlow<List<ArrivalRequest>> = container.arrivalRequestRepository.livePending()
-        .catch { emit(emptyList()) }
+        .recoverToEmpty("Pending arrivals")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun dismissDataError() { _dataError.value = null }
 
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError

@@ -1,12 +1,18 @@
 package com.ktc.sitepulse.ui.nav
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -15,6 +21,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.collectAsState
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.theme.SpRed
+import com.ktc.sitepulse.ui.theme.SpRedSoft
 import com.ktc.sitepulse.ui.attendance.AttendanceScreen
 import com.ktc.sitepulse.ui.checkin.CheckInScreen
 import com.ktc.sitepulse.ui.components.SitePulseHeader
@@ -71,6 +79,19 @@ fun SitePulseRoot() {
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
+            val dataError by viewModel.dataError.collectAsState()
+            dataError?.let { msg ->
+                Text(
+                    "$msg (tap to dismiss)",
+                    color = SpRed,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SpRedSoft)
+                        .clickable { viewModel.dismissDataError() }
+                        .padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             NavHost(navController = navController, startDestination = ROUTE_LOGIN) {
                 composable(ROUTE_LOGIN) { LoginScreen(viewModel) }
                 composable(SpTab.CHECKIN.route) {

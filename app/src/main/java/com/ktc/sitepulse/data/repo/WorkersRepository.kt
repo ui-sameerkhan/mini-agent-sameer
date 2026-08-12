@@ -14,10 +14,10 @@ class WorkersRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
 
     /** Live-subscribed list of every worker, ordered by sno (matches the web app's default query). */
     fun liveWorkers(): Flow<List<Worker>> =
-        collection.orderBy("sno").asFlow().map { docs -> docs.mapNotNull { it.toObject(Worker::class.java) } }
+        collection.orderBy("sno").asFlow().map { docs -> docs.mapNotNull { it.toObjectSafe(Worker::class.java) } }
 
     suspend fun findById(id: String): Worker? =
-        collection.document(id).get().await().toObject(Worker::class.java)
+        collection.document(id).get().await().toObjectSafe(Worker::class.java)
 
     suspend fun isEmpty(): Boolean = collection.limit(1).get().await().isEmpty
 
