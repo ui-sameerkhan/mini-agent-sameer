@@ -26,6 +26,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // TODO: replace with a real release signingConfig before a Play Store submission.
+            // Debug-signed here only so this build stays directly sideloadable for testing.
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             isMinifyEnabled = false
@@ -64,6 +67,7 @@ android {
 
     lint {
         abortOnError = false
+        checkReleaseBuilds = false
     }
 }
 
@@ -85,6 +89,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.3")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Firebase

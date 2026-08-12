@@ -10,11 +10,9 @@ object Constants {
 
     const val DEFAULT_GEOFENCE_RADIUS_M = 500
 
-    // TODO: set this to the actual deployed Netlify site URL for the send-push.js /
-    // send-email.js / weekly-backup.js functions bundled in the original PWA repo
-    // (Site settings -> Domain management, in the Netlify dashboard for that site).
-    // Push/email notifications on new-arrival requests are no-ops until this is set.
-    const val NETLIFY_BASE_URL = "" // e.g. "https://sitepulse-ktc.netlify.app"
+    // Netlify site hosting send-push.js / send-email.js / weekly-backup.js from the
+    // original PWA repo — reused as-is so new-arrival notifications keep working.
+    const val NETLIFY_BASE_URL = "https://ktc-manpower.netlify.app"
     val SEND_PUSH_URL get() = "$NETLIFY_BASE_URL/.netlify/functions/send-push"
     val SEND_EMAIL_URL get() = "$NETLIFY_BASE_URL/.netlify/functions/send-email"
 
