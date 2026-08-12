@@ -2,6 +2,17 @@ package com.ktc.sitepulse.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// Brand palette — sampled from the SitePulse app icon artwork, used for
+// primary chrome (header, tab bar, primary CTAs). Kept separate from the
+// SpGreen/SpRed/SpAmber tokens below, which stay as status semantics
+// (success/error/create) rather than brand identity.
+val SpBrandBlueDark = Color(0xFF00113D)
+val SpBrandBlue = Color(0xFF0378E2)
+val SpBrandBlueMid = Color(0xFF0B66D6)
+val SpBrandBlueSoft = Color(0xFFE8F1FC)
+val SpBrandGold = Color(0xFFF9CB14)
+val SpBrandGoldSoft = Color(0xFFFCF3D0)
+
 // Mirrors the :root CSS custom properties from the original index.html exactly.
 val SpGreen = Color(0xFF0B4D3A)
 val SpGreenDark = Color(0xFF082E22)

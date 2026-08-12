@@ -116,15 +116,18 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
                                 }
                                 context.startActivity(Intent.createChooser(intent, "Share attendance report"))
                                 downloadStatus = "✅ Report ready: ${file.name}"
-                            } catch (e: Exception) {
-                                downloadStatus = "❌ ${e.message}"
+                            } catch (e: Throwable) {
+                                // Apache POI on Android can throw Error subtypes (e.g. NoClassDefFoundError
+                                // for a class stripped by shrinking) that a plain `catch (Exception)` misses
+                                // entirely, crashing the whole app instead of just failing this one action.
+                                downloadStatus = "❌ ${e::class.simpleName}: ${e.message}"
                             } finally {
                                 downloading = false
                             }
                         }
                     },
                     enabled = !downloading,
-                    colors = ButtonDefaults.buttonColors(containerColor = com.ktc.sitepulse.ui.theme.SpGreenMid),
+                    colors = ButtonDefaults.buttonColors(containerColor = com.ktc.sitepulse.ui.theme.SpBrandBlueMid),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 ) { Text(if (downloading) "Generating…" else "Download Excel Report") }
 

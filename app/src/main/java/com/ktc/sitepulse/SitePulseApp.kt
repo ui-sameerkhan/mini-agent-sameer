@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.persistentCacheSettings
 import com.google.firebase.initialize
+import com.ktc.sitepulse.util.CrashReporter
 
 /**
  * Equivalent of the web app's:
@@ -20,6 +21,7 @@ import com.google.firebase.initialize
 class SitePulseApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.install(this)
         Firebase.initialize(this)
 
         Firebase.firestore.firestoreSettings = FirebaseFirestoreSettings.Builder()

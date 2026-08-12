@@ -23,6 +23,7 @@ import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
 import com.ktc.sitepulse.domain.WorkersImport
 import com.ktc.sitepulse.util.NetworkStatus
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.io.File
 
 enum class ImportKind { WORKERS, OUTSOURCE, ROSTER }
@@ -388,6 +390,12 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
         val leaves = container.leaveRepository.all()
         val outDir = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
-        return ReportEngine.generate(outDir, attendanceRows, workers.value, sites.value, leaves, params)
+        val workersSnapshot = workers.value
+        val sitesSnapshot = sites.value
+        // Apache POI's workbook writing is blocking CPU/disk work — keep it off the
+        // Main/Compose dispatcher the caller is on.
+        return withContext(Dispatchers.IO) {
+            ReportEngine.generate(outDir, attendanceRows, workersSnapshot, sitesSnapshot, leaves, params)
+        }
     }
 }

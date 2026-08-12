@@ -37,6 +37,7 @@ import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
+import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
 import com.ktc.sitepulse.ui.theme.SpGreenMid
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.util.displayName
@@ -104,7 +105,7 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
             }
             Button(
                 onClick = { viewModel.submitNewArrival(site, workerId, name, trade, date) },
-                colors = ButtonDefaults.buttonColors(containerColor = SpGreenMid),
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) { Text("Report New Arrival") }
             statusMessages["arrivalStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
@@ -191,7 +192,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
             OutlinedTextField(leaveReason, { leaveReason = it }, label = { Text("Reason (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             Button(
                 onClick = { viewModel.markLeave(leaveId, leaveFrom, leaveTo, leaveReason.ifBlank { null }) },
-                colors = ButtonDefaults.buttonColors(containerColor = SpGreenMid),
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) { Text("Mark Leave") }
             statusMessages["leaveStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }

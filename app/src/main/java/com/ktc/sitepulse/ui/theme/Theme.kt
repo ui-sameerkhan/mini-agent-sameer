@@ -10,17 +10,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val SitePulseColorScheme = lightColorScheme(
-    primary = SpGreenMid,
+    primary = SpBrandBlueMid,
     onPrimary = Color.White,
-    primaryContainer = SpGreenSoft,
-    onPrimaryContainer = SpGreenDark,
-    secondary = SpAmberMid,
-    onSecondary = Color.White,
+    primaryContainer = SpBrandBlueSoft,
+    onPrimaryContainer = SpBrandBlueDark,
+    secondary = SpBrandGold,
+    onSecondary = Color.Black,
     background = SpPaper,
     onBackground = SpInk,
     surface = SpCard,
     onSurface = SpInk,
-    surfaceVariant = SpGreenSoft,
+    surfaceVariant = SpBrandBlueSoft,
     onSurfaceVariant = SpMuted,
     outline = SpLine,
     error = SpRed,

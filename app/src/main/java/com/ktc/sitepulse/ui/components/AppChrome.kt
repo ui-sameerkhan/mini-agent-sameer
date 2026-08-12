@@ -33,21 +33,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ktc.sitepulse.ui.theme.SpAmberMid
-import com.ktc.sitepulse.ui.theme.SpGreen
-import com.ktc.sitepulse.ui.theme.SpGreenDark
+import com.ktc.sitepulse.ui.theme.SpBrandBlue
+import com.ktc.sitepulse.ui.theme.SpBrandBlueDark
+import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
+import com.ktc.sitepulse.ui.theme.SpBrandGold
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun SitePulseHeader(statusLabel: String, showSignOut: Boolean, onSignOut: () -> Unit) {
     Surface(
-        color = SpGreenDark,
+        color = SpBrandBlueDark,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
-                .background(Brush.linearGradient(listOf(SpGreenDark, SpGreen)))
+                .background(Brush.linearGradient(listOf(SpBrandBlueDark, SpBrandBlue)))
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 13.dp),
@@ -58,13 +59,13 @@ fun SitePulseHeader(statusLabel: String, showSignOut: Boolean, onSignOut: () -> 
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .background(Brush.linearGradient(listOf(SpAmberMid, SpAmberMid)), RoundedCornerShape(9.dp)),
+                        .background(Brush.linearGradient(listOf(SpBrandGold, SpBrandGold)), RoundedCornerShape(9.dp)),
                     contentAlignment = Alignment.Center,
                 ) { Text("📡", fontSize = 16.sp) }
                 Column(modifier = Modifier.padding(start = 10.dp)) {
                     Row {
                         Text("Site", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                        Text("Pulse", color = SpAmberMid, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text("Pulse", color = SpBrandGold, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     }
                     Text(
                         "KTC INTERNATIONAL CONTRACTING",
@@ -106,7 +107,7 @@ fun SitePulseTabBar(current: SpTab, onSelect: (SpTab) -> Unit) {
 
 @Composable
 private fun RowScope.TabItem(tab: SpTab, selected: Boolean, onClick: () -> Unit) {
-    val color = if (selected) SpGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (selected) SpBrandBlueMid else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = Modifier
             .weight(1f)

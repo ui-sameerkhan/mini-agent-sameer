@@ -4,14 +4,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -22,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.collectAsState
 import com.ktc.sitepulse.data.repo.ParseDiagnostics
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.util.CrashReporter
 import com.ktc.sitepulse.ui.theme.SpAmber
 import com.ktc.sitepulse.ui.theme.SpAmberSoft
 import com.ktc.sitepulse.ui.theme.SpRed
@@ -46,6 +57,23 @@ fun SitePulseRoot() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    val context = LocalContext.current
+    var lastCrash by remember { mutableStateOf(CrashReporter.lastCrash(context)) }
+    lastCrash?.let { crash ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("The app crashed last time it closed") },
+            text = {
+                SelectionContainer {
+                    Text(crash, modifier = Modifier.verticalScroll(rememberScrollState()).heightIn(max = 400.dp))
+                }
+            },
+            confirmButton = {
+                Button(onClick = { CrashReporter.clear(context); lastCrash = null }) { Text("Dismiss") }
+            },
+        )
+    }
 
     LaunchedEffect(session.isLoggedIn) {
         if (!session.isLoggedIn) {

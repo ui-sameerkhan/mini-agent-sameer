@@ -28,7 +28,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ktc.sitepulse.ui.SitePulseViewModel
-import com.ktc.sitepulse.ui.theme.SpGreenMid
+import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
 import com.ktc.sitepulse.ui.theme.SpRed
 
 @Composable
@@ -80,7 +80,7 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
                 Button(
                     onClick = { viewModel.login(email, password) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SpGreenMid),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 ) { Text("Sign In") }
 
                 error?.let {
