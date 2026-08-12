@@ -23,11 +23,14 @@ import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
 import com.ktc.sitepulse.domain.WorkersImport
 import com.ktc.sitepulse.util.NetworkStatus
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -46,6 +49,7 @@ data class PendingImport(
 
 data class PendingDelete(val kind: String, val id: String, val label: String)
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SitePulseViewModel(application: Application) : AndroidViewModel(application) {
     private val container = AppContainer.get(application)
 
@@ -61,24 +65,27 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         emit(emptyList())
     }
 
-    val workers: StateFlow<List<Worker>> = container.workersRepository.liveWorkers()
-        .recoverToEmpty("Workers")
+    /**
+     * Only runs the underlying Firestore query while a user is actually signed in — otherwise
+     * a query fired at app-cold-start (before Auth has resolved) or after sign-out surfaces a
+     * confusing PERMISSION_DENIED that has nothing to do with real data access problems.
+     */
+    private fun <T> onlyWhenLoggedIn(source: String, query: () -> Flow<List<T>>): Flow<List<T>> =
+        session.flatMapLatest { s -> if (s.isLoggedIn) query().recoverToEmpty(source) else flowOf(emptyList()) }
+
+    val workers: StateFlow<List<Worker>> = onlyWhenLoggedIn("Workers") { container.workersRepository.liveWorkers() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val sites: StateFlow<List<Site>> = container.sitesRepository.liveSites()
-        .recoverToEmpty("Sites")
+    val sites: StateFlow<List<Site>> = onlyWhenLoggedIn("Sites") { container.sitesRepository.liveSites() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val todayAttendance: StateFlow<List<Attendance>> = container.attendanceRepository.liveToday()
-        .recoverToEmpty("Attendance")
+    val todayAttendance: StateFlow<List<Attendance>> = onlyWhenLoggedIn("Attendance") { container.attendanceRepository.liveToday() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val blocked: StateFlow<List<Blocked>> = container.blockedRepository.liveLast14Days()
-        .recoverToEmpty("Blocked attempts")
+    val blocked: StateFlow<List<Blocked>> = onlyWhenLoggedIn("Blocked attempts") { container.blockedRepository.liveLast14Days() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val pendingArrivals: StateFlow<List<ArrivalRequest>> = container.arrivalRequestRepository.livePending()
-        .recoverToEmpty("Pending arrivals")
+    val pendingArrivals: StateFlow<List<ArrivalRequest>> = onlyWhenLoggedIn("Pending arrivals") { container.arrivalRequestRepository.livePending() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun dismissDataError() { _dataError.value = null }
@@ -118,7 +125,10 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun logout() = container.authRepository.logout()
+    fun logout() {
+        container.authRepository.logout()
+        _dataError.value = null
+    }
 
     // ---- Check-in / out ----
 
