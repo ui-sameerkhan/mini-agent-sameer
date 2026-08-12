@@ -118,6 +118,7 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
 private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val statusMessages by viewModel.statusMessages.collectAsState()
     val pendingArrivals by viewModel.pendingArrivals.collectAsState()
+    val pendingLeaveRequests by viewModel.pendingLeaveRequests.collectAsState()
     val pendingImport by viewModel.pendingImport.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val context = LocalContext.current
@@ -158,6 +159,33 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                         }
                         OutlinedButton(onClick = { viewModel.approveArrival(req) }) { Text("Approve") }
                         OutlinedButton(onClick = { viewModel.rejectArrival(req) }, modifier = Modifier.padding(start = 6.dp)) { Text("Reject") }
+                    }
+                }
+            }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("PENDING LEAVE REQUESTS", fontWeight = FontWeight.Bold)
+            Text(
+                "Submitted by office staff — only counts against the Absent Report once approved.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            if (pendingLeaveRequests.isEmpty()) {
+                Text("No pending requests.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                pendingLeaveRequests.forEach { leave ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(leave.requestedBy ?: leave.markedBy, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        OutlinedButton(onClick = { viewModel.approveLeaveRequest(leave) }) { Text("Approve") }
+                        OutlinedButton(onClick = { viewModel.rejectLeaveRequest(leave) }, modifier = Modifier.padding(start = 6.dp)) { Text("Reject") }
                     }
                 }
             }

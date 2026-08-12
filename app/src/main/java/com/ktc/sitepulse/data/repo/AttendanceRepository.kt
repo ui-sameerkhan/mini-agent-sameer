@@ -39,6 +39,17 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
     suspend fun getRecord(date: String, workerId: String): Attendance? =
         collection.document(docId(date, workerId)).get().await().toObjectSafe(Attendance::class.java, "attendance")
 
+    /**
+     * "My Attendance History" for office staff: records they personally marked (i.e. punched
+     * themselves in/out). A single-field equality query — sorted client-side rather than via
+     * Firestore orderBy, to avoid needing a composite index for markedBy+date.
+     */
+    suspend fun getMarkedBy(email: String, limit: Int = 60): List<Attendance> =
+        collection.whereEqualTo("markedBy", email).get().await().documents
+            .mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
+            .sortedByDescending { it.lastAction }
+            .take(limit)
+
     suspend fun writeMark(date: String, workerId: String, fields: Map<String, Any?>) {
         collection.document(docId(date, workerId)).set(fields, SetOptions.merge()).await()
     }

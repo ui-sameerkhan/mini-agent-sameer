@@ -8,6 +8,9 @@ object Constants {
     val ADMIN_EMAILS = setOf("admin@ktc-manpower.com")
     val NOTIFY_EMAILS = listOf("admin@ktc-manpower.com", "sameer.khan.ktc@outlook.com")
 
+    /** Accounts on this email domain are recognized as office staff (self-service leave, own attendance history). */
+    const val OFFICE_STAFF_EMAIL_DOMAIN = "ktcco.net"
+
     const val DEFAULT_GEOFENCE_RADIUS_M = 500
 
     // Netlify site hosting send-push.js / send-email.js / weekly-backup.js from the

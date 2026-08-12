@@ -187,7 +187,7 @@ object ReportEngine {
         val rows = expected.filter { it.id !in presentIds }
             .sortedWith(compareBy({ it.site ?: "" }, { it.name }))
             .map { w ->
-                val onLeave = leaves.any { it.workerId == w.id && DateUtils.isWithin(date, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
+                val onLeave = leaves.any { it.workerId == w.id && it.status == "approved" && DateUtils.isWithin(date, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
                 listOf(
                     date, w.site ?: "", w.id, w.name, w.designation,
                     w.company?.ifBlank { null } ?: "KTC",
@@ -209,7 +209,7 @@ object ReportEngine {
             val presentDates = (byWorker[w.id] ?: emptyList()).map { it.date }.distinct().size
             val leaveCount = (1..elapsed).count { day ->
                 val dateStr = "%s-%02d".format(monthStr, day)
-                leaves.any { it.workerId == w.id && DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
+                leaves.any { it.workerId == w.id && it.status == "approved" && DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
             }
             val absent = maxOf(0, elapsed - presentDates - leaveCount)
             val pct = if (elapsed > 0) Math.round(presentDates * 100.0 / elapsed) else 0

@@ -93,6 +93,10 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val pendingArrivals: StateFlow<List<ArrivalRequest>> = onlyWhenLoggedIn("Pending arrivals") { container.arrivalRequestRepository.livePending() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val pendingLeaveRequests: StateFlow<List<Leave>> = session.map { it.isAdmin }.distinctUntilChanged()
+        .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun dismissDataError() { _dataError.value = null }
 
     private val _loginError = MutableStateFlow<String?>(null)
@@ -290,6 +294,37 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             )
             setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
+        }
+    }
+
+    // ---- Office staff: self-service leave application + own attendance history ----
+
+    suspend fun submitLeaveApplication(workerId: String, fromDate: String, toDate: String, reason: String?) {
+        if (fromDate.isBlank()) { setStatus("myLeaveStatus", "❌ Enter a From date."); return }
+        val worker = workers.value.find { it.id == workerId.trim() }
+        container.leaveRepository.add(
+            Leave(
+                workerId = workerId.trim(), site = worker?.site.orEmpty(), fromDate = fromDate,
+                toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
+                ts = DateUtils.nowIso(), status = "pending", requestedBy = session.value.email,
+            )
+        )
+        setStatus("myLeaveStatus", "✅ Leave application submitted — pending admin approval.")
+    }
+
+    suspend fun myLeaveRequests(): List<Leave> = container.leaveRepository.forRequester(session.value.email)
+
+    suspend fun myAttendanceHistory(): List<Attendance> = container.attendanceRepository.getMarkedBy(session.value.email)
+
+    fun approveLeaveRequest(leave: Leave) {
+        viewModelScope.launch {
+            container.leaveRepository.approve(leave.docId, session.value.email, DateUtils.nowIso())
+        }
+    }
+
+    fun rejectLeaveRequest(leave: Leave) {
+        viewModelScope.launch {
+            container.leaveRepository.reject(leave.docId, session.value.email, DateUtils.nowIso())
         }
     }
 

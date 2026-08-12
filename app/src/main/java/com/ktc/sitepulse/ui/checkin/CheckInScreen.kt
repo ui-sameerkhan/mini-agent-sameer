@@ -41,6 +41,8 @@ import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.theme.SpAmberSoft
 import com.ktc.sitepulse.ui.theme.SpBlue
+import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
+import com.ktc.sitepulse.ui.theme.SpBrandBlueSoft
 import com.ktc.sitepulse.ui.theme.SpGreenMid
 import com.ktc.sitepulse.ui.theme.SpGreenSoft
 import com.ktc.sitepulse.ui.theme.SpRed
@@ -48,9 +50,10 @@ import com.ktc.sitepulse.ui.theme.SpRedSoft
 import kotlinx.coroutines.delay
 
 @Composable
-fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit) {
+fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, onOpenOfficeStaff: () -> Unit) {
     val workers by viewModel.workers.collectAsState()
     val sites by viewModel.sites.collectAsState()
+    val session by viewModel.session.collectAsState()
     val markInFlight by viewModel.markInFlight.collectAsState()
     val markResult by viewModel.markResult.collectAsState()
     val context = LocalContext.current
@@ -159,6 +162,14 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = SpGreenSoft, contentColor = SpGreenMid),
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         ) { Text("📋 Report a New Worker Arrival", fontWeight = FontWeight.Bold) }
+
+        if (session.isOfficeStaff) {
+            Button(
+                onClick = onOpenOfficeStaff,
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueSoft, contentColor = SpBrandBlueMid),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("🗓️ My Leave & Attendance", fontWeight = FontWeight.Bold) }
+        }
     }
 
     LaunchedEffect(markResult) {

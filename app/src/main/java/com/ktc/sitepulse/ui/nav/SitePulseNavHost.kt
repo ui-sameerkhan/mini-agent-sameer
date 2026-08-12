@@ -44,6 +44,7 @@ import com.ktc.sitepulse.ui.components.SitePulseTabBar
 import com.ktc.sitepulse.ui.components.SpTab
 import com.ktc.sitepulse.ui.dashboard.DashboardScreen
 import com.ktc.sitepulse.ui.login.LoginScreen
+import com.ktc.sitepulse.ui.officestaff.OfficeStaffScreen
 import com.ktc.sitepulse.ui.roster.RosterScreen
 import com.ktc.sitepulse.ui.sites.SitesScreen
 import com.ktc.sitepulse.ui.workers.WorkersScreen
@@ -92,6 +93,7 @@ fun SitePulseRoot() {
     val statusLabel = when {
         !session.isLoggedIn -> "Login required"
         session.isAdmin -> "🛡️ Admin: ${session.email}"
+        session.isOfficeStaff -> "🏢 Office Staff: ${session.email}"
         else -> "🧑‍💼 Supervisor: ${session.email}"
     }
 
@@ -139,7 +141,14 @@ fun SitePulseRoot() {
             NavHost(navController = navController, startDestination = ROUTE_LOGIN) {
                 composable(ROUTE_LOGIN) { LoginScreen(viewModel) }
                 composable(SpTab.CHECKIN.route) {
-                    CheckInScreen(viewModel, onReportArrival = { navController.navigate(SpTab.ROSTER.route) })
+                    CheckInScreen(
+                        viewModel,
+                        onReportArrival = { navController.navigate(SpTab.ROSTER.route) },
+                        onOpenOfficeStaff = { navController.navigate("office") },
+                    )
+                }
+                composable("office") {
+                    OfficeStaffScreen(viewModel, onBack = { navController.navigate(SpTab.CHECKIN.route) { launchSingleTop = true } })
                 }
                 composable(SpTab.DASHBOARD.route) { DashboardScreen(viewModel) }
                 composable(SpTab.SITES.route) { SitesScreen(viewModel) }

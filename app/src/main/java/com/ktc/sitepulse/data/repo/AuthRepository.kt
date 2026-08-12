@@ -23,6 +23,8 @@ import kotlinx.coroutines.tasks.await
 data class SessionState(val uid: String?, val email: String) {
     val isLoggedIn: Boolean get() = uid != null
     val isAdmin: Boolean get() = email.lowercase() in Constants.ADMIN_EMAILS
+    val isOfficeStaff: Boolean get() = !isAdmin &&
+        email.substringAfterLast("@", "").equals(Constants.OFFICE_STAFF_EMAIL_DOMAIN, ignoreCase = true)
 }
 
 class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()) {
