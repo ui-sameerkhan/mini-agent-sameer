@@ -24,12 +24,17 @@
 -keep class org.openxmlformats.schemas.** { *; }
 -keep class com.microsoft.schemas.** { *; }
 
-# Firebase / Firestore model classes (data classes used with toObject)
+# Firebase / Firestore model classes (data classes used with toObject/toObjects).
+# Firestore's automatic POJO mapping (CustomClassMapper) walks each class's
+# getter/setter methods via reflection at runtime to find "properties" to
+# read/write — keeping only <fields>/<init>() (as before) let R8 still rename
+# or strip those generated getters/setters in the release build, so Firestore
+# found zero usable properties and every document failed to (de)serialize.
+# This is Firebase's own documented requirement: keep the *entire* class,
+# unobfuscated, for anything passed to toObject()/set().
 -keepattributes Signature
 -keepattributes *Annotation*
--keepclassmembers class com.ktc.sitepulse.data.model.** {
-  <fields>;
-  <init>(...);
-}
+-keep class com.ktc.sitepulse.data.model.** { *; }
+-keepclassmembers class com.ktc.sitepulse.data.model.** { *; }
 
 -dontwarn kotlinx.coroutines.**
