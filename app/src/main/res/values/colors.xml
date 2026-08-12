@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="green">#0B4D3A</color>
+    <color name="green_dark">#082E22</color>
+    <color name="green_soft">#E9F2ED</color>
+    <color name="green_mid">#17875E</color>
+
+    <color name="ink">#141F1A</color>
+    <color name="mut">#5B6B63</color>
+    <color name="faint">#93A39A</color>
+
+    <color name="paper">#F5F7F5</color>
+    <color name="card">#FFFFFF</color>
+    <color name="line">#DEE6E1</color>
+
+    <color name="amber">#B8842E</color>
+    <color name="amber_soft">#F6EEDD</color>
+    <color name="amber_mid">#D4A34A</color>
+
+    <color name="red">#B3261E</color>
+    <color name="red_soft">#FBEAE9</color>
+    <color name="blue">#1B5FA8</color>
+    <color name="blue_soft">#E8F0F9</color>
+
+    <color name="launcher_background">#082E22</color>
+</resources>

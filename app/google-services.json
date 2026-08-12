@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER FILE — replace before running against real data. See README.md 'Firebase setup' section: register an Android app for package name com.ktc.sitepulse in the ktc-manpower Firebase project, then download the real google-services.json from Project Settings and overwrite this file.",
+  "project_info": {
+    "project_number": "102474530720",
+    "project_id": "ktc-manpower",
+    "storage_bucket": "ktc-manpower.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:102474530720:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.ktc.sitepulse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJFSujuEgHQsoJWg0lh36vsWlm_DowROw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,14 @@
+package com.ktc.sitepulse.data.model
+
+import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.Exclude
+
+/** Firestore: sites/{code} — doc id == code (uppercased project code). */
+data class Site(
+    @DocumentId @get:Exclude val docId: String = "",
+    val code: String = "",
+    val name: String = "",
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val radius: Long = 500,
+)
