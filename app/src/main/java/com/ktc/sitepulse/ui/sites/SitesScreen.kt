@@ -69,6 +69,9 @@ fun SitesScreen(viewModel: SitePulseViewModel) {
                             Text(site.code, color = SpBlue, fontWeight = FontWeight.Bold)
                         }
                         Text("${"%.5f".format(site.lat)}, ${"%.5f".format(site.lng)} · radius ${site.radius}m", fontSize = 12.sp)
+                        site.wifiSsid?.takeIf { it.isNotBlank() }?.let {
+                            Text("📶 Office WiFi: $it", fontSize = 12.sp, color = SpBlue)
+                        }
                         Row(Modifier.padding(top = 8.dp)) {
                             OutlinedButton(onClick = {
                                 val uri = Uri.parse("https://maps.google.com/?q=${site.lat},${site.lng}")
@@ -108,7 +111,9 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
     var lat by remember { mutableStateOf(existing?.lat?.toString() ?: "") }
     var lng by remember { mutableStateOf(existing?.lng?.toString() ?: "") }
     var radius by remember { mutableStateOf((existing?.radius ?: 500).toString()) }
+    var wifiSsid by remember { mutableStateOf(existing?.wifiSsid ?: "") }
     var gpsStatus by remember { mutableStateOf("") }
+    var wifiStatus by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -141,6 +146,26 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                     OutlinedTextField(lng, { lng = it }, label = { Text("Longitude *") }, modifier = Modifier.weight(1f).padding(start = 8.dp))
                 }
                 OutlinedTextField(radius, { radius = it }, label = { Text("Geofence Radius (meters) *") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+
+                Text(
+                    "Optional: office staff connected to this WiFi network can punch in/out without GPS.",
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                )
+                OutlinedTextField(wifiSsid, { wifiSsid = it }, label = { Text("Office WiFi Network Name (SSID)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedButton(
+                    onClick = {
+                        val ssid = AppContainer.get(context).wifiProvider.currentSsid()
+                        if (ssid != null) {
+                            wifiSsid = ssid
+                            wifiStatus = "📶 Using current network: $ssid"
+                        } else {
+                            wifiStatus = "Not connected to WiFi (or network name unavailable — enable Location services and try again)"
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) { Text("📶 Use My Current WiFi Network") }
+                if (wifiStatus.isNotBlank()) Text(wifiStatus, fontSize = 12.sp)
             }
         },
         confirmButton = {
@@ -149,7 +174,12 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                 val lngD = lng.toDoubleOrNull()
                 val radI = radius.toLongOrNull() ?: 500
                 if (code.isNotBlank() && name.isNotBlank() && latD != null && lngD != null) {
-                    onSave(Site(code = code.trim().uppercase(), name = name.trim(), lat = latD, lng = lngD, radius = radI))
+                    onSave(
+                        Site(
+                            code = code.trim().uppercase(), name = name.trim(), lat = latD, lng = lngD, radius = radI,
+                            wifiSsid = wifiSsid.trim().ifBlank { null },
+                        )
+                    )
                 }
             }) { Text("Save Site") }
         },

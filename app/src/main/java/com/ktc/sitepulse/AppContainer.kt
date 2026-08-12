@@ -10,6 +10,7 @@ import com.ktc.sitepulse.data.repo.LocationProvider
 import com.ktc.sitepulse.data.repo.NetlifyApi
 import com.ktc.sitepulse.data.repo.SettingsRepository
 import com.ktc.sitepulse.data.repo.SitesRepository
+import com.ktc.sitepulse.data.repo.WifiProvider
 import com.ktc.sitepulse.data.repo.WorkersRepository
 import com.ktc.sitepulse.domain.AttendanceEngine
 
@@ -25,7 +26,8 @@ class AppContainer(context: Context) {
     val settingsRepository = SettingsRepository()
     val netlifyApi = NetlifyApi()
     val locationProvider = LocationProvider(context)
-    val attendanceEngine = AttendanceEngine(attendanceRepository, blockedRepository, locationProvider)
+    val wifiProvider = WifiProvider(context)
+    val attendanceEngine = AttendanceEngine(attendanceRepository, blockedRepository, locationProvider, wifiProvider)
 
     companion object {
         @Volatile private var instance: AppContainer? = null

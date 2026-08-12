@@ -30,6 +30,8 @@ data class Attendance(
     var out: String? = null,
     val outGps: GpsPoint? = null,
     val outDist: Long? = null,
+    /** "gps" (default, distance-verified) or "wifi" (matched an office site's WiFi SSID). */
+    val markedVia: String = "gps",
 ) {
     @get:Exclude
     val hasIn: Boolean get() = !checkIn.isNullOrBlank()

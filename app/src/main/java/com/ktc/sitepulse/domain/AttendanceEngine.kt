@@ -10,6 +10,7 @@ import com.ktc.sitepulse.data.repo.AttendanceRepository
 import com.ktc.sitepulse.data.repo.BlockedRepository
 import com.ktc.sitepulse.data.repo.GpsException
 import com.ktc.sitepulse.data.repo.LocationProvider
+import com.ktc.sitepulse.data.repo.WifiProvider
 import com.ktc.sitepulse.data.repo.toLatLng
 import kotlin.math.roundToLong
 
@@ -33,6 +34,7 @@ class AttendanceEngine(
     private val attendanceRepo: AttendanceRepository,
     private val blockedRepo: BlockedRepository,
     private val locationProvider: LocationProvider,
+    private val wifiProvider: WifiProvider,
 ) {
     suspend fun mark(
         dir: MarkDirection,
@@ -86,14 +88,6 @@ class AttendanceEngine(
             }
         }
 
-        val fix = try {
-            locationProvider.getCurrentFix()
-        } catch (e: GpsException) {
-            return MarkResult.Failure("🚫 LOCATION REQUIRED — Please allow GPS access. (${e.message})", retryable = true)
-        } catch (e: Exception) {
-            return MarkResult.Failure("🚫 LOCATION REQUIRED — Please allow GPS access. (${e.message})", retryable = true)
-        }
-
         if (sites.isEmpty()) {
             return MarkResult.Rejected(
                 "⚠️ NO PROJECT SITES SET",
@@ -101,47 +95,77 @@ class AttendanceEngine(
             )
         }
 
-        val near = Geo.nearestSite(fix.toLatLng(), sites)!!
-        if (!near.insideGeofence) {
-            blockedRepo.log(
-                Blocked(
-                    workerId = worker.id,
-                    name = worker.name,
-                    date = today,
-                    time = DateUtils.nowIso(),
-                    gps = BlockedGps(fix.lat, fix.lng, fix.accuracyM.toDouble()),
-                    nearestSite = near.site.code,
-                    distance = near.distanceM,
-                    action = dir.name,
+        // Office WiFi match takes priority over GPS: if the phone is connected to a site's
+        // configured SSID, that's sufficient proof of presence — no GPS fix needed at all,
+        // which matters indoors where GPS is often slow or unavailable.
+        val currentSsid = wifiProvider.currentSsid()
+        val wifiSite = currentSsid?.let { ssid -> sites.find { it.wifiSsid?.equals(ssid, ignoreCase = true) == true } }
+
+        val site: Site
+        val distanceM: Long?
+        val gpsPoint: GpsPoint?
+        val markedVia: String
+
+        if (wifiSite != null) {
+            site = wifiSite
+            distanceM = null
+            gpsPoint = null
+            markedVia = "wifi"
+        } else {
+            val fix = try {
+                locationProvider.getCurrentFix()
+            } catch (e: GpsException) {
+                return MarkResult.Failure("🚫 LOCATION REQUIRED — Please allow GPS access, or connect to an office WiFi network. (${e.message})", retryable = true)
+            } catch (e: Exception) {
+                return MarkResult.Failure("🚫 LOCATION REQUIRED — Please allow GPS access, or connect to an office WiFi network. (${e.message})", retryable = true)
+            }
+
+            val near = Geo.nearestSite(fix.toLatLng(), sites)!!
+            if (!near.insideGeofence) {
+                blockedRepo.log(
+                    Blocked(
+                        workerId = worker.id,
+                        name = worker.name,
+                        date = today,
+                        time = DateUtils.nowIso(),
+                        gps = BlockedGps(fix.lat, fix.lng, fix.accuracyM.toDouble()),
+                        nearestSite = near.site.code,
+                        distance = near.distanceM,
+                        action = dir.name,
+                    )
                 )
-            )
-            return MarkResult.Blocked(
-                "🚫 ATTENDANCE DENIED — OUTSIDE SITE",
-                "${worker.name} is not inside any project site. Nearest: ${near.site.name} (${near.site.code}) — ${Geo.formatDistance(near.distanceM)} away."
-            )
+                return MarkResult.Blocked(
+                    "🚫 ATTENDANCE DENIED — OUTSIDE SITE",
+                    "${worker.name} is not inside any project site or office WiFi. Nearest: ${near.site.name} (${near.site.code}) — ${Geo.formatDistance(near.distanceM)} away."
+                )
+            }
+            site = near.site
+            distanceM = near.distanceM
+            gpsPoint = GpsPoint(round6(fix.lat), round6(fix.lng))
+            markedVia = "gps"
         }
 
         val nowIso = DateUtils.nowIso()
         val shift = DateUtils.shiftFor()
-        val gpsRounded = GpsPoint(round6(fix.lat), round6(fix.lng))
 
         val fields = mutableMapOf<String, Any?>(
             "workerId" to worker.id,
             "date" to recDate,
-            "siteCode" to near.site.code,
-            "siteName" to near.site.name,
+            "siteCode" to site.code,
+            "siteName" to site.name,
             "lastAction" to nowIso,
             "markedBy" to currentEmail,
+            "markedVia" to markedVia,
         )
         if (dir == MarkDirection.IN) {
             fields["shift"] = shift
             fields["in"] = nowIso
-            fields["inGps"] = mapOf("lat" to gpsRounded.lat, "lng" to gpsRounded.lng)
-            fields["inDist"] = near.distanceM
+            fields["inGps"] = gpsPoint?.let { mapOf("lat" to it.lat, "lng" to it.lng) }
+            fields["inDist"] = distanceM
         } else {
             fields["out"] = nowIso
-            fields["outGps"] = mapOf("lat" to gpsRounded.lat, "lng" to gpsRounded.lng)
-            fields["outDist"] = near.distanceM
+            fields["outGps"] = gpsPoint?.let { mapOf("lat" to it.lat, "lng" to it.lng) }
+            fields["outDist"] = distanceM
         }
 
         try {
@@ -150,7 +174,7 @@ class AttendanceEngine(
             return MarkResult.Failure("⚠️ Save failed: ${e.message}", retryable = true)
         }
 
-        val distanceLabel = Geo.formatDistance(near.distanceM)
+        val proximityLabel = if (markedVia == "wifi") "via office WiFi" else "${Geo.formatDistance(distanceM!!)} from center"
         val timeLabel = DateUtils.formatTimeHm(nowIso)
         return if (!isOnline) {
             MarkResult.Success(
@@ -162,14 +186,14 @@ class AttendanceEngine(
             val shiftEmoji = if (shift == "Night") "🌙" else "☀️"
             MarkResult.Success(
                 "✅ CHECK IN SUCCESS",
-                "${worker.name} · ${near.site.name} · $shiftEmoji $shift · ${distanceLabel} from center · $timeLabel",
+                "${worker.name} · ${site.name} · $shiftEmoji $shift · $proximityLabel · $timeLabel",
                 offline = false
             )
         } else {
             val closedNote = if (recDate != today) "Closed out $recDate's night shift." else ""
             MarkResult.Success(
                 "🏁 CHECK OUT SUCCESS",
-                "${worker.name} · ${near.site.name} · ${distanceLabel} from center · $timeLabel. $closedNote".trim(),
+                "${worker.name} · ${site.name} · $proximityLabel · $timeLabel. $closedNote".trim(),
                 offline = false
             )
         }

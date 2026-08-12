@@ -11,4 +11,10 @@ data class Site(
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val radius: Long = 500,
+    /**
+     * Optional office WiFi network name (SSID). When set, being connected to
+     * this network counts as being "at" this site — no GPS fix needed, so
+     * office staff can punch in/out indoors where GPS is often unreliable.
+     */
+    val wifiSsid: String? = null,
 )

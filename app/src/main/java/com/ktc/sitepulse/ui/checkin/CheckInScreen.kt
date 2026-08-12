@@ -28,32 +28,49 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.theme.SpAmberSoft
+import com.ktc.sitepulse.ui.theme.SpBlue
 import com.ktc.sitepulse.ui.theme.SpGreenMid
 import com.ktc.sitepulse.ui.theme.SpGreenSoft
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.ui.theme.SpRedSoft
+import kotlinx.coroutines.delay
 
 @Composable
 fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit) {
     val workers by viewModel.workers.collectAsState()
+    val sites by viewModel.sites.collectAsState()
     val markInFlight by viewModel.markInFlight.collectAsState()
     val markResult by viewModel.markResult.collectAsState()
+    val context = LocalContext.current
 
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<Worker?>(null) }
+    var wifiSiteName by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(query, workers) {
         selected = WorkerSearch.findExact(workers, query)
+    }
+
+    // Best-effort, informational only — the real check happens inside mark() when tapped.
+    LaunchedEffect(sites) {
+        val wifiProvider = AppContainer.get(context).wifiProvider
+        while (true) {
+            val ssid = wifiProvider.currentSsid()
+            wifiSiteName = sites.find { it.wifiSsid?.equals(ssid, ignoreCase = true) == true }?.name
+            delay(5000)
+        }
     }
 
     val suggestions = if (selected == null) WorkerSearch.suggest(workers, query) else emptyList()
@@ -68,6 +85,10 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit) {
             Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("👷", fontSize = 34.sp)
                 Text("Enter Worker ID or Name", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
+
+                wifiSiteName?.let {
+                    Text("📶 Connected to office WiFi: $it", color = SpBlue, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                }
 
                 OutlinedTextField(
                     value = query,
