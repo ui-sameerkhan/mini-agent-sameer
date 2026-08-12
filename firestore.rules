@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Update this list if you add more admin accounts later —
+    // must match Constants.ADMIN_EMAILS in the Android app / ADMIN_EMAILS in the web app.
+    function adminEmails() {
+      return ['admin@ktc-manpower.com'];
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email.lower() in adminEmails();
+    }
+
+    // workers/{workerId} — also doubles as the roster.
+    // Read: any signed-in staff (check-in search, roster lookups).
+    // Write: admin only — supervisors add people via arrivalRequests instead.
+    match /workers/{workerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // sites/{siteCode} — geofence definitions.
+    // Read: any signed-in staff (needed to check in/out at all).
+    // Write: admin only.
+    match /sites/{siteCode} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // attendance/{date_workerId} — check-in/out records.
+    // Both admin and supervisor accounts mark attendance.
+    match /attendance/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // blocked/{autoId} — outside-geofence attempts, logged by whoever tried to mark.
+    // Only admin reviews them; anyone signed in can log one.
+    match /blocked/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // arrivalRequests/{autoId} — supervisor-submitted, admin-approved.
+    match /arrivalRequests/{docId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // leaves/{autoId} — admin-only feature end to end.
+    match /leaves/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // settings/adminPushToken — the push token itself is only ever written by
+    // an admin (Enable Notifications is admin-only), but it must be READABLE
+    // by supervisors too: submitting a new-arrival request reads this token
+    // to fire the push notification to the admin's device.
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
