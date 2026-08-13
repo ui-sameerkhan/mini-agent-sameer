@@ -56,11 +56,19 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
     val session by viewModel.session.collectAsState()
     val markInFlight by viewModel.markInFlight.collectAsState()
     val markResult by viewModel.markResult.collectAsState()
+    val myLinkedWorkerId by viewModel.myLinkedWorkerId.collectAsState()
     val context = LocalContext.current
 
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<Worker?>(null) }
     var wifiSiteName by remember { mutableStateOf<String?>(null) }
+
+    // Office-staff accounts are permanently bound to the first Worker ID they ever checked in
+    // with — pre-fill and lock the field so the same account can't drift to a different ID.
+    val isIdLocked = session.isOfficeStaff && myLinkedWorkerId != null
+    LaunchedEffect(myLinkedWorkerId, session.isOfficeStaff) {
+        if (session.isOfficeStaff) myLinkedWorkerId?.let { query = it }
+    }
 
     LaunchedEffect(query, workers) {
         selected = WorkerSearch.findExact(workers, query)
@@ -95,14 +103,22 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
 
                 OutlinedTextField(
                     value = query,
-                    onValueChange = { query = it; viewModel.clearMarkResult() },
+                    onValueChange = { if (!isIdLocked) { query = it; viewModel.clearMarkResult() } },
+                    readOnly = isIdLocked,
                     placeholder = { Text("ID or Name") },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = androidx.compose.ui.text.TextStyle(textAlign = TextAlign.Center, fontSize = 18.sp),
                     singleLine = true,
                 )
 
-                if (suggestions.isNotEmpty()) {
+                if (isIdLocked) {
+                    Text(
+                        "🔒 This account is permanently linked to Worker ID $myLinkedWorkerId",
+                        color = SpBlue, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+
+                if (suggestions.isNotEmpty() && !isIdLocked) {
                     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         suggestions.forEach { w ->
                             Text(

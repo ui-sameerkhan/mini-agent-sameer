@@ -10,6 +10,7 @@ import com.ktc.sitepulse.data.repo.LocationProvider
 import com.ktc.sitepulse.data.repo.NetlifyApi
 import com.ktc.sitepulse.data.repo.SettingsRepository
 import com.ktc.sitepulse.data.repo.SitesRepository
+import com.ktc.sitepulse.data.repo.StaffWorkerLinkRepository
 import com.ktc.sitepulse.data.repo.WifiProvider
 import com.ktc.sitepulse.data.repo.WorkersRepository
 import com.ktc.sitepulse.domain.AttendanceEngine
@@ -23,6 +24,7 @@ class AppContainer(context: Context) {
     val blockedRepository = BlockedRepository()
     val arrivalRequestRepository = ArrivalRequestRepository()
     val leaveRepository = LeaveRepository()
+    val staffWorkerLinkRepository = StaffWorkerLinkRepository()
     val settingsRepository = SettingsRepository()
     val netlifyApi = NetlifyApi()
     val locationProvider = LocationProvider(context)

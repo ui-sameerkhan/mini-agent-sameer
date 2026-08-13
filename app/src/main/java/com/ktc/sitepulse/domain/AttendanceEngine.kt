@@ -44,7 +44,15 @@ class AttendanceEngine(
         sites: List<Site>,
         todayAttendance: List<Attendance>,
         isOnline: Boolean,
+        lockedWorkerId: String? = null,
     ): MarkResult {
+        if (lockedWorkerId != null && lockedWorkerId != worker.id) {
+            return MarkResult.Rejected(
+                "🔒 WORKER ID LOCKED",
+                "This account is permanently linked to Worker ID $lockedWorkerId and cannot check in under a different ID."
+            )
+        }
+
         val today = DateUtils.todayStrUtc()
         val existingToday = todayAttendance.find { it.workerId == worker.id }
 

@@ -97,6 +97,20 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Office staff accounts are permanently bound to the first Worker ID they check in with —
+    // loaded eagerly (not lazily via stateIn's WhileSubscribed) so CheckInScreen can lock the
+    // field before the user ever tries a mark() call.
+    private val _myLinkedWorkerId = MutableStateFlow<String?>(null)
+    val myLinkedWorkerId: StateFlow<String?> = _myLinkedWorkerId
+
+    init {
+        viewModelScope.launch {
+            session.map { it.email to it.isOfficeStaff }.distinctUntilChanged().collect { (email, isOfficeStaff) ->
+                _myLinkedWorkerId.value = if (isOfficeStaff) container.staffWorkerLinkRepository.getLinkedWorkerId(email) else null
+            }
+        }
+    }
+
     fun dismissDataError() { _dataError.value = null }
 
     private val _loginError = MutableStateFlow<String?>(null)
@@ -148,6 +162,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val s = session.value
             val ctx = getApplication<Application>()
+            val lockedId = if (s.isOfficeStaff) _myLinkedWorkerId.value else null
             val result = container.attendanceEngine.mark(
                 dir = dir,
                 worker = worker,
@@ -156,8 +171,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 sites = sites.value,
                 todayAttendance = todayAttendance.value,
                 isOnline = NetworkStatus.isOnline(ctx),
+                lockedWorkerId = lockedId,
             )
             _markResult.value = result
+            // First successful check-in/out for an office-staff account permanently binds
+            // their login email to this Worker ID (transaction-guarded — see assignIfAbsent).
+            if (s.isOfficeStaff && lockedId == null && result is MarkResult.Success) {
+                _myLinkedWorkerId.value = container.staffWorkerLinkRepository.assignIfAbsent(s.email, worker.id, DateUtils.nowIso())
+            }
             _markInFlight.value = false
         }
     }

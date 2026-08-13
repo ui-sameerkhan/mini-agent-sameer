@@ -56,9 +56,29 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // leaves/{autoId} — admin-only feature end to end.
+    // leaves/{autoId} — admin marks leave directly (status "approved", no requestedBy);
+    // office staff self-apply instead, which creates a "pending" doc the admin must
+    // approve/reject. Office staff can also read back their own submitted requests.
     match /leaves/{docId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.requestedBy != null &&
+         resource.data.requestedBy.lower() == request.auth.token.email.lower());
+      allow create: if isAdmin() ||
+        (isSignedIn() && request.resource.data.requestedBy != null &&
+         request.resource.data.requestedBy.lower() == request.auth.token.email.lower() &&
+         request.resource.data.status == 'pending');
+      allow update, delete: if isAdmin();
+    }
+
+    // staffWorkerLinks/{email} — permanently binds an office-staff login email (doc ID,
+    // always stored lowercased by the app) to the first Worker ID it checked in with.
+    // Owner can read/create their own link; only admin can change or remove one afterward
+    // (e.g. correcting a mistaken first check-in).
+    match /staffWorkerLinks/{email} {
+      allow read: if isAdmin() || (isSignedIn() && email == request.auth.token.email.lower());
+      allow create: if isSignedIn() && email == request.auth.token.email.lower() &&
+        request.resource.data.email == email;
+      allow update, delete: if isAdmin();
     }
 
     // settings/adminPushToken — the push token itself is only ever written by

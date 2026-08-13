@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.domain.DateUtils
@@ -42,6 +43,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
     val statusMessages by viewModel.statusMessages.collectAsState()
+    val myLinkedWorkerId by viewModel.myLinkedWorkerId.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -49,6 +51,11 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
     var fromDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
     var toDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
     var reason by remember { mutableStateOf("") }
+
+    // Once this account has checked in under a Worker ID, leave applications are filed under
+    // that same locked ID rather than letting the free-text field drift to a different one.
+    LaunchedEffect(myLinkedWorkerId) { myLinkedWorkerId?.let { workerId = it } }
+    val isIdLocked = myLinkedWorkerId != null
 
     var myLeaves by remember { mutableStateOf<List<Leave>>(emptyList()) }
     var myAttendance by remember { mutableStateOf<List<Attendance>>(emptyList()) }
@@ -68,9 +75,17 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp)) {
                 OutlinedTextField(
-                    workerId, { workerId = it }, label = { Text("Your Worker ID (optional)") },
+                    workerId, { if (!isIdLocked) workerId = it },
+                    label = { Text(if (isIdLocked) "Your Worker ID (locked)" else "Your Worker ID (optional)") },
+                    readOnly = isIdLocked,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (isIdLocked) {
+                    Text(
+                        "🔒 Permanently linked to Worker ID $myLinkedWorkerId",
+                        color = SpBrandBlueMid, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                     OutlinedButton(onClick = {
                         val (y, m, d) = fromDate.split("-").map { it.toInt() }
