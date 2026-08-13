@@ -120,7 +120,10 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
                                 // Apache POI on Android can throw Error subtypes (e.g. NoClassDefFoundError
                                 // for a class stripped by shrinking) that a plain `catch (Exception)` misses
                                 // entirely, crashing the whole app instead of just failing this one action.
-                                downloadStatus = "❌ ${e::class.simpleName}: ${e.message}"
+                                // ExceptionInInitializerError in particular carries the real failure in
+                                // .cause with a null message of its own — walk the whole chain so it's
+                                // actually diagnosable without logcat access.
+                                downloadStatus = "❌ ${e.diagnosticChain()}"
                             } finally {
                                 downloading = false
                             }
@@ -156,4 +159,17 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
             }
         }
     }
+}
+
+/** Walks the full cause chain — ExceptionInInitializerError's own .message is always null; the real reason is in .cause. */
+private fun Throwable.diagnosticChain(): String {
+    val parts = mutableListOf<String>()
+    var t: Throwable? = this
+    var depth = 0
+    while (t != null && depth < 6) {
+        parts.add("${t::class.simpleName}: ${t.message}")
+        t = t.cause.takeIf { it !== t }
+        depth++
+    }
+    return parts.joinToString(" ← caused by ")
 }
