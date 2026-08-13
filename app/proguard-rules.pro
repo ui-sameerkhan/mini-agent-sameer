@@ -35,6 +35,16 @@
 -keep class org.apache.commons.collections4.** { *; }
 -keep class com.github.luben.zstd.** { *; }
 
+# log4j-api is POI's logging facade. It reflectively instantiates its own default
+# implementation classes (e.g. DefaultFlowMessageFactory, ParameterizedMessageFactory)
+# by class name via Class.forName(...).newInstance() during static init — exactly
+# the same "reflection needs the whole class, unmodified" issue that hit the model
+# classes and commons-compress. Without this, R8 sees no direct call site for a
+# class's no-arg constructor and strips it, causing a NoSuchMethodException deep in
+# a static initializer (ExceptionInInitializerError) the first time POI logs anything.
+-dontwarn org.apache.logging.log4j.**
+-keep class org.apache.logging.log4j.** { *; }
+
 # Firebase / Firestore model classes (data classes used with toObject/toObjects).
 # Firestore's automatic POJO mapping (CustomClassMapper) walks each class's
 # getter/setter methods via reflection at runtime to find "properties" to
