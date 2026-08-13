@@ -24,6 +24,17 @@
 -keep class org.openxmlformats.schemas.** { *; }
 -keep class com.microsoft.schemas.** { *; }
 
+# commons-compress/commons-io/commons-collections4 are NOT optional here —
+# POI's OOXML packaging uses commons-compress at runtime for every .xlsx
+# write (it's a zip archive), so it needs the same protection as POI itself.
+# -dontwarn only suppresses build-time warnings about missing classes; it
+# does nothing to stop R8 renaming/stripping classes that ARE reachable,
+# which is exactly what caused the earlier ExceptionInInitializerError.
+-keep class org.apache.commons.compress.** { *; }
+-keep class org.apache.commons.io.** { *; }
+-keep class org.apache.commons.collections4.** { *; }
+-keep class com.github.luben.zstd.** { *; }
+
 # Firebase / Firestore model classes (data classes used with toObject/toObjects).
 # Firestore's automatic POJO mapping (CustomClassMapper) walks each class's
 # getter/setter methods via reflection at runtime to find "properties" to
