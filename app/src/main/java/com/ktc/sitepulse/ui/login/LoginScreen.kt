@@ -93,7 +93,7 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Guidance of Gopi Krishnan and Shaj Lakshmanan",
+                "Guidance of Shaj Lakshmanan",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
             )
