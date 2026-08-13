@@ -93,15 +93,9 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Guidance of Shaj Lakshmanan",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-            )
-            Text(
                 "Developed by Sameer Khan",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
-                modifier = Modifier.padding(top = 2.dp),
             )
         }
     }
