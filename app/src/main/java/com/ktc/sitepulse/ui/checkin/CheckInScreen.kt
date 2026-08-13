@@ -1,5 +1,12 @@
 package com.ktc.sitepulse.ui.checkin
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,12 +41,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpAmberSoft
 import com.ktc.sitepulse.ui.theme.SpBlue
 import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
@@ -62,6 +73,12 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<Worker?>(null) }
     var wifiSiteName by remember { mutableStateOf<String?>(null) }
+    // Android hides the real WiFi SSID (returns null/"<unknown ssid>") unless the app holds
+    // location permission AND the phone's system Location toggle is on — there's no separate
+    // "WiFi permission" to grant. Surfaced explicitly so office-WiFi punch-in doesn't silently
+    // do nothing with no explanation.
+    var wifiBlockedReason by remember { mutableStateOf<WifiBlockReason?>(null) }
+    val hasWifiSites = sites.any { !it.wifiSsid.isNullOrBlank() }
 
     // Office-staff accounts are permanently bound to the first Worker ID they ever checked in
     // with — pre-fill and lock the field so the same account can't drift to a different ID.
@@ -78,6 +95,7 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
     LaunchedEffect(sites) {
         val wifiProvider = AppContainer.get(context).wifiProvider
         while (true) {
+            wifiBlockedReason = wifiBlockReason(context)
             val ssid = wifiProvider.currentSsid()
             wifiSiteName = sites.find { it.wifiSsid?.equals(ssid, ignoreCase = true) == true }?.name
             delay(5000)
@@ -99,6 +117,30 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
 
                 wifiSiteName?.let {
                     Text("📶 Connected to office WiFi: $it", color = SpBlue, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                }
+
+                if (wifiSiteName == null && hasWifiSites && wifiBlockedReason != null) {
+                    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            when (wifiBlockedReason) {
+                                WifiBlockReason.PERMISSION -> "⚠ WiFi office check-in needs Location permission — Android hides the network name without it."
+                                WifiBlockReason.LOCATION_OFF -> "⚠ Turn on Location (GPS) in phone settings to enable WiFi office check-in."
+                                null -> ""
+                            },
+                            color = SpAmberMid, fontSize = 11.sp, textAlign = TextAlign.Center,
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                val intent = if (wifiBlockedReason == WifiBlockReason.PERMISSION) {
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                } else {
+                                    Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                                }
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) { Text(if (wifiBlockedReason == WifiBlockReason.PERMISSION) "Open App Settings" else "Open Location Settings", fontSize = 11.sp) }
+                    }
                 }
 
                 OutlinedTextField(
@@ -194,6 +236,17 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
             selected = null
         }
     }
+}
+
+private enum class WifiBlockReason { PERMISSION, LOCATION_OFF }
+
+/** Why WiFi SSID detection isn't resolving right now, or null if nothing's blocking it. */
+private fun wifiBlockReason(context: Context): WifiBlockReason? {
+    val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    if (!hasPermission) return WifiBlockReason.PERMISSION
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    if (!LocationManagerCompat.isLocationEnabled(locationManager)) return WifiBlockReason.LOCATION_OFF
+    return null
 }
 
 @Composable
