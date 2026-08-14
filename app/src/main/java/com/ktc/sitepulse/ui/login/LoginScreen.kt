@@ -14,6 +14,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val error by viewModel.loginError.collectAsState()
+    val resetStatus by viewModel.passwordResetStatus.collectAsState()
 
     Column(
         modifier = Modifier
@@ -83,8 +85,16 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 ) { Text("Sign In") }
 
+                TextButton(
+                    onClick = { viewModel.sendPasswordReset(email) },
+                    modifier = Modifier.padding(top = 4.dp),
+                ) { Text("Forgot Password?") }
+
                 error?.let {
-                    Text(it, color = SpRed, modifier = Modifier.padding(top = 10.dp))
+                    Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp))
+                }
+                resetStatus?.let {
+                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }
