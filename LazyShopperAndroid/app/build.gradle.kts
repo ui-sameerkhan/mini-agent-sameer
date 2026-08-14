@@ -97,23 +97,11 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
-    // Charts (earnings / analytics)
-    implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
-
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // Razorpay checkout SDK
     implementation("com.razorpay:checkout:1.6.40")
-
-    // Paging for lists (orders, products)
-    implementation("androidx.paging:paging-compose:3.3.2")
-    implementation("androidx.paging:paging-runtime-ktx:3.3.2")
-
-    // WorkManager (background GPS push for delivery riders)
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    ksp("androidx.hilt:hilt-compiler:1.2.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
