@@ -470,4 +470,18 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             ReportEngine.generate(outDir, attendanceRows, workersSnapshot, sitesSnapshot, leaves, params)
         }
     }
+
+    /** Admin-only: every collection, all time, as one .xlsx — an offline snapshot independent of Firestore itself. */
+    suspend fun generateFullBackup(): File {
+        val attendanceAll = container.attendanceRepository.getAll()
+        val leavesAll = container.leaveRepository.all()
+        val blockedAll = container.blockedRepository.all()
+        val arrivalsAll = container.arrivalRequestRepository.all()
+        val outDir = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
+        return withContext(Dispatchers.IO) {
+            com.ktc.sitepulse.domain.BackupEngine.generate(
+                outDir, workers.value, sites.value, attendanceAll, leavesAll, blockedAll, arrivalsAll, session.value.email,
+            )
+        }
+    }
 }

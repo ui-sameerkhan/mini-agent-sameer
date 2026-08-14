@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.ui.roster
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -26,11 +27,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
@@ -41,6 +44,7 @@ import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
 import com.ktc.sitepulse.ui.theme.SpGreenMid
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.util.displayName
+import kotlinx.coroutines.launch
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -122,6 +126,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val pendingImport by viewModel.pendingImport.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val rosterPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.startImport(ImportKind.ROSTER, it, it.displayName(context)) }
@@ -132,6 +137,8 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var leaveTo by remember { mutableStateOf("") }
     var leaveReason by remember { mutableStateOf("") }
     var rosterSearch by remember { mutableStateOf("") }
+    var backupInProgress by remember { mutableStateOf(false) }
+    var backupStatus by remember { mutableStateOf("") }
 
     Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp)) {
@@ -142,6 +149,45 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
             )
             Button(onClick = viewModel::enableNotifications, modifier = Modifier.fillMaxWidth()) { Text("🔔 Enable Notifications") }
             statusMessages["pushStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("DATA BACKUP", fontWeight = FontWeight.Bold)
+            Text(
+                "Firestore is a managed, replicated cloud database — data isn't lost if the app crashes on a phone. "
+                    + "This is an extra offline copy: every worker, site, attendance record, leave, blocked attempt, and "
+                    + "arrival request, all time, in one spreadsheet you can save to Drive or email yourself.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            Button(
+                onClick = {
+                    backupInProgress = true
+                    backupStatus = "⏳ Collecting all data…"
+                    scope.launch {
+                        try {
+                            val file = viewModel.generateFullBackup()
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Save full backup"))
+                            backupStatus = "✅ Backup ready: ${file.name}"
+                        } catch (e: Throwable) {
+                            backupStatus = "❌ ${e.diagnosticChain()}"
+                        } finally {
+                            backupInProgress = false
+                        }
+                    }
+                },
+                enabled = !backupInProgress,
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (backupInProgress) "Collecting…" else "⬇ Download Full Backup (.xlsx)") }
+            if (backupStatus.isNotBlank()) Text(backupStatus, modifier = Modifier.padding(top = 6.dp))
         }
     }
 
@@ -246,6 +292,19 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     pendingImport?.let { pending ->
         ImportConfirmDialog(pending, onConfirm = viewModel::confirmPendingImport, onDismiss = viewModel::cancelPendingImport)
     }
+}
+
+/** Walks the full cause chain — ExceptionInInitializerError's own .message is always null; the real reason is in .cause. */
+private fun Throwable.diagnosticChain(): String {
+    val parts = mutableListOf<String>()
+    var t: Throwable? = this
+    var depth = 0
+    while (t != null && depth < 6) {
+        parts.add("${t::class.simpleName}: ${t.message}")
+        t = t.cause.takeIf { it !== t }
+        depth++
+    }
+    return parts.joinToString(" ← caused by ")
 }
 
 @Composable

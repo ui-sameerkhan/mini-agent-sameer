@@ -25,6 +25,10 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
         collection.whereEqualTo("date", date).get().await().documents
             .mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
 
+    /** Every attendance record ever written — used only by the admin-only full data backup export. */
+    suspend fun getAll(): List<Attendance> =
+        collection.get().await().documents.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
+
     suspend fun getForMonth(monthStr: String): List<Attendance> {
         val start = DateUtils.monthStart(monthStr)
         val endExclusive = DateUtils.monthEndExclusive(monthStr)

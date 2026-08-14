@@ -23,4 +23,8 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
     suspend fun log(blocked: Blocked) {
         runCatching { collection.add(blocked).await() } // best-effort, matches web app's swallow-errors behavior
     }
+
+    /** Every blocked-attempt record ever logged — used only by the admin-only full data backup export. */
+    suspend fun all(): List<Blocked> =
+        collection.get().await().documents.mapNotNull { it.toObjectSafe(Blocked::class.java, "blocked") }
 }

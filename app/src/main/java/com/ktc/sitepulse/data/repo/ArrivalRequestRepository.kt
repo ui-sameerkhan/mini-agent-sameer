@@ -21,6 +21,10 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
         return ref.id
     }
 
+    /** Every arrival request ever submitted (any status) — used only by the admin-only full data backup export. */
+    suspend fun all(): List<ArrivalRequest> =
+        collection.get().await().documents.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java, "arrivalRequests") }
+
     suspend fun approve(reqId: String, approvedBy: String, approvedAt: String) {
         collection.document(reqId).set(
             mapOf("status" to "approved", "approvedAt" to approvedAt, "approvedBy" to approvedBy),
