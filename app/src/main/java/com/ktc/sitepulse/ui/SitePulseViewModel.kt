@@ -84,8 +84,16 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val sites: StateFlow<List<Site>> = onlyWhenLoggedIn("Sites") { container.sitesRepository.liveSites() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Eagerly (not WhileSubscribed) because todayAttendance.value is read synchronously from
+    // several places that never themselves collect it as a Compose state — AttendanceEngine's
+    // duplicate check-in/out guard, Worker Locator, "day == today" report generation, and the
+    // Attendance list for today. Only DashboardScreen ever calls collectAsState() on this flow;
+    // under WhileSubscribed(5000) a session that never opened Dashboard kept .value stuck at
+    // the emptyList() initial value forever, so those reads silently saw "nobody checked in
+    // today" even with real check-ins present — the Excel report's Absent Report sheet then
+    // marked every worker absent and the per-site/summary/trade sheets had nothing to show.
     val todayAttendance: StateFlow<List<Attendance>> = onlyWhenLoggedIn("Attendance") { container.attendanceRepository.liveToday() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val blocked: StateFlow<List<Blocked>> = onlyWhenLoggedIn("Blocked attempts") { container.blockedRepository.liveLast14Days() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
