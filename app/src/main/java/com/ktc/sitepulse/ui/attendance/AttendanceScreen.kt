@@ -66,7 +66,7 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
             }, y, m - 1, d).show()
         }, modifier = Modifier.fillMaxWidth()) { Text("📅 Date: $selectedDate") }
 
-        Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("DOWNLOAD ATTENDANCE REPORT", fontWeight = FontWeight.Bold)
 
@@ -142,7 +142,7 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
             Text("No records.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         } else {
             dayRows.groupBy { it.siteCode }.forEach { (code, rows) ->
-                Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
                     Column(Modifier.padding(14.dp)) {
                         Text("${rows.firstOrNull()?.siteName ?: code} ($code)", fontWeight = FontWeight.Bold)
                         rows.forEach { a ->

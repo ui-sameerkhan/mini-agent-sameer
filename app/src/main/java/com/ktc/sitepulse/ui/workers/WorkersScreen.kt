@@ -134,7 +134,7 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
         )
 
         pageItems.forEach { w ->
-            Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
                 Column(Modifier.padding(12.dp)) {
                     Row(Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
@@ -183,7 +183,7 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
 
 @Composable
 private fun UploadZone(emoji: String, title: String, hint: String, status: String?, onPick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text(emoji, style = MaterialTheme.typography.titleLarge)
             Text(title, fontWeight = FontWeight.Bold)

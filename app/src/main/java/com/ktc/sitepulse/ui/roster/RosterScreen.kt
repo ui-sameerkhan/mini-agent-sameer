@@ -79,7 +79,7 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
     val existing = WorkerSearch.findExact(workers, workerId)
 
     Text("Report New Arrival", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             ExposedDropdownMenuBox(expanded = siteExpanded, onExpandedChange = { siteExpanded = it }) {
                 OutlinedTextField(
@@ -144,7 +144,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("NOTIFICATIONS", fontWeight = FontWeight.Bold)
             Text(
@@ -156,7 +156,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("DATA BACKUP", fontWeight = FontWeight.Bold)
             Text(
@@ -205,7 +205,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("PENDING ARRIVAL REQUESTS", fontWeight = FontWeight.Bold)
             if (pendingArrivals.isEmpty()) {
@@ -225,7 +225,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("PENDING LEAVE REQUESTS", fontWeight = FontWeight.Bold)
             Text(
@@ -253,7 +253,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     }
 
     Text("ROSTER UPLOAD (ADMIN)", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("Upload Worker Roster by Project Code", fontWeight = FontWeight.Bold)
             Text(
@@ -265,7 +265,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("MARK WORKER ON LEAVE", fontWeight = FontWeight.Bold)
             Text(
@@ -287,7 +287,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         }
     }
 
-    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("CURRENT ROSTER BY PROJECT CODE", fontWeight = FontWeight.Bold)
             OutlinedTextField(

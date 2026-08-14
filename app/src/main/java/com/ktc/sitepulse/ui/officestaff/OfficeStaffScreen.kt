@@ -72,7 +72,7 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
         OutlinedButton(onClick = onBack) { Text("← Back to Check-In") }
 
         Text("APPLY FOR LEAVE", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
             Column(Modifier.padding(16.dp)) {
                 OutlinedTextField(
                     workerId, { if (!isIdLocked) workerId = it },
@@ -137,7 +137,7 @@ private fun LeaveRequestRow(leave: Leave) {
         "rejected" -> "REJECTED" to SpRed
         else -> "PENDING" to SpAmberMid
     }
-    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Row(Modifier.padding(12.dp).fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text("${leave.fromDate} → ${leave.toDate}", fontWeight = FontWeight.SemiBold)
@@ -150,7 +150,7 @@ private fun LeaveRequestRow(leave: Leave) {
 
 @Composable
 private fun MyAttendanceRow(a: Attendance) {
-    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(12.dp)) {
             Text("${a.date} · ${a.siteName}", fontWeight = FontWeight.SemiBold)
             Row {

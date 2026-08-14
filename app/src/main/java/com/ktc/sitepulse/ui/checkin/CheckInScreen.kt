@@ -10,10 +10,12 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -110,10 +113,18 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("👷", fontSize = 34.sp)
-                Text("Enter Worker ID or Name", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Brush.linearGradient(listOf(SpBrandBlueSoft, SpBrandBlueSoft)), androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) { Text("👷", fontSize = 30.sp) }
+                Text(
+                    "Enter Worker ID or Name", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 10.dp),
+                )
 
                 wifiSiteName?.let {
                     Text("📶 Connected to office WiFi: $it", color = SpBlue, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))

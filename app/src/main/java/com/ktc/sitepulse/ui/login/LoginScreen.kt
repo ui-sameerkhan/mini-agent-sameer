@@ -48,7 +48,7 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 30.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),

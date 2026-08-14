@@ -62,7 +62,7 @@ fun SitesScreen(viewModel: SitePulseViewModel) {
                 )
             }
             sites.forEach { site ->
-                Card(Modifier.fillMaxWidth().padding(bottom = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Card(Modifier.fillMaxWidth().padding(bottom = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
                     Column(Modifier.padding(14.dp)) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(site.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
