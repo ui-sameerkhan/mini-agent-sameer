@@ -18,6 +18,7 @@ object Routes {
     const val SEARCH = "search"
     const val SHOP_PAGE = "shop/{shopId}"
     const val CART = "cart"
+    const val CHECKOUT = "checkout"
     const val ORDERS = "orders"
     const val ORDER_TRACKING = "orders/{orderId}/track"
     const val ADDRESS_BOOK = "address_book"

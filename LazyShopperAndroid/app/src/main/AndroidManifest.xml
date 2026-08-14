@@ -37,10 +37,33 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".feature.shopkeeper.shops.ShopPromoteCheckoutActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LazyShopper" />
+
+        <!-- Pre-existing gap found while wiring the shopkeeper role: this customer-workstream
+             Activity was referenced by CheckoutScreen but never declared, so it would have
+             crashed at runtime. Declared here per the manifest snippet in its own docstring. -->
+        <activity
+            android:name=".feature.customer.cart.RazorpayCheckoutActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".rider.location.LocationForegroundService"
             android:foregroundServiceType="location"
             android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.lazyshopper.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
