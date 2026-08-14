@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.ui.PendingDelete
 import com.ktc.sitepulse.ui.PendingImport
+import com.ktc.sitepulse.ui.PendingRestore
 import com.ktc.sitepulse.ui.theme.SpRed
 
 /** Mirrors the web app's typed-DELETE prompt() pattern for destructive actions. */
@@ -80,6 +81,34 @@ fun ImportConfirmDialog(pending: PendingImport, onConfirm: () -> Unit, onDismiss
             }
         },
         confirmButton = { Button(onClick = onConfirm) { Text("Continue") } },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Confirmation before restoring a full-backup .xlsx — always additive, see PendingRestore/confirmBackupRestore. */
+@Composable
+fun RestoreConfirmDialog(pending: PendingRestore, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val p = pending.parsed
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Restore from backup?") },
+        text = {
+            Column {
+                Text("This file contains:")
+                listOf(
+                    "Workers" to p.workers.size, "Sites" to p.sites.size, "Attendance records" to p.attendance.size,
+                    "Leaves" to p.leaves.size, "Blocked attempts" to p.blocked.size, "Arrival requests" to p.arrivals.size,
+                ).filter { it.second > 0 }.forEach { (label, count) ->
+                    Text("• $count $label", modifier = Modifier.padding(top = 2.dp))
+                }
+                Text(
+                    "These will be added or updated. Nothing currently in the app that isn't in this file will be deleted.",
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+                Text("Continue?", modifier = Modifier.padding(top = 8.dp))
+            }
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text("Restore") } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

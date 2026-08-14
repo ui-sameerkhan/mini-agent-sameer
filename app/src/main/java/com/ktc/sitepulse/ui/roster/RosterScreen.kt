@@ -131,6 +131,10 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val rosterPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.startImport(ImportKind.ROSTER, it, it.displayName(context)) }
     }
+    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { viewModel.startBackupRestore(it) }
+    }
+    val pendingRestore by viewModel.pendingRestore.collectAsState()
 
     var leaveId by remember { mutableStateOf("") }
     var leaveFrom by remember { mutableStateOf("") }
@@ -188,6 +192,16 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (backupInProgress) "Collecting…" else "⬇ Download Full Backup (.xlsx)") }
             if (backupStatus.isNotBlank()) Text(backupStatus, modifier = Modifier.padding(top = 6.dp))
+
+            Text(
+                "Restore adds/updates records from a backup file — it never deletes anything currently in the app.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+            )
+            OutlinedButton(
+                onClick = { backupPicker.launch("*/*") },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("⬆ Upload Backup (.xlsx)") }
+            statusMessages["backupRestoreStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 
@@ -291,6 +305,10 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
 
     pendingImport?.let { pending ->
         ImportConfirmDialog(pending, onConfirm = viewModel::confirmPendingImport, onDismiss = viewModel::cancelPendingImport)
+    }
+
+    pendingRestore?.let { pending ->
+        com.ktc.sitepulse.ui.components.RestoreConfirmDialog(pending, onConfirm = viewModel::confirmBackupRestore, onDismiss = viewModel::cancelBackupRestore)
     }
 }
 

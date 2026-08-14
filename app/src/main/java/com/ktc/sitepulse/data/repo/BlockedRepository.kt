@@ -1,6 +1,8 @@
 package com.ktc.sitepulse.data.repo
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Blocked
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,4 +29,16 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
     /** Every blocked-attempt record ever logged — used only by the admin-only full data backup export. */
     suspend fun all(): List<Blocked> =
         collection.get().await().documents.mapNotNull { it.toObjectSafe(Blocked::class.java, "blocked") }
+
+    /** Batched upsert for the full-backup restore flow — see LeaveRepository.restoreAll for the Doc ID logic. */
+    suspend fun restoreAll(records: List<Blocked>) {
+        records.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { b ->
+                val ref = if (b.docId.isBlank()) collection.document() else collection.document(b.docId)
+                batch.set(ref, b, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+    }
 }

@@ -74,36 +74,56 @@ object BackupEngine {
 
         addSheet(
             wb, styles, "ATTENDANCE", "SITEPULSE — FULL BACKUP: ATTENDANCE", meta,
-            headers = listOf("Date", "Site Code", "Site Name", "Worker ID", "Shift", "Check IN", "Check OUT", "IN Dist (m)", "OUT Dist (m)", "Marked Via", "Marked By"),
+            headers = listOf(
+                "Date", "Site Code", "Site Name", "Worker ID", "Shift", "Check IN", "Check OUT",
+                "IN Lat", "IN Lng", "OUT Lat", "OUT Lng", "IN Dist (m)", "OUT Dist (m)", "Marked Via", "Marked By", "Last Action",
+            ),
             rows = attendance.sortedWith(compareBy({ it.date }, { it.siteCode }, { it.workerId })).map { a ->
                 listOf(
                     a.date, a.siteCode, a.siteName, a.workerId, a.shift ?: "", a.checkIn ?: "", a.out ?: "",
-                    a.inDist?.toString() ?: "", a.outDist?.toString() ?: "", a.markedVia, a.markedBy,
+                    a.inGps?.lat?.toString() ?: "", a.inGps?.lng?.toString() ?: "",
+                    a.outGps?.lat?.toString() ?: "", a.outGps?.lng?.toString() ?: "",
+                    a.inDist?.toString() ?: "", a.outDist?.toString() ?: "", a.markedVia, a.markedBy, a.lastAction,
                 )
             },
         )
 
         addSheet(
             wb, styles, "LEAVES", "SITEPULSE — FULL BACKUP: LEAVE RECORDS", meta,
-            headers = listOf("Worker ID", "Site", "From", "To", "Reason", "Status", "Marked By", "Requested By", "Approved By", "Rejected By", "Timestamp"),
+            headers = listOf(
+                "Doc ID", "Worker ID", "Site", "From", "To", "Reason", "Status", "Marked By",
+                "Requested By", "Approved By", "Approved At", "Rejected By", "Rejected At", "Timestamp",
+            ),
             rows = leaves.sortedByDescending { it.ts }.map { l ->
-                listOf(l.workerId, l.site, l.fromDate, l.toDate, l.reason ?: "", l.status, l.markedBy, l.requestedBy ?: "", l.approvedBy ?: "", l.rejectedBy ?: "", l.ts)
+                listOf(
+                    l.docId, l.workerId, l.site, l.fromDate, l.toDate, l.reason ?: "", l.status, l.markedBy,
+                    l.requestedBy ?: "", l.approvedBy ?: "", l.approvedAt ?: "", l.rejectedBy ?: "", l.rejectedAt ?: "", l.ts,
+                )
             },
         )
 
         addSheet(
             wb, styles, "BLOCKED ATTEMPTS", "SITEPULSE — FULL BACKUP: BLOCKED ATTEMPTS", meta,
-            headers = listOf("Date", "Time", "Worker ID", "Name", "Nearest Site", "Distance (m)", "Action"),
+            headers = listOf("Doc ID", "Date", "Time", "Worker ID", "Name", "Nearest Site", "Distance (m)", "Action", "GPS Lat", "GPS Lng", "GPS Accuracy (m)"),
             rows = blocked.sortedByDescending { it.date }.map { b ->
-                listOf(b.date, b.time, b.workerId, b.name, b.nearestSite, b.distance.toString(), b.action)
+                listOf(
+                    b.docId, b.date, b.time, b.workerId, b.name, b.nearestSite, b.distance.toString(), b.action,
+                    b.gps?.lat?.toString() ?: "", b.gps?.lng?.toString() ?: "", b.gps?.acc?.toString() ?: "",
+                )
             },
         )
 
         addSheet(
             wb, styles, "ARRIVAL REQUESTS", "SITEPULSE — FULL BACKUP: ARRIVAL REQUESTS", meta,
-            headers = listOf("Site", "Worker ID", "Name", "Designation", "Requested Date", "Requested By", "Status", "Timestamp"),
+            headers = listOf(
+                "Doc ID", "Site", "Worker ID", "Name", "Designation", "Requested Date", "Requested By",
+                "Status", "Approved By", "Approved At", "Rejected By", "Rejected At", "Timestamp",
+            ),
             rows = arrivals.sortedByDescending { it.ts }.map { r ->
-                listOf(r.site, r.workerId, r.name, r.designation, r.requestedDate, r.requestedBy, r.status, r.ts)
+                listOf(
+                    r.docId, r.site, r.workerId, r.name, r.designation, r.requestedDate, r.requestedBy,
+                    r.status, r.approvedBy ?: "", r.approvedAt ?: "", r.rejectedBy ?: "", r.rejectedAt ?: "", r.ts,
+                )
             },
         )
 

@@ -2,6 +2,7 @@ package com.ktc.sitepulse.data.repo
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.domain.DateUtils
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,23 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
             mapOf("status" to "rejected", "rejectedBy" to rejectedBy, "rejectedAt" to rejectedAt),
             SetOptions.merge()
         ).await()
+    }
+
+    /**
+     * Batched upsert used by the full-backup restore flow. A record with a Doc ID (from a
+     * previously-downloaded backup) overwrites that exact document via merge; one without an
+     * ID (e.g. a row someone added by hand) becomes a brand-new leave — this keeps re-uploading
+     * the same backup file idempotent instead of duplicating every leave on every restore.
+     */
+    suspend fun restoreAll(leaves: List<Leave>) {
+        leaves.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { l ->
+                val ref = if (l.docId.isBlank()) collection.document() else collection.document(l.docId)
+                batch.set(ref, l, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
     }
 
     /** Only "approved" leave excludes a worker from the Absent Report — a pending request doesn't yet. */

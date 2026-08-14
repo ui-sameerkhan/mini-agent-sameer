@@ -2,6 +2,7 @@ package com.ktc.sitepulse.data.repo
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.ArrivalRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,6 +25,18 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
     /** Every arrival request ever submitted (any status) — used only by the admin-only full data backup export. */
     suspend fun all(): List<ArrivalRequest> =
         collection.get().await().documents.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java, "arrivalRequests") }
+
+    /** Batched upsert for the full-backup restore flow — see LeaveRepository.restoreAll for the Doc ID logic. */
+    suspend fun restoreAll(records: List<ArrivalRequest>) {
+        records.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { a ->
+                val ref = if (a.docId.isBlank()) collection.document() else collection.document(a.docId)
+                batch.set(ref, a, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+    }
 
     suspend fun approve(reqId: String, approvedBy: String, approvedAt: String) {
         collection.document(reqId).set(

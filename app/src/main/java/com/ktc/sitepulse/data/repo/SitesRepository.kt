@@ -1,6 +1,7 @@
 package com.ktc.sitepulse.data.repo
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Site
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,5 +28,14 @@ class SitesRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
 
     suspend fun deleteSite(code: String) {
         collection.document(code).delete().await()
+    }
+
+    /** Batched upsert used by the full-backup restore flow. */
+    suspend fun batchUpsert(sites: List<Site>) {
+        sites.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { s -> batch.set(collection.document(s.code), s) }
+            batch.commit().await()
+        }
     }
 }

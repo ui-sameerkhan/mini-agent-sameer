@@ -14,6 +14,7 @@ import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Site
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.data.repo.SessionState
+import com.ktc.sitepulse.domain.BackupRestoreResult
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
@@ -52,6 +53,8 @@ data class PendingImport(
 )
 
 data class PendingDelete(val kind: String, val id: String, val label: String)
+
+data class PendingRestore(val parsed: BackupRestoreResult)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SitePulseViewModel(application: Application) : AndroidViewModel(application) {
@@ -483,5 +486,57 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 outDir, workers.value, sites.value, attendanceAll, leavesAll, blockedAll, arrivalsAll, session.value.email,
             )
         }
+    }
+
+    // ---- Full backup restore (admin only) ----
+
+    private val _pendingRestore = MutableStateFlow<PendingRestore?>(null)
+    val pendingRestore: StateFlow<PendingRestore?> = _pendingRestore
+
+    /** Parses the uploaded file and stages it for confirmation — nothing is written yet. */
+    fun startBackupRestore(uri: Uri) {
+        setStatus("backupRestoreStatus", "⏳ Reading backup file…")
+        viewModelScope.launch {
+            try {
+                val ctx = getApplication<Application>()
+                val parsed = withContext(Dispatchers.IO) {
+                    com.ktc.sitepulse.domain.BackupRestoreEngine.parse(ctx, uri)
+                }
+                _pendingRestore.value = PendingRestore(parsed)
+                setStatus("backupRestoreStatus", "⏳ Review what will be restored before uploading…")
+            } catch (e: Throwable) {
+                setStatus("backupRestoreStatus", "❌ ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /** Commits the staged restore — adds/updates records from the file, never deletes anything. */
+    fun confirmBackupRestore() {
+        val pending = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        setStatus("backupRestoreStatus", "⏳ Uploading…")
+        viewModelScope.launch {
+            try {
+                val p = pending.parsed
+                if (p.workers.isNotEmpty()) container.workersRepository.batchUpsert(p.workers)
+                if (p.sites.isNotEmpty()) container.sitesRepository.batchUpsert(p.sites)
+                if (p.attendance.isNotEmpty()) container.attendanceRepository.batchUpsert(p.attendance)
+                if (p.leaves.isNotEmpty()) container.leaveRepository.restoreAll(p.leaves)
+                if (p.blocked.isNotEmpty()) container.blockedRepository.restoreAll(p.blocked)
+                if (p.arrivals.isNotEmpty()) container.arrivalRequestRepository.restoreAll(p.arrivals)
+                setStatus(
+                    "backupRestoreStatus",
+                    "✅ Restored ${p.workers.size} worker(s), ${p.sites.size} site(s), ${p.attendance.size} attendance record(s), " +
+                        "${p.leaves.size} leave(s), ${p.blocked.size} blocked attempt(s), ${p.arrivals.size} arrival request(s).",
+                )
+            } catch (e: Throwable) {
+                setStatus("backupRestoreStatus", "❌ Restore failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun cancelBackupRestore() {
+        _pendingRestore.value = null
+        setStatus("backupRestoreStatus", "Cancelled — no changes made.")
     }
 }

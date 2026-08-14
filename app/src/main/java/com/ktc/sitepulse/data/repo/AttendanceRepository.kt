@@ -2,6 +2,7 @@ package com.ktc.sitepulse.data.repo
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.domain.DateUtils
 import kotlinx.coroutines.flow.Flow
@@ -56,5 +57,14 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
 
     suspend fun writeMark(date: String, workerId: String, fields: Map<String, Any?>) {
         collection.document(docId(date, workerId)).set(fields, SetOptions.merge()).await()
+    }
+
+    /** Batched upsert used by the full-backup restore flow — merges onto whatever's already there. */
+    suspend fun batchUpsert(records: List<Attendance>) {
+        records.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { a -> batch.set(collection.document(docId(a.date, a.workerId)), a, SetOptions.merge()) }
+            batch.commit().await()
+        }
     }
 }
