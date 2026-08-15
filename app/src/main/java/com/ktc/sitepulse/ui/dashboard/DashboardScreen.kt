@@ -65,10 +65,25 @@ fun DashboardScreen(viewModel: SitePulseViewModel) {
             if (today.isEmpty()) {
                 Text("No check-ins yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                today.groupBy { it.siteCode }.forEach { (code, rows) ->
+                // A large workforce fully checked in can put thousands of rows through this
+                // single (non-lazy) item — cap what's rendered here and look workers up by a
+                // map instead of find()'ing twice per row, so this stays smooth regardless of
+                // company size. The Attendance tab (and its Excel export) has the full list.
+                val workerById = workers.associateBy { it.id }
+                val cappedToday = today.take(300)
+                cappedToday.groupBy { it.siteCode }.forEach { (code, rows) ->
                     val siteName = rows.firstOrNull()?.siteName ?: code
                     Text("$siteName ($code)", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-                    rows.sortedByDescending { it.lastAction }.forEach { a -> AttendanceRow(a, workers.find { it.id == a.workerId }?.name ?: a.workerId, workers.find { it.id == a.workerId }?.designation ?: "") }
+                    rows.sortedByDescending { it.lastAction }.forEach { a ->
+                        val w = workerById[a.workerId]
+                        AttendanceRow(a, w?.name ?: a.workerId, w?.designation ?: "")
+                    }
+                }
+                if (today.size > cappedToday.size) {
+                    Text(
+                        "+ ${today.size - cappedToday.size} more — see the Attendance tab for the full list.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
             }
         } }

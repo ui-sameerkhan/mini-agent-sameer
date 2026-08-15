@@ -296,9 +296,21 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
             )
             val rostered = workers.filter { !it.site.isNullOrBlank() }
                 .filter { rosterSearch.isBlank() || it.site!!.contains(rosterSearch, true) || it.id.contains(rosterSearch) || it.name.contains(rosterSearch, true) }
-            rostered.groupBy { it.site!! }.toSortedMap().forEach { (code, list) ->
+            // Unfiltered, this list renders every rostered worker eagerly in a plain Column (no
+            // lazy recycling) — fine at dozens or low hundreds, but thousands of Row composables
+            // at once noticeably janks scrolling on modest phones. Cap it when there's no search
+            // narrowing it down; a real search always returns a small, safe-to-render result set.
+            val cappedRostered = if (rosterSearch.isBlank()) rostered.take(150) else rostered
+            cappedRostered.groupBy { it.site!! }.toSortedMap().forEach { (code, list) ->
                 Text(code, fontWeight = FontWeight.Bold, color = SpGreenMid, modifier = Modifier.padding(top = 10.dp))
                 list.forEach { w -> RosterWorkerRow(w, onToggle = { viewModel.toggleWorkerStatus(w) }) }
+            }
+            val hiddenCount = rostered.size - cappedRostered.size
+            if (hiddenCount > 0) {
+                Text(
+                    "+ $hiddenCount more not shown — search by name, ID, or project code to find someone specific.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
+                )
             }
         }
     }

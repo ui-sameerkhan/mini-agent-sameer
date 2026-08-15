@@ -141,12 +141,18 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
         if (dayRows.isEmpty()) {
             Text("No records.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         } else {
-            dayRows.groupBy { it.siteCode }.forEach { (code, rows) ->
+            // A large workforce with everyone checked in the same day can put thousands of rows
+            // through this plain (non-lazy) Column — both the eager rendering and an O(n) find()
+            // per row get expensive at that scale, so look workers up by a map instead and cap
+            // what's rendered on-screen (the downloaded Excel report is unaffected either way).
+            val workerById = workers.associateBy { it.id }
+            val cappedRows = dayRows.take(300)
+            cappedRows.groupBy { it.siteCode }.forEach { (code, rows) ->
                 Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
                     Column(Modifier.padding(14.dp)) {
                         Text("${rows.firstOrNull()?.siteName ?: code} ($code)", fontWeight = FontWeight.Bold)
                         rows.forEach { a ->
-                            val w = workers.find { it.id == a.workerId }
+                            val w = workerById[a.workerId]
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                 Text(w?.name ?: a.workerId, Modifier.weight(1f))
                                 Text(DateUtils.formatTimeHm(a.checkIn))
@@ -156,6 +162,12 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
                         }
                     }
                 }
+            }
+            if (dayRows.size > cappedRows.size) {
+                Text(
+                    "+ ${dayRows.size - cappedRows.size} more record(s) not shown here — download the Excel report for the full list.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
+                )
             }
         }
     }
