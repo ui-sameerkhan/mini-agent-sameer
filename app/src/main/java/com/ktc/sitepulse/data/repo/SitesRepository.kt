@@ -12,10 +12,7 @@ class SitesRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
     private val collection get() = db.collection("sites")
 
     fun liveSites(): Flow<List<Site>> =
-        collection.asFlow().map { docs ->
-            if (docs.isEmpty()) ParseDiagnostics.reportEmptyResult("sites", "all documents")
-            docs.mapNotNull { it.toObjectSafe(Site::class.java, "sites") }
-        }
+        collection.asFlow().map { docs -> docs.mapNotNull { it.toObjectSafe(Site::class.java, "sites") } }
 
     /**
      * Plain (non-merge) overwrite, matching the original saveSite(): the doc id is the

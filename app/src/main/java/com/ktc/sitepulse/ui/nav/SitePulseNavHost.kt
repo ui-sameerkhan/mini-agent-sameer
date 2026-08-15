@@ -47,8 +47,10 @@ import com.ktc.sitepulse.ui.login.LoginScreen
 import com.ktc.sitepulse.ui.officestaff.OfficeStaffScreen
 import com.ktc.sitepulse.ui.roster.RosterScreen
 import com.ktc.sitepulse.ui.sites.SitesScreen
+import com.ktc.sitepulse.ui.welcome.WelcomeScreen
 import com.ktc.sitepulse.ui.workers.WorkersScreen
 
+private const val ROUTE_WELCOME = "welcome"
 private const val ROUTE_LOGIN = "login"
 
 @Composable
@@ -77,13 +79,17 @@ fun SitePulseRoot() {
     }
 
     LaunchedEffect(session.isLoggedIn) {
-        if (!session.isLoggedIn) {
-            navController.navigate(ROUTE_LOGIN) {
-                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                launchSingleTop = true
+        if (session.isLoggedIn) {
+            if (currentRoute == ROUTE_WELCOME || currentRoute == ROUTE_LOGIN || currentRoute == null) {
+                navController.navigate(SpTab.CHECKIN.route) {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
-        } else if (currentRoute == ROUTE_LOGIN || currentRoute == null) {
-            navController.navigate(SpTab.CHECKIN.route) {
+        } else if (currentRoute != null && currentRoute != ROUTE_WELCOME && currentRoute != ROUTE_LOGIN) {
+            // Signed out from within the app (not a fresh launch) — skip the splash, go straight
+            // to Sign In. Welcome only shows once, at the very start of a logged-out session.
+            navController.navigate(ROUTE_LOGIN) {
                 popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 launchSingleTop = true
             }
@@ -101,7 +107,11 @@ fun SitePulseRoot() {
         SpTab.entries.any { it.route == currentRoute }
 
     Scaffold(
-        topBar = { SitePulseHeader(statusLabel, showSignOut = session.isLoggedIn, onSignOut = viewModel::logout) },
+        topBar = {
+            if (currentRoute != ROUTE_WELCOME) {
+                SitePulseHeader(statusLabel, showSignOut = session.isLoggedIn, onSignOut = viewModel::logout)
+            }
+        },
         bottomBar = {
             if (showTabBar) {
                 val current = SpTab.entries.find { it.route == currentRoute } ?: SpTab.CHECKIN
@@ -112,33 +122,41 @@ fun SitePulseRoot() {
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
-            val dataError by viewModel.dataError.collectAsState()
-            dataError?.let { msg ->
-                Text(
-                    "$msg (tap to dismiss)",
-                    color = SpRed,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SpRedSoft)
-                        .clickable { viewModel.dismissDataError() }
-                        .padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+            // Raw Firestore error/parse-failure text is only actionable by whoever manages the
+            // Firebase project — showing it to supervisors or office staff (who can't do
+            // anything about it) just reads as the app being broken. Admin-only.
+            if (session.isAdmin) {
+                val dataError by viewModel.dataError.collectAsState()
+                dataError?.let { msg ->
+                    Text(
+                        "$msg (tap to dismiss)",
+                        color = SpRed,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SpRedSoft)
+                            .clickable { viewModel.dismissDataError() }
+                            .padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                val parseDiagnostic by ParseDiagnostics.lastMessage.collectAsState()
+                parseDiagnostic?.let { msg ->
+                    Text(
+                        "$msg (tap to dismiss)",
+                        color = SpAmber,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SpAmberSoft)
+                            .clickable { ParseDiagnostics.clear() }
+                            .padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
-            val parseDiagnostic by ParseDiagnostics.lastMessage.collectAsState()
-            parseDiagnostic?.let { msg ->
-                Text(
-                    "$msg (tap to dismiss)",
-                    color = SpAmber,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SpAmberSoft)
-                        .clickable { ParseDiagnostics.clear() }
-                        .padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            NavHost(navController = navController, startDestination = ROUTE_LOGIN) {
+            NavHost(navController = navController, startDestination = ROUTE_WELCOME) {
+                composable(ROUTE_WELCOME) {
+                    WelcomeScreen(onGetStarted = { navController.navigate(ROUTE_LOGIN) { launchSingleTop = true } })
+                }
                 composable(ROUTE_LOGIN) { LoginScreen(viewModel) }
                 composable(SpTab.CHECKIN.route) {
                     CheckInScreen(

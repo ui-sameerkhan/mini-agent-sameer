@@ -19,7 +19,6 @@ class WorkersRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
      */
     fun liveWorkers(): Flow<List<Worker>> =
         collection.asFlow().map { docs ->
-            if (docs.isEmpty()) ParseDiagnostics.reportEmptyResult("workers", "all documents")
             docs.mapNotNull { it.toObjectSafe(Worker::class.java, "workers") }.sortedBy { it.sno }
         }
 

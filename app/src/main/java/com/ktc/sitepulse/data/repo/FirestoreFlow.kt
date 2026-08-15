@@ -40,12 +40,6 @@ object ParseDiagnostics {
         _lastMessage.value = msg
     }
 
-    fun reportEmptyResult(collectionName: String, queryDescription: String) {
-        val msg = "ℹ $collectionName query ($queryDescription) returned 0 documents"
-        Log.w("SitePulse", msg)
-        _lastMessage.value = msg
-    }
-
     fun clear() { _lastMessage.value = null }
 }
 
