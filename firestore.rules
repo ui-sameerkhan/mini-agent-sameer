@@ -89,5 +89,24 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
+    // announcements/{autoId} — admin broadcast, one message per doc. Every signed-in
+    // user reads the latest one for the in-app banner; only admin can post one.
+    match /announcements/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // pushTokens/{email} — one FCM device token per signed-in account (doc ID is the
+    // lowercased login email), used to fan out admin announcements as real push
+    // notifications. Each user can only register their own device; only admin reads
+    // the full list, to actually send the broadcast.
+    match /pushTokens/{email} {
+      allow read: if isAdmin();
+      allow create, update: if isSignedIn() && email == request.auth.token.email.lower() &&
+        request.resource.data.email == email;
+      allow delete: if isAdmin();
+    }
   }
 }

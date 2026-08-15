@@ -82,7 +82,19 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
 
     val existing = WorkerSearch.findExact(workers, workerId)
 
-    Text("Report New Arrival", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+    Text("Notifications", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "Get a push notification for admin announcements — even when the app is closed.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp),
+            )
+            Button(onClick = viewModel::enableNotifications, modifier = Modifier.fillMaxWidth()) { Text("🔔 Enable Notifications") }
+            statusMessages["pushStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+        }
+    }
+
+    Text("Report New Arrival", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
             ExposedDropdownMenuBox(expanded = siteExpanded, onExpandedChange = { siteExpanded = it }) {
@@ -141,6 +153,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     }
     val pendingRestore by viewModel.pendingRestore.collectAsState()
 
+    var announcementText by remember { mutableStateOf("") }
     var leaveId by remember { mutableStateOf("") }
     var leaveFrom by remember { mutableStateOf("") }
     var leaveTo by remember { mutableStateOf("") }
@@ -163,6 +176,26 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
             )
             Button(onClick = viewModel::enableNotifications, modifier = Modifier.fillMaxWidth()) { Text("🔔 Enable Notifications") }
             statusMessages["pushStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("SEND ANNOUNCEMENT", fontWeight = FontWeight.Bold)
+            Text(
+                "Broadcasts a message to every signed-in user as an in-app banner, and as a push to anyone who's enabled notifications.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            OutlinedTextField(
+                announcementText, { announcementText = it }, label = { Text("Message") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { viewModel.sendAnnouncement(announcementText); announcementText = "" },
+                colors = ButtonDefaults.buttonColors(containerColor = SpAmberMid),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            ) { Text("📣 Send to Everyone") }
+            statusMessages["announcementStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
         }
     }
 

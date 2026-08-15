@@ -17,7 +17,7 @@ import kotlin.math.roundToLong
 enum class MarkDirection { IN, OUT }
 
 sealed class MarkResult {
-    data class Success(val title: String, val detail: String, val offline: Boolean) : MarkResult()
+    data class Success(val title: String, val detail: String, val offline: Boolean, val siteMismatch: Boolean = false) : MarkResult()
     data class Blocked(val title: String, val detail: String) : MarkResult()
     data class Rejected(val title: String, val detail: String) : MarkResult()
     data class Failure(val message: String, val retryable: Boolean) : MarkResult()
@@ -198,21 +198,24 @@ class AttendanceEngine(
             MarkResult.Success(
                 "📴 SAVED OFFLINE",
                 "${worker.name}'s ${dir.name} was stored on this phone and will sync automatically the moment signal returns. Do not clear app data or uninstall until it syncs.",
-                offline = true
+                offline = true,
+                siteMismatch = false
             )
         } else if (dir == MarkDirection.IN) {
             val shiftEmoji = if (shift == "Night") "🌙" else "☀️"
             MarkResult.Success(
                 "✅ CHECK IN SUCCESS",
                 "${worker.name} · ${site.name} · $shiftEmoji $shift · $proximityLabel · $timeLabel$deviationNote",
-                offline = false
+                offline = false,
+                siteMismatch = siteMismatch
             )
         } else {
             val closedNote = if (recDate != today) "Closed out $recDate's night shift." else ""
             MarkResult.Success(
                 "🏁 CHECK OUT SUCCESS",
                 "${worker.name} · ${site.name} · $proximityLabel · $timeLabel. $closedNote$deviationNote".trim(),
-                offline = false
+                offline = false,
+                siteMismatch = siteMismatch
             )
         }
     }

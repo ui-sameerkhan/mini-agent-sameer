@@ -35,6 +35,8 @@ import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.util.CrashReporter
 import com.ktc.sitepulse.ui.theme.SpAmber
 import com.ktc.sitepulse.ui.theme.SpAmberSoft
+import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
+import com.ktc.sitepulse.ui.theme.SpBrandBlueSoft
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.ui.theme.SpRedSoft
 import com.ktc.sitepulse.ui.attendance.AttendanceScreen
@@ -122,6 +124,22 @@ fun SitePulseRoot() {
         },
     ) { padding ->
         Column(Modifier.padding(padding)) {
+            // Admin broadcast — visible to every signed-in role, not just admin (that's the point).
+            if (session.isLoggedIn && currentRoute != ROUTE_WELCOME && currentRoute != ROUTE_LOGIN) {
+                val announcement by viewModel.activeAnnouncement.collectAsState()
+                announcement?.let { a ->
+                    Text(
+                        "📣 ${a.message} (tap to dismiss)",
+                        color = SpBrandBlueMid,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SpBrandBlueSoft)
+                            .clickable { viewModel.dismissAnnouncement(a.docId) }
+                            .padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
             // Raw Firestore error/parse-failure text is only actionable by whoever manages the
             // Firebase project — showing it to supervisors or office staff (who can't do
             // anything about it) just reads as the app being broken. Admin-only.

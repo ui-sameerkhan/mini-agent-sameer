@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.Constants
+import com.ktc.sitepulse.data.model.Announcement
 import com.ktc.sitepulse.data.model.ArrivalRequest
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -112,6 +114,18 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val pendingLeaveRequests: StateFlow<List<Leave>> = session.map { it.isAdmin }.distinctUntilChanged()
         .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val liveAnnouncement: StateFlow<Announcement?> = session.map { it.isLoggedIn }.distinctUntilChanged()
+        .flatMapLatest { loggedIn -> if (loggedIn) container.announcementRepository.latest().catch { emit(null) } else flowOf(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _dismissedAnnouncementId = MutableStateFlow<String?>(null)
+    /** Admin's most recent broadcast — visible to every signed-in role as a dismissible banner until a newer one arrives. */
+    val activeAnnouncement: StateFlow<Announcement?> = combine(liveAnnouncement, _dismissedAnnouncementId) { announcement, dismissedId ->
+        announcement?.takeIf { it.docId.isNotBlank() && it.docId != dismissedId }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun dismissAnnouncement(id: String) { _dismissedAnnouncementId.value = id }
 
     // Office staff accounts are permanently bound to the first Worker ID they check in with —
     // loaded eagerly (not lazily via stateIn's WhileSubscribed) so CheckInScreen can lock the
@@ -210,6 +224,21 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 lockedWorkerId = lockedId,
             )
             _markResult.value = result
+            // Best-effort admin nudge for a flagged deviation — Roster's Site Deviations card is
+            // the source of truth either way, so a Netlify hiccup here is silently ignored.
+            if (result is MarkResult.Success && result.siteMismatch) {
+                try {
+                    val token = container.settingsRepository.getAdminPushToken()
+                    if (!token.isNullOrBlank()) {
+                        container.netlifyApi.sendPush(
+                            token, "Site deviation flagged",
+                            "${worker.name} checked in away from the ERP-aligned site.", "#/roster"
+                        )
+                    }
+                } catch (e: Throwable) {
+                    // Notification failed silently — the deviation flag is already saved and visible on Roster.
+                }
+            }
             // First successful check-in/out for an office-staff account permanently binds
             // their login email to this Worker ID (transaction-guarded — see assignIfAbsent).
             // The check-in itself already succeeded and is already shown above, so a failure
@@ -407,6 +436,35 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             )
         )
         setStatus("myLeaveStatus", "✅ Leave application submitted — pending admin approval.")
+
+        // Best-effort notification — a Netlify/network hiccup here shouldn't undo the
+        // "submitted" status above, since the leave request itself already saved fine.
+        try {
+            val toLabel = toDate.ifBlank { fromDate }
+            val token = container.settingsRepository.getAdminPushToken()
+            if (!token.isNullOrBlank()) {
+                container.netlifyApi.sendPush(
+                    token, "New leave request",
+                    "${worker?.name ?: workerId} — $fromDate to $toLabel", "#/roster"
+                )
+            }
+            container.netlifyApi.sendEmail(
+                Constants.NOTIFY_EMAILS,
+                "New leave request: ${worker?.name ?: workerId}",
+                """
+                <table>
+                  <tr><td>Worker</td><td>${worker?.name ?: workerId} ($workerId)</td></tr>
+                  <tr><td>From</td><td>$fromDate</td></tr>
+                  <tr><td>To</td><td>$toLabel</td></tr>
+                  <tr><td>Reason</td><td>${reason.orEmpty()}</td></tr>
+                  <tr><td>Requested By</td><td>${session.value.email}</td></tr>
+                </table>
+                <p>This request is pending admin approval in SitePulse — Roster page.</p>
+                """.trimIndent()
+            )
+        } catch (e: Throwable) {
+            // Notification failed silently — the leave application itself is already saved.
+        }
     }
 
     suspend fun myLeaveRequests(): List<Leave> = container.leaveRepository.forRequester(session.value.email)
@@ -542,15 +600,46 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ---- Notifications ----
 
+    /** Open to every role now — registers this device in pushTokens so it can receive admin announcements. */
     fun enableNotifications() {
         viewModelScope.launch {
             setStatus("pushStatus", "⏳ Getting notification token…")
             try {
                 val token = FirebaseMessaging.getInstance().token.await()
-                container.settingsRepository.saveAdminPushToken(token, session.value.email, DateUtils.nowIso())
+                val email = session.value.email
+                container.pushTokensRepository.register(email, token, DateUtils.nowIso())
+                if (session.value.isAdmin) {
+                    // Kept in its own single-token slot too — the arrival/leave/deviation
+                    // notifications above only ever address the admin, so this stays separate
+                    // from the many-device pushTokens registry used for broadcasts.
+                    container.settingsRepository.saveAdminPushToken(token, email, DateUtils.nowIso())
+                }
                 setStatus("pushStatus", "✅ Notifications enabled on this device.")
             } catch (e: Exception) {
                 setStatus("pushStatus", "❌ ${e.message}")
+            }
+        }
+    }
+
+    /** Admin-only broadcast: saves the announcement (guaranteed in-app banner for everyone) and
+     * best-effort pushes it to every device that has opted into notifications. */
+    fun sendAnnouncement(message: String) {
+        val text = message.trim()
+        if (text.isBlank()) { setStatus("announcementStatus", "❌ Enter a message."); return }
+        viewModelScope.launch {
+            setStatus("announcementStatus", "⏳ Sending…")
+            try {
+                container.announcementRepository.send(text, session.value.email, DateUtils.nowIso())
+                setStatus("announcementStatus", "✅ Sent — every signed-in user will see it now.")
+                try {
+                    container.pushTokensRepository.allTokens().forEach { token ->
+                        container.netlifyApi.sendPush(token, "SitePulse announcement", text, "#/")
+                    }
+                } catch (e: Throwable) {
+                    // Push fan-out failed silently — the announcement itself is already saved and shown in-app.
+                }
+            } catch (e: Throwable) {
+                setStatus("announcementStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
         }
     }
