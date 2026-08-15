@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.data.repo
 
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.ktc.sitepulse.Constants
@@ -15,11 +16,16 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
 
     private val collection get() = db.collection("blocked")
 
+    // See LeaveRepository.toLeave() — @DocumentId's automatic population proved unreliable, so
+    // the real snapshot ID is set explicitly instead of trusting the annotation.
+    private fun DocumentSnapshot.toBlocked(): Blocked? =
+        toObjectSafe(Blocked::class.java, "blocked")?.copy(docId = id)
+
     /** Admin-only live subscription, scoped to the last 14 days to bound reads (matches web app). */
     fun liveLast14Days(): Flow<List<Blocked>> {
         val cutoff = LocalDate.now(ZoneOffset.UTC).minusDays(14).format(DateTimeFormatter.ISO_LOCAL_DATE)
         return collection.whereGreaterThanOrEqualTo("date", cutoff).asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(Blocked::class.java, "blocked") } }
+            .map { docs -> docs.mapNotNull { it.toBlocked() } }
     }
 
     suspend fun log(blocked: Blocked) {
@@ -28,7 +34,7 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
 
     /** Every blocked-attempt record ever logged — used only by the admin-only full data backup export. */
     suspend fun all(): List<Blocked> =
-        collection.get().await().documents.mapNotNull { it.toObjectSafe(Blocked::class.java, "blocked") }
+        collection.get().await().documents.mapNotNull { it.toBlocked() }
 
     /** Batched upsert for the full-backup restore flow — see LeaveRepository.restoreAll for the Doc ID logic. */
     suspend fun restoreAll(records: List<Blocked>) {

@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.data.repo
 
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.ktc.sitepulse.Constants
@@ -12,10 +13,15 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
 
     private val collection get() = db.collection("arrivalRequests")
 
+    // See LeaveRepository.toLeave() — @DocumentId's automatic population proved unreliable for
+    // approve/reject, so the real snapshot ID is set explicitly instead of trusting the annotation.
+    private fun DocumentSnapshot.toArrival(): ArrivalRequest? =
+        toObjectSafe(ArrivalRequest::class.java, "arrivalRequests")?.copy(docId = id)
+
     /** Admin-only live subscription to pending requests. */
     fun livePending(): Flow<List<ArrivalRequest>> =
         collection.whereEqualTo("status", "pending").asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java, "arrivalRequests") } }
+            .map { docs -> docs.mapNotNull { it.toArrival() } }
 
     suspend fun submit(request: ArrivalRequest): String {
         val ref = collection.add(request).await()
@@ -24,7 +30,7 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
 
     /** Every arrival request ever submitted (any status) — used only by the admin-only full data backup export. */
     suspend fun all(): List<ArrivalRequest> =
-        collection.get().await().documents.mapNotNull { it.toObjectSafe(ArrivalRequest::class.java, "arrivalRequests") }
+        collection.get().await().documents.mapNotNull { it.toArrival() }
 
     /** Batched upsert for the full-backup restore flow — see LeaveRepository.restoreAll for the Doc ID logic. */
     suspend fun restoreAll(records: List<ArrivalRequest>) {

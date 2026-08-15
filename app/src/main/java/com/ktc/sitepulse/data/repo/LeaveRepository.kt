@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.data.repo
 
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.ktc.sitepulse.Constants
@@ -17,24 +18,31 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
         collection.add(leave).await()
     }
 
+    /**
+     * Firestore's @DocumentId annotation is supposed to auto-populate Leave.docId from the
+     * snapshot on toObject(), but that mapping proved unreliable in practice — approve/reject/
+     * delete were failing with a blank ID even on freshly-created requests. Setting it explicitly
+     * from the snapshot's real ID here removes any dependence on that annotation working at all.
+     */
+    private fun DocumentSnapshot.toLeave(): Leave? =
+        toObjectSafe(Leave::class.java, "leaves")?.copy(docId = id)
+
     /** All leave records for a worker (fetched on demand — used by the leave-aware Absent Report). */
     suspend fun forWorker(workerId: String): List<Leave> =
-        collection.whereEqualTo("workerId", workerId).get().await().documents
-            .mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") }
+        collection.whereEqualTo("workerId", workerId).get().await().documents.mapNotNull { it.toLeave() }
 
     /** All leave records overlapping a date range, used by monthly Absent Report generation. */
     suspend fun all(): List<Leave> =
-        collection.get().await().documents.mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") }
+        collection.get().await().documents.mapNotNull { it.toLeave() }
 
     /** Admin-only live subscription to self-submitted leave applications awaiting a decision. */
     fun livePendingRequests(): Flow<List<Leave>> =
         collection.whereEqualTo("status", "pending").asFlow()
-            .map { docs -> docs.mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") } }
+            .map { docs -> docs.mapNotNull { it.toLeave() } }
 
     /** An office staff member's own submitted leave applications (fetched on demand). */
     suspend fun forRequester(email: String): List<Leave> =
-        collection.whereEqualTo("requestedBy", email).get().await().documents
-            .mapNotNull { it.toObjectSafe(Leave::class.java, "leaves") }
+        collection.whereEqualTo("requestedBy", email).get().await().documents.mapNotNull { it.toLeave() }
 
     suspend fun approve(id: String, approvedBy: String, approvedAt: String) {
         collection.document(id).set(
