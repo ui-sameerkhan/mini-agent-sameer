@@ -411,6 +411,9 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     suspend fun myLeaveRequests(): List<Leave> = container.leaveRepository.forRequester(session.value.email)
 
+    /** Admin-only: every leave record ever — pending, approved, and rejected — for the Leave History panel. */
+    suspend fun allLeaveHistory(): List<Leave> = container.leaveRepository.all()
+
     suspend fun myAttendanceHistory(): List<Attendance> = container.attendanceRepository.getMarkedBy(session.value.email)
 
     fun approveLeaveRequest(leave: Leave) {

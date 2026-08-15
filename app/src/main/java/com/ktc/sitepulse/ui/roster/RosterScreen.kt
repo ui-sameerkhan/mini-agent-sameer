@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
+import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.WorkerSearch
@@ -145,6 +148,11 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var rosterSearch by remember { mutableStateOf("") }
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
+    var leaveHistory by remember { mutableStateOf<List<Leave>>(emptyList()) }
+    var leaveHistorySearch by remember { mutableStateOf("") }
+    var leaveHistoryRefresh by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(leaveHistoryRefresh) { leaveHistory = viewModel.allLeaveHistory() }
 
     Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Column(Modifier.padding(16.dp)) {
@@ -286,6 +294,57 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 }
             }
             statusMessages["leaveReviewStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("LEAVE HISTORY", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { leaveHistoryRefresh++ }) { Text("🔄 Refresh") }
+            }
+            Text(
+                "Every leave request ever submitted or marked — pending, approved, and rejected, all time.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            OutlinedTextField(
+                leaveHistorySearch, { leaveHistorySearch = it }, placeholder = { Text("🔍 Search worker ID / requester…") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            )
+            val filtered = leaveHistory.filter {
+                leaveHistorySearch.isBlank() || it.workerId.contains(leaveHistorySearch, true) ||
+                    (it.requestedBy ?: it.markedBy).contains(leaveHistorySearch, true)
+            }.sortedByDescending { it.ts }
+            val cappedHistory = if (leaveHistorySearch.isBlank()) filtered.take(150) else filtered
+            if (cappedHistory.isEmpty()) {
+                Text("No leave records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                cappedHistory.forEach { leave ->
+                    val w = workers.find { it.id == leave.workerId }
+                    val (label, color) = when (leave.status) {
+                        "approved" -> "APPROVED" to SpGreenMid
+                        "rejected" -> "REJECTED" to SpRed
+                        else -> "PENDING" to SpAmberMid
+                    }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${w?.name ?: leave.workerId} (ID ${leave.workerId})", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(leave.requestedBy ?: leave.markedBy, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
+                        Text(label, color = color, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (leaveHistorySearch.isBlank() && filtered.size > cappedHistory.size) {
+                Text(
+                    "+ ${filtered.size - cappedHistory.size} more not shown — search to narrow.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
     }
 
