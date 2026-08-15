@@ -32,6 +32,18 @@ data class Attendance(
     val outDist: Long? = null,
     /** "gps" (default, distance-verified) or "wifi" (matched an office site's WiFi SSID). */
     val markedVia: String = "gps",
+    /**
+     * The worker's site per the ERP/biometric roster upload (Worker.site) at the moment this
+     * mark happened — captured so a mismatch against [siteCode] (where they actually checked in,
+     * proven by GPS/WiFi) can be reviewed later without needing to cross-reference the current
+     * worker record, which may have since changed.
+     */
+    val alignedSite: String? = null,
+    /** True when this mark's real, geofence/WiFi-verified site differs from [alignedSite]. */
+    val siteMismatch: Boolean = false,
+    val deviationReviewed: Boolean = false,
+    val deviationReviewedBy: String? = null,
+    val deviationReviewedAt: String? = null,
 ) {
     @get:Exclude
     val hasIn: Boolean get() = !checkIn.isNullOrBlank()

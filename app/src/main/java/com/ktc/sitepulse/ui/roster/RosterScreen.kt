@@ -40,6 +40,7 @@ import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
+import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
 import com.ktc.sitepulse.ui.theme.SpGreenMid
 import com.ktc.sitepulse.ui.theme.SpRed
@@ -123,6 +124,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val statusMessages by viewModel.statusMessages.collectAsState()
     val pendingArrivals by viewModel.pendingArrivals.collectAsState()
     val pendingLeaveRequests by viewModel.pendingLeaveRequests.collectAsState()
+    val siteDeviationsToday by viewModel.siteDeviationsToday.collectAsState()
     val pendingImport by viewModel.pendingImport.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val context = LocalContext.current
@@ -202,6 +204,33 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("⬆ Upload Backup (.xlsx)") }
             statusMessages["backupRestoreStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("SITE DEVIATIONS — TODAY", fontWeight = FontWeight.Bold)
+            Text(
+                "Checked in somewhere other than their ERP/biometric roster-aligned site — the attendance still counts, this is just for visibility.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            if (siteDeviationsToday.isEmpty()) {
+                Text("None today.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                siteDeviationsToday.forEach { a ->
+                    val w = workers.find { it.id == a.workerId }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${w?.name ?: a.workerId} (ID ${a.workerId})", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Aligned: ${a.alignedSite} → Reported: ${a.siteName} (${a.siteCode})",
+                                color = SpAmberMid,
+                            )
+                        }
+                        OutlinedButton(onClick = { viewModel.acknowledgeSiteDeviation(a) }) { Text("Acknowledge") }
+                    }
+                }
+            }
         }
     }
 

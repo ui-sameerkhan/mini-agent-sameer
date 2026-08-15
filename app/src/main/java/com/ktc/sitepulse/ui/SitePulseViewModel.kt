@@ -98,6 +98,11 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val todayAttendance: StateFlow<List<Attendance>> = onlyWhenLoggedIn("Attendance") { container.attendanceRepository.liveToday() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Today's check-ins/outs where the physical site didn't match the ERP roster's aligned site. */
+    val siteDeviationsToday: StateFlow<List<Attendance>> = todayAttendance
+        .map { list -> list.filter { it.siteMismatch && !it.deviationReviewed } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val blocked: StateFlow<List<Blocked>> = onlyWhenLoggedIn("Blocked attempts") { container.blockedRepository.liveLast14Days() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -346,6 +351,16 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             )
             setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
+        }
+    }
+
+    /** Admin acknowledges a site-deviation flag (worker checked in somewhere other than their ERP-aligned site). */
+    fun acknowledgeSiteDeviation(a: Attendance) {
+        viewModelScope.launch {
+            container.attendanceRepository.writeMark(
+                a.date, a.workerId,
+                mapOf("deviationReviewed" to true, "deviationReviewedBy" to session.value.email, "deviationReviewedAt" to DateUtils.nowIso()),
+            )
         }
     }
 

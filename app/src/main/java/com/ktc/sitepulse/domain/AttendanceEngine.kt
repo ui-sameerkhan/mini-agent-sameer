@@ -156,6 +156,13 @@ class AttendanceEngine(
         val nowIso = DateUtils.nowIso()
         val shift = DateUtils.shiftFor()
 
+        // The ERP/biometric roster's "aligned site" is informational, not a hard gate — a
+        // worker can genuinely be sent to cover a different site for a day. Rather than
+        // blocking that (or silently losing track of it), record it as-is and flag the
+        // mismatch for admin review, per operations' request.
+        val alignedSite = worker.site?.trim()?.takeIf { it.isNotBlank() }
+        val siteMismatch = alignedSite != null && !alignedSite.equals(site.code, ignoreCase = true)
+
         val fields = mutableMapOf<String, Any?>(
             "workerId" to worker.id,
             "date" to recDate,
@@ -164,6 +171,8 @@ class AttendanceEngine(
             "lastAction" to nowIso,
             "markedBy" to currentEmail,
             "markedVia" to markedVia,
+            "alignedSite" to alignedSite,
+            "siteMismatch" to siteMismatch,
         )
         if (dir == MarkDirection.IN) {
             fields["shift"] = shift
@@ -184,6 +193,7 @@ class AttendanceEngine(
 
         val proximityLabel = if (markedVia == "wifi") "via office WiFi" else "${Geo.formatDistance(distanceM!!)} from center"
         val timeLabel = DateUtils.formatTimeHm(nowIso)
+        val deviationNote = if (siteMismatch) "\n⚠ Roster shows $alignedSite — flagged for admin review." else ""
         return if (!isOnline) {
             MarkResult.Success(
                 "📴 SAVED OFFLINE",
@@ -194,14 +204,14 @@ class AttendanceEngine(
             val shiftEmoji = if (shift == "Night") "🌙" else "☀️"
             MarkResult.Success(
                 "✅ CHECK IN SUCCESS",
-                "${worker.name} · ${site.name} · $shiftEmoji $shift · $proximityLabel · $timeLabel",
+                "${worker.name} · ${site.name} · $shiftEmoji $shift · $proximityLabel · $timeLabel$deviationNote",
                 offline = false
             )
         } else {
             val closedNote = if (recDate != today) "Closed out $recDate's night shift." else ""
             MarkResult.Success(
                 "🏁 CHECK OUT SUCCESS",
-                "${worker.name} · ${site.name} · $proximityLabel · $timeLabel. $closedNote".trim(),
+                "${worker.name} · ${site.name} · $proximityLabel · $timeLabel. $closedNote$deviationNote".trim(),
                 offline = false
             )
         }
