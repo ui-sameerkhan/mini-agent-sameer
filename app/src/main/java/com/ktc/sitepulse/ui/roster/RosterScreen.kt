@@ -231,6 +231,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                     }
                 }
             }
+            statusMessages["deviationStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 
@@ -251,6 +252,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                     }
                 }
             }
+            statusMessages["arrivalReviewStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 
@@ -278,6 +280,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                     }
                 }
             }
+            statusMessages["leaveReviewStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 
@@ -341,6 +344,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
                 )
             }
+            statusMessages["deleteStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 10.dp)) }
         }
     }
 

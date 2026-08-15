@@ -101,6 +101,7 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
             colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed),
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         ) { Text("Delete All Workers") }
+        statusMessages["deleteStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
 
         OutlinedTextField(
             value = query, onValueChange = { query = it; page = 1 },

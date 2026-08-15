@@ -212,8 +212,15 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             _markResult.value = result
             // First successful check-in/out for an office-staff account permanently binds
             // their login email to this Worker ID (transaction-guarded — see assignIfAbsent).
+            // The check-in itself already succeeded and is already shown above, so a failure
+            // here (e.g. a network blip on the follow-up transaction) shouldn't crash the app —
+            // worst case the ID just isn't locked yet and gets locked on the next check-in.
             if (s.isOfficeStaff && lockedId == null && result is MarkResult.Success) {
-                _myLinkedWorkerId.value = container.staffWorkerLinkRepository.assignIfAbsent(s.email, worker.id, DateUtils.nowIso())
+                try {
+                    _myLinkedWorkerId.value = container.staffWorkerLinkRepository.assignIfAbsent(s.email, worker.id, DateUtils.nowIso())
+                } catch (e: Throwable) {
+                    // Silently retried on the next check-in.
+                }
             }
             _markInFlight.value = false
         }
@@ -248,12 +255,16 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         val pending = _pendingDelete.value ?: return
         if (typedText.trim() != "DELETE") return
         viewModelScope.launch {
-            when (pending.kind) {
-                "site" -> container.sitesRepository.deleteSite(pending.id)
-                "worker" -> container.workersRepository.deleteWorker(pending.id)
-                "allWorkers" -> container.workersRepository.deleteAll(workers.value.map { it.id }) { done, total ->
-                    onProgress("Deleted $done / $total…")
+            try {
+                when (pending.kind) {
+                    "site" -> container.sitesRepository.deleteSite(pending.id)
+                    "worker" -> container.workersRepository.deleteWorker(pending.id)
+                    "allWorkers" -> container.workersRepository.deleteAll(workers.value.map { it.id }) { done, total ->
+                        onProgress("Deleted $done / $total…")
+                    }
                 }
+            } catch (e: Throwable) {
+                setStatus("deleteStatus", "❌ Delete failed: ${e.message ?: e::class.simpleName}")
             }
             _pendingDelete.value = null
         }
@@ -263,10 +274,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun toggleWorkerStatus(worker: Worker) {
         viewModelScope.launch {
-            if (worker.isLeft) {
-                container.workersRepository.setStatus(worker.id, "active", null)
-            } else {
-                container.workersRepository.setStatus(worker.id, "left", DateUtils.todayStrUtc())
+            try {
+                if (worker.isLeft) {
+                    container.workersRepository.setStatus(worker.id, "active", null)
+                } else {
+                    container.workersRepository.setStatus(worker.id, "left", DateUtils.todayStrUtc())
+                }
+            } catch (e: Throwable) {
+                setStatus("deleteStatus", "❌ Update failed: ${e.message ?: e::class.simpleName}")
             }
         }
     }
@@ -310,7 +325,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     fun confirmPendingImport() {
         val pending = _pendingImport.value ?: return
         _pendingImport.value = null
-        viewModelScope.launch { commitImport(pending.kind, pending.records, pending.skippedNotFound, statusKeyFor(pending.kind)) }
+        val statusKey = statusKeyFor(pending.kind)
+        viewModelScope.launch {
+            try {
+                commitImport(pending.kind, pending.records, pending.skippedNotFound, statusKey)
+            } catch (e: Throwable) {
+                setStatus(statusKey, "❌ Upload failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
     }
 
     fun cancelPendingImport() {
@@ -343,24 +365,32 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             val worker = workers.value.find { it.id == workerId }
             if (worker == null) { setStatus("leaveStatus", "❌ Worker ID not found."); return@launch }
             if (fromDate.isBlank()) { setStatus("leaveStatus", "❌ Enter a From date."); return@launch }
-            container.leaveRepository.add(
-                Leave(
-                    workerId = workerId, site = worker.site.orEmpty(), fromDate = fromDate,
-                    toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
-                    ts = DateUtils.nowIso(),
+            try {
+                container.leaveRepository.add(
+                    Leave(
+                        workerId = workerId, site = worker.site.orEmpty(), fromDate = fromDate,
+                        toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
+                        ts = DateUtils.nowIso(),
+                    )
                 )
-            )
-            setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
+                setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
+            } catch (e: Throwable) {
+                setStatus("leaveStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
     /** Admin acknowledges a site-deviation flag (worker checked in somewhere other than their ERP-aligned site). */
     fun acknowledgeSiteDeviation(a: Attendance) {
         viewModelScope.launch {
-            container.attendanceRepository.writeMark(
-                a.date, a.workerId,
-                mapOf("deviationReviewed" to true, "deviationReviewedBy" to session.value.email, "deviationReviewedAt" to DateUtils.nowIso()),
-            )
+            try {
+                container.attendanceRepository.writeMark(
+                    a.date, a.workerId,
+                    mapOf("deviationReviewed" to true, "deviationReviewedBy" to session.value.email, "deviationReviewedAt" to DateUtils.nowIso()),
+                )
+            } catch (e: Throwable) {
+                setStatus("deviationStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
@@ -384,14 +414,24 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     suspend fun myAttendanceHistory(): List<Attendance> = container.attendanceRepository.getMarkedBy(session.value.email)
 
     fun approveLeaveRequest(leave: Leave) {
+        if (leave.docId.isBlank()) { setStatus("leaveReviewStatus", "❌ This request has no ID — can't be approved. Ask the requester to resubmit."); return }
         viewModelScope.launch {
-            container.leaveRepository.approve(leave.docId, session.value.email, DateUtils.nowIso())
+            try {
+                container.leaveRepository.approve(leave.docId, session.value.email, DateUtils.nowIso())
+            } catch (e: Throwable) {
+                setStatus("leaveReviewStatus", "❌ Approve failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
     fun rejectLeaveRequest(leave: Leave) {
+        if (leave.docId.isBlank()) { setStatus("leaveReviewStatus", "❌ This request has no ID — can't be rejected. Ask the requester to resubmit."); return }
         viewModelScope.launch {
-            container.leaveRepository.reject(leave.docId, session.value.email, DateUtils.nowIso())
+            try {
+                container.leaveRepository.reject(leave.docId, session.value.email, DateUtils.nowIso())
+            } catch (e: Throwable) {
+                setStatus("leaveReviewStatus", "❌ Reject failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
@@ -412,23 +452,33 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 setStatus("arrivalStatus", "❌ Enter the worker's name and trade.")
                 return@launch
             }
-            val request = ArrivalRequest(
-                site = site, workerId = workerId, name = finalName, designation = finalDesignation,
-                requestedDate = date.ifBlank { DateUtils.todayStrUtc() }, requestedBy = session.value.email,
-                status = "pending", ts = DateUtils.nowIso(),
-            )
-            container.arrivalRequestRepository.submit(request)
-            setStatus("arrivalStatus", "✅ Sent for admin approval…")
+            try {
+                val request = ArrivalRequest(
+                    site = site, workerId = workerId, name = finalName, designation = finalDesignation,
+                    requestedDate = date.ifBlank { DateUtils.todayStrUtc() }, requestedBy = session.value.email,
+                    status = "pending", ts = DateUtils.nowIso(),
+                )
+                container.arrivalRequestRepository.submit(request)
+                setStatus("arrivalStatus", "✅ Sent for admin approval…")
 
-            val token = container.settingsRepository.getAdminPushToken()
-            if (!token.isNullOrBlank()) {
-                container.netlifyApi.sendPush(token, "New arrival request", "$finalName (ID $workerId) for $site", "#/roster")
+                // Best-effort notification — a Netlify/network hiccup here shouldn't undo the
+                // "sent for approval" status above, since the request itself already saved fine.
+                try {
+                    val token = container.settingsRepository.getAdminPushToken()
+                    if (!token.isNullOrBlank()) {
+                        container.netlifyApi.sendPush(token, "New arrival request", "$finalName (ID $workerId) for $site", "#/roster")
+                    }
+                    container.netlifyApi.sendEmail(
+                        Constants.NOTIFY_EMAILS,
+                        "New arrival: $finalName ($site)",
+                        arrivalEmailHtml(finalName, workerId, finalDesignation, site, request.requestedDate, request.requestedBy)
+                    )
+                } catch (e: Throwable) {
+                    // Notification failed silently — the arrival request itself is already saved.
+                }
+            } catch (e: Throwable) {
+                setStatus("arrivalStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
-            container.netlifyApi.sendEmail(
-                Constants.NOTIFY_EMAILS,
-                "New arrival: $finalName ($site)",
-                arrivalEmailHtml(finalName, workerId, finalDesignation, site, request.requestedDate, request.requestedBy)
-            )
         }
     }
 
@@ -445,23 +495,33 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     """.trimIndent()
 
     fun approveArrival(request: ArrivalRequest) {
+        if (request.docId.isBlank()) { setStatus("arrivalReviewStatus", "❌ This request has no ID — can't be approved."); return }
         viewModelScope.launch {
-            val existing = workers.value.find { it.id == request.workerId }
-            container.workersRepository.saveWorker(
-                Worker(
-                    sno = existing?.sno ?: container.workersRepository.nextSno(workers.value),
-                    id = request.workerId, name = request.name, designation = request.designation,
-                    company = existing?.company, site = request.site, alignedDate = request.requestedDate,
-                    status = "active",
+            try {
+                val existing = workers.value.find { it.id == request.workerId }
+                container.workersRepository.saveWorker(
+                    Worker(
+                        sno = existing?.sno ?: container.workersRepository.nextSno(workers.value),
+                        id = request.workerId, name = request.name, designation = request.designation,
+                        company = existing?.company, site = request.site, alignedDate = request.requestedDate,
+                        status = "active",
+                    )
                 )
-            )
-            container.arrivalRequestRepository.approve(request.docId, session.value.email, DateUtils.nowIso())
+                container.arrivalRequestRepository.approve(request.docId, session.value.email, DateUtils.nowIso())
+            } catch (e: Throwable) {
+                setStatus("arrivalReviewStatus", "❌ Approve failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
     fun rejectArrival(request: ArrivalRequest) {
+        if (request.docId.isBlank()) { setStatus("arrivalReviewStatus", "❌ This request has no ID — can't be rejected."); return }
         viewModelScope.launch {
-            container.arrivalRequestRepository.reject(request.docId, session.value.email, DateUtils.nowIso())
+            try {
+                container.arrivalRequestRepository.reject(request.docId, session.value.email, DateUtils.nowIso())
+            } catch (e: Throwable) {
+                setStatus("arrivalReviewStatus", "❌ Reject failed: ${e.message ?: e::class.simpleName}")
+            }
         }
     }
 
