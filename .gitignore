@@ -10,3 +10,8 @@
 /app/build
 *.apk
 *.aab
+
+# Signing secrets — never commit these
+keystore.properties
+*.jks
+*.keystore
