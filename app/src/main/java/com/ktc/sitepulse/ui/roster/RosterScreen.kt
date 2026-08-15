@@ -277,6 +277,11 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                         }
                         OutlinedButton(onClick = { viewModel.approveLeaveRequest(leave) }) { Text("Approve") }
                         OutlinedButton(onClick = { viewModel.rejectLeaveRequest(leave) }, modifier = Modifier.padding(start = 6.dp)) { Text("Reject") }
+                        OutlinedButton(
+                            onClick = { viewModel.deleteLeaveRequest(leave) },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed),
+                            modifier = Modifier.padding(start = 6.dp),
+                        ) { Text("Delete") }
                     }
                 }
             }

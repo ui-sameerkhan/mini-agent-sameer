@@ -435,6 +435,18 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun deleteLeaveRequest(leave: Leave) {
+        if (leave.docId.isBlank()) { setStatus("leaveReviewStatus", "❌ This request has no ID — can't be deleted here. Remove it in the Firebase Console."); return }
+        viewModelScope.launch {
+            try {
+                container.leaveRepository.delete(leave.docId)
+                setStatus("leaveReviewStatus", "🗑 Leave request deleted.")
+            } catch (e: Throwable) {
+                setStatus("leaveReviewStatus", "❌ Delete failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
     fun submitNewArrival(site: String, workerId: String, name: String, designation: String, date: String) {
         viewModelScope.launch {
             if (site.isBlank() || workerId.isBlank()) {

@@ -50,6 +50,10 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
         ).await()
     }
 
+    suspend fun delete(id: String) {
+        collection.document(id).delete().await()
+    }
+
     /**
      * Batched upsert used by the full-backup restore flow. A record with a Doc ID (from a
      * previously-downloaded backup) overwrites that exact document via merge; one without an
