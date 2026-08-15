@@ -135,6 +135,7 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
                         Text(
                             when (wifiBlockedReason) {
                                 WifiBlockReason.PERMISSION -> "⚠ WiFi office check-in needs Location permission — Android hides the network name without it."
+                                WifiBlockReason.IMPRECISE -> "⚠ Location is set to \"Approximate\" — Android only reveals the WiFi network name with \"Precise\" location. Open App Settings → Permissions → Location and switch it to Precise."
                                 WifiBlockReason.LOCATION_OFF -> "⚠ Turn on Location (GPS) in phone settings to enable WiFi office check-in."
                                 null -> ""
                             },
@@ -142,15 +143,15 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
                         )
                         OutlinedButton(
                             onClick = {
-                                val intent = if (wifiBlockedReason == WifiBlockReason.PERMISSION) {
-                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                                } else {
+                                val intent = if (wifiBlockedReason == WifiBlockReason.LOCATION_OFF) {
                                     Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                                } else {
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                                 }
                                 context.startActivity(intent)
                             },
                             modifier = Modifier.padding(top = 4.dp),
-                        ) { Text(if (wifiBlockedReason == WifiBlockReason.PERMISSION) "Open App Settings" else "Open Location Settings", fontSize = 11.sp) }
+                        ) { Text(if (wifiBlockedReason == WifiBlockReason.LOCATION_OFF) "Open Location Settings" else "Open App Settings", fontSize = 11.sp) }
                     }
                 }
 
@@ -249,12 +250,21 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
     }
 }
 
-private enum class WifiBlockReason { PERMISSION, LOCATION_OFF }
+private enum class WifiBlockReason { PERMISSION, IMPRECISE, LOCATION_OFF }
 
-/** Why WiFi SSID detection isn't resolving right now, or null if nothing's blocking it. */
+/**
+ * Why WiFi SSID detection isn't resolving right now, or null if nothing's blocking it.
+ * Since Android 12, the location permission dialog lets someone pick "Approximate" instead of
+ * "Precise" — that grants ACCESS_COARSE_LOCATION but not ACCESS_FINE_LOCATION, which reads as
+ * "I already gave location access" to the user even though Android's own WiFi APIs specifically
+ * require precise location to reveal the connected network's name (this isn't an app-level
+ * check we could relax — it's how Android withholds the SSID at the OS level).
+ */
 private fun wifiBlockReason(context: Context): WifiBlockReason? {
-    val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    if (!hasPermission) return WifiBlockReason.PERMISSION
+    val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    if (!hasFine && !hasCoarse) return WifiBlockReason.PERMISSION
+    if (!hasFine) return WifiBlockReason.IMPRECISE
     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     if (!LocationManagerCompat.isLocationEnabled(locationManager)) return WifiBlockReason.LOCATION_OFF
     return null
