@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.RailGateLive" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorPrimaryDark">@color/brand</item>
+        <item name="android:statusBarColor">@color/statusBar</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

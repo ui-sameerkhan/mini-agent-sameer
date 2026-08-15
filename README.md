@@ -1,48 +1,75 @@
-# mini-agent-sameer
-A simple and responsive AI chat UI built using React and TailwindCSS. The chat simulates a Mini-Agent behavior with memory, basic calculation, and typing delay using a mock backend function. Perfect demonstration of state management, UI components, and async logic handling.
+# RailGate Live — Android App
 
-# Mini-Agent Chat UI
+A native Android wrapper for **RailGate Live**, a live railway-crossing status
+tracker for Barabanki Junction (BBK). The app shows whether the gate is open
+or closed, upcoming train closures, a crowd-sourced "report gate status"
+feature with GPS verification, and a points/leaderboard system backed by
+Firebase.
 
-This project is a simple, responsive chat interface built using **React** and **TailwindCSS**, designed to simulate the experience of interacting with a lightweight AI agent. It includes message history, typing indication, and a mock backend function that handles basic logic like remembering user input and performing simple calculations.
+The original app is a single self-contained `index.html` (vanilla JS +
+Firebase Firestore + a live train-data API). This project packages it as an
+installable Android app using a `WebView`, rather than rewriting the UI/logic
+natively — the web app's behavior is preserved exactly.
 
----
+## How it's packaged
 
-## 🚀 Features
+- `app/src/main/assets/index.html` — the original web app, unmodified.
+- `MainActivity` loads it into a `WebView` using
+  [`WebViewAssetLoader`](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content),
+  serving it from the virtual `https://appassets.androidx.webkit.net/assets/`
+  origin. This (rather than a raw `file://` URL) is what Google recommends for
+  local WebView content — it avoids `file://` CORS quirks so the Firebase JS
+  SDK's ES-module imports and Firestore calls work normally.
+- JavaScript, DOM storage (`localStorage`, used for remembering the
+  reporter's name/points), and Geolocation are enabled on the `WebView`.
+- The **"Report Gate Status"** feature calls `navigator.geolocation`, which
+  Android intercepts and turns into a runtime permission request
+  (`ACCESS_FINE_LOCATION`) the first time it's used — same as it would in a
+  mobile browser.
+- The system back button navigates the WebView's history before exiting the
+  app.
 
-- **Clean, responsive chat UI**
-- **User and Agent message bubbles** with left/right alignment
-- **Typing indicator** while the agent is "thinking"
-- **Mock backend** to simulate agent responses
-- **Short-term memory** (e.g., “Remember my cat's name is Fluffy”)
-- **Simple calculator ability** (e.g., “What is 10 + 5?”)
-- **Custom color theme** using TailwindCSS
-- **Agent profile avatar** in header
+## Project structure
 
----
+```
+app/
+  src/main/
+    java/com/railgatelive/app/MainActivity.kt   # WebView host
+    assets/index.html                           # the web app
+    res/                                         # icon, theme, strings
+    AndroidManifest.xml
+build.gradle.kts / settings.gradle.kts           # Gradle config (Kotlin DSL)
+gradlew / gradlew.bat                            # Gradle wrapper (8.7)
+```
 
-## 🛠️ Tech Stack
+- **Application ID:** `com.railgatelive.app`
+- **Min SDK:** 26 (Android 8.0) · **Target/Compile SDK:** 34
+- **Language:** Kotlin
 
-| Tool / Library | Purpose |
-|----------------|---------|
-| React          | UI and component structure |
-| TailwindCSS (CDN) | Styling with utility classes |
-| TypeScript     | Type safety (optional use) |
-| Vite           | Fast development server and build |
+## Building
 
----
+Requires the Android SDK (command-line tools or Android Studio) and a
+`local.properties` file pointing at it — Android Studio creates this
+automatically on first open:
 
-## 🧠 Mock Backend Logic
+```properties
+sdk.dir=/path/to/Android/sdk
+```
 
-The function `mockAgentResponse(prompt)` simulates how a backend agent might respond.  
-It includes:
+Then, from the repo root:
 
-- 1-second artificial delay (`setTimeout`) to mimic thinking
-- Basic **calculator** tool
-- **Memory save & recall**
-- Simple conversational responses ("hello", "help")
+```bash
+./gradlew :app:assembleDebug
+```
 
-Example:
-```js
-if (prompt.includes("Remember my cat's name is Fluffy")) {
-  memory["cat's name"] = "Fluffy";
-}
+The APK is written to `app/build/outputs/apk/debug/app-debug.apk`. This has
+been verified to build successfully and pass lint in this environment.
+
+To install on a connected device/emulator: `./gradlew :app:installDebug`.
+
+## Notes
+
+- The app requires an internet connection (Firestore, the live train-data
+  API, and Google Fonts are all fetched over HTTPS at runtime).
+- No changes were made to the web app's logic — schedule data, Firebase
+  config, and the RailRadar live-data proxy endpoint are all untouched.

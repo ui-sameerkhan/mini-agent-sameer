@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RailGate Live — Barabanki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brand:#E84B2F;--brand-lt:#FFF0ED;--green:#16A34A;--green-lt:#DCFCE7;
+  --amber:#D97706;--amber-lt:#FEF3C7;--red:#DC2626;--red-lt:#FEE2E2;
+  --ink:#111827;--ink2:#374151;--ink3:#6B7280;--ink4:#9CA3AF;
+  --line:#E5E7EB;--bg:#F9FAFB;--white:#FFFFFF;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  --radius:14px;--shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);min-height:100vh;padding-bottom:80px;}
+
+.topbar{background:var(--white);border-bottom:1px solid var(--line);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-icon{width:30px;height:30px;background:var(--brand);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.logo-text{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.3px;}
+.logo-text span{color:var(--brand);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.lang-pill{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:20px;overflow:hidden;}
+.lbtn{padding:5px 12px;font-size:11px;font-weight:700;font-family:var(--sans);border:none;background:transparent;color:var(--ink3);cursor:pointer;transition:all .15s;letter-spacing:.03em;}
+.lbtn.on{background:var(--brand);color:#fff;border-radius:20px;}
+.pts-chip{display:flex;align-items:center;gap:5px;background:var(--amber-lt);border:1px solid #FDE68A;border-radius:20px;padding:5px 10px;font-size:12px;font-weight:700;color:var(--amber);cursor:pointer;}
+
+.xhead{background:var(--white);border-bottom:1px solid var(--line);padding:14px 16px 16px;}
+.xhead-ey{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink4);margin-bottom:3px;}
+.xhead-name{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.3px;}
+.xhead-sub{font-size:12px;color:var(--ink3);margin-top:3px;}
+
+.hero{margin:14px 14px 0;border-radius:var(--radius);padding:20px 18px 18px;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:background .4s,border .4s;}
+.hero.open{background:#F0FDF4;border:1.5px solid #86EFAC;}
+.hero.closed{background:#FFF5F5;border:1.5px solid #FCA5A5;}
+.hero.soon{background:#FFFBEB;border:1.5px solid #FCD34D;}
+.hero-badge{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.open .hero-badge{background:var(--green-lt);}
+.closed .hero-badge{background:var(--red-lt);}
+.soon .hero-badge{background:var(--amber-lt);}
+.hero-ey{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink4);margin-bottom:6px;}
+.hero-status{font-size:34px;font-weight:800;line-height:1;letter-spacing:-.5px;margin-bottom:4px;}
+.open .hero-status{color:var(--green);}
+.closed .hero-status{color:var(--red);}
+.soon .hero-status{color:var(--amber);}
+.hero-sub{font-size:13px;color:var(--ink2);margin-bottom:16px;line-height:1.4;}
+.hero-time-row{display:flex;align-items:baseline;gap:8px;}
+.hero-clock{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--ink);}
+.hero-date{font-size:12px;color:var(--ink4);}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 14px 0;}
+.stat-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:10px 10px 8px;box-shadow:var(--shadow);}
+.stat-val{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);}
+.stat-lbl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);margin-top:2px;}
+
+.sec{padding:18px 14px 0;}
+.sec-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.sec-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600;}
+
+.tlist{display:flex;flex-direction:column;gap:7px;}
+.tcard{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow);}
+.tcard.t-now{border-color:#FCA5A5;background:#FFF5F5;}
+.tcard.t-next{border-color:#FCD34D;background:#FFFBEB;}
+.tcard-time{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ink);}
+.tcard-name{font-size:12px;color:var(--ink2);margin-top:1px;font-weight:500;}
+.tcard-dir{font-size:11px;color:var(--ink4);margin-top:1px;}
+.tcard-in{font-size:11px;color:var(--amber);font-weight:700;margin-top:2px;}
+.tcard-right{text-align:right;flex-shrink:0;margin-left:10px;}
+.tbadge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;}
+.b-now{background:var(--red);color:#fff;}
+.b-next{background:var(--amber);color:#fff;}
+.b-late{background:var(--bg);color:var(--ink4);border:1px solid var(--line);}
+.tcard-dur{font-size:11px;color:var(--ink4);margin-top:4px;}
+
+.report-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.report-intro{font-size:13px;color:var(--ink2);margin-bottom:14px;line-height:1.5;}
+.report-intro strong{color:var(--ink);}
+.rbtn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.rbtn{border:none;border-radius:10px;padding:13px 10px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:transform .1s,opacity .1s;border:1.5px solid transparent;}
+.rbtn:active{transform:scale(.97);opacity:.85;}
+.rbtn-ico{font-size:22px;}
+.rb-closed{background:var(--red-lt);color:var(--red);border-color:#FCA5A5;}
+.rb-open{background:var(--green-lt);color:var(--green);border-color:#86EFAC;}
+.pts-earn{display:flex;align-items:center;gap:6px;margin-top:12px;padding:10px 12px;background:var(--amber-lt);border:1px solid #FDE68A;border-radius:8px;font-size:12px;color:var(--amber);font-weight:600;}
+.report-thanks{margin-top:10px;text-align:center;font-size:13px;color:var(--green);font-weight:600;min-height:20px;}
+
+.lb-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.lb-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink4);width:24px;flex-shrink:0;}
+.lb-rank.gold{color:#D97706;} .lb-rank.silver{color:#6B7280;} .lb-rank.bronze{color:#92400E;}
+.lb-avatar{width:34px;height:34px;border-radius:50%;background:var(--brand-lt);border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--brand);flex-shrink:0;}
+.lb-info{flex:1;min-width:0;}
+.lb-name{font-size:13px;font-weight:600;color:var(--ink);}
+.lb-sub{font-size:11px;color:var(--ink4);margin-top:2px;}
+.lb-pts{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--amber);flex-shrink:0;}
+.lb-pts-lbl{font-size:10px;color:var(--ink4);text-align:right;}
+.lb-loading{padding:20px;text-align:center;color:var(--ink4);font-size:13px;}
+
+.badge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.badge-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center;box-shadow:var(--shadow);}
+.badge-icon{font-size:26px;margin-bottom:6px;}
+.badge-name{font-size:11px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.badge-req{font-size:10px;color:var(--ink4);line-height:1.3;}
+.badge-card.locked{opacity:.4;}
+
+.profile-strip{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+.profile-avatar{width:44px;height:44px;border-radius:50%;background:var(--brand-lt);border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--brand);flex-shrink:0;}
+.profile-name{font-size:15px;font-weight:700;color:var(--ink);}
+.profile-rank{font-size:12px;color:var(--ink3);margin-top:1px;}
+.profile-pts-big{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--amber);}
+.profile-pts-lbl{font-size:10px;color:var(--ink4);text-align:right;letter-spacing:.05em;text-transform:uppercase;}
+
+.tabs{display:flex;background:var(--white);border-top:1px solid var(--line);position:fixed;bottom:0;left:0;right:0;z-index:100;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 14px;font-size:10px;font-weight:600;color:var(--ink4);cursor:pointer;border:none;background:transparent;font-family:var(--sans);letter-spacing:.03em;transition:color .15s;}
+.tab.on{color:var(--brand);}
+.tab-ico{font-size:20px;}
+.page{display:none;} .page.on{display:block;}
+.divider{height:1px;background:var(--line);margin:18px 14px 0;}
+.foot{padding:16px 14px 0;text-align:center;font-size:11px;color:var(--ink4);line-height:1.7;}
+.foot a{color:var(--ink4);}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-bg.on{display:flex;}
+.modal{background:var(--white);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:500px;}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:6px;}
+.modal p{font-size:13px;color:var(--ink3);margin-bottom:16px;}
+.modal input{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:15px;font-family:var(--sans);color:var(--ink);outline:none;margin-bottom:12px;}
+.modal input:focus{border-color:var(--brand);}
+.modal-btn{width:100%;background:var(--brand);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;font-family:var(--sans);cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- NAME MODAL -->
+<div class="modal-bg on" id="modal-bg">
+  <div class="modal">
+    <h3 id="m-title">Welcome to RailGate Live 🚦</h3>
+    <p id="m-sub">Enter your name to earn points and appear on the leaderboard.</p>
+    <input type="text" id="name-input" placeholder="Your name" maxlength="20">
+    <button class="modal-btn" id="m-btn">Start Reporting →</button>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🚦</div>
+    <div class="logo-text">Rail<span>Gate</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="lang-pill">
+      <button class="lbtn on" id="ben">EN</button>
+      <button class="lbtn" id="bhi">हि</button>
+    </div>
+    <div class="pts-chip" id="pts-chip">
+      ⭐ <span id="pts-display">0 pts</span>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: HOME -->
+<div class="page on" id="page-home">
+  <div class="xhead">
+    <div class="xhead-ey" id="ley">Railway Crossing</div>
+    <div class="xhead-name" id="lname">Barabanki Junction Crossing</div>
+    <div class="xhead-sub">26.9323°N 81.1758°E · BBK Station</div>
+  </div>
+  <div class="hero open" id="hero">
+    <div class="hero-badge" id="hero-ico">🟢</div>
+    <div class="hero-ey" id="lsl">Gate Status</div>
+    <div class="hero-status" id="smain">OPEN</div>
+    <div class="hero-sub" id="ssub">Calculating...</div>
+    <div class="hero-time-row">
+      <div class="hero-clock" id="clk">--:--:--</div>
+      <div class="hero-date" id="dt"></div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat-card"><div class="stat-val">178</div><div class="stat-lbl" id="s1">Trains/Day</div></div>
+    <div class="stat-card"><div class="stat-val">18.6h</div><div class="stat-lbl" id="s2">Closed Daily</div></div>
+    <div class="stat-card"><div class="stat-val" id="s3-val">--</div><div class="stat-lbl" id="s3">Next Open</div></div>
+  </div>
+  <div class="sec">
+    <div class="sec-header"><div class="sec-title" id="lnc">Next Closures</div></div>
+    <div class="tlist" id="tlist"></div>
+  </div>
+  <div class="divider"></div>
+  <div class="foot" id="lft">Schedule-based · 178 trains · BBK station<br>Delays not tracked · Always verify before crossing<br><a href="https://railgatelive.com">railgatelive.com</a></div>
+</div>
+
+<!-- PAGE: REPORT -->
+<div class="page" id="page-report">
+  <div class="sec" style="padding-top:20px">
+    <div class="sec-header"><div class="sec-title" id="lrt">Report Gate Status</div></div>
+    <div class="profile-strip" style="margin-bottom:12px">
+      <div class="profile-avatar" id="r-avatar">?</div>
+      <div class="profile-info">
+        <div class="profile-name" id="r-uname">Anonymous</div>
+        <div class="profile-rank" id="r-rank">0 reports · 0 pts</div>
+      </div>
+    </div>
+    <div class="report-card">
+      <div class="report-intro" id="lri">Is the gate <strong>open or closed</strong> right now?<br>Each report earns you <strong>+10 points</strong>.</div>
+      <div class="rbtn-grid">
+        <button class="rbtn rb-closed" id="btn-closed"><span class="rbtn-ico">🚧</span><span id="lbc">Gate Closed</span></button>
+        <button class="rbtn rb-open" id="btn-open"><span class="rbtn-ico">✅</span><span id="lbo">Gate Open</span></button>
+      </div>
+      <div class="pts-earn">⭐ <span id="lpe">Report to earn +10 points and climb the leaderboard</span></div>
+      <div class="report-thanks" id="rthanks"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: LEADERBOARD -->
+<div class="page" id="page-lb">
+  <div class="sec" style="padding-top:20px">
+    <div class="sec-header"><div class="sec-title" id="llb">Leaderboard</div></div>
+    <div class="profile-strip" style="margin-bottom:12px">
+      <div class="profile-avatar" id="lb-my-avatar">?</div>
+      <div class="profile-info">
+        <div class="profile-name" id="lb-my-name">You</div>
+        <div class="profile-rank" id="lb-my-rank">Rank #-- · Gate Scout</div>
+      </div>
+      <div>
+        <div class="profile-pts-big" id="lb-my-pts">0</div>
+        <div class="profile-pts-lbl">Points</div>
+      </div>
+    </div>
+    <div class="lb-card" id="lb-list"><div class="lb-loading">Loading leaderboard...</div></div>
+    <div id="cycle-info" style="margin-top:8px;text-align:center;font-size:11px;color:var(--ink4);padding:6px 0;"></div>
+  </div>
+  <div class="sec" style="padding-top:16px">
+    <div class="sec-header"><div class="sec-title" id="lbadges">Badges</div></div>
+    <div class="badge-grid">
+      <div class="badge-card" id="badge-scout"><div class="badge-icon">🔭</div><div class="badge-name">Gate Scout</div><div class="badge-req">First report</div></div>
+      <div class="badge-card locked" id="badge-watcher"><div class="badge-icon">👁️</div><div class="badge-name">Rail Watcher</div><div class="badge-req">10 reports</div></div>
+      <div class="badge-card locked" id="badge-guardian"><div class="badge-icon">🛡️</div><div class="badge-name">Gate Guardian</div><div class="badge-req">50 reports</div></div>
+      <div class="badge-card locked" id="badge-legend"><div class="badge-icon">🏆</div><div class="badge-name">Rail Legend</div><div class="badge-req">100 reports</div></div>
+      <div class="badge-card locked" id="badge-streak"><div class="badge-icon">🔥</div><div class="badge-name">On Fire</div><div class="badge-req">7-day streak</div></div>
+      <div class="badge-card locked" id="badge-top"><div class="badge-icon">👑</div><div class="badge-name">Top Reporter</div><div class="badge-req">#1 this week</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM TABS -->
+<div class="tabs">
+  <button class="tab on" id="tab-home"><span class="tab-ico">🚦</span><span id="t1">Status</span></button>
+  <button class="tab" id="tab-report"><span class="tab-ico">📍</span><span id="t2">Report</span></button>
+  <button class="tab" id="tab-lb"><span class="tab-ico">🏆</span><span id="t3">Leaderboard</span></button>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, where, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBEALo0N6pz3-Lm0u7GWwFtf4vsbzOBkhs",
+  authDomain: "railgate-live-f9ae6.firebaseapp.com",
+  projectId: "railgate-live-f9ae6",
+  storageBucket: "railgate-live-f9ae6.firebasestorage.app",
+  messagingSenderId: "524347472918",
+  appId: "1:524347472918:web:15ea8f3a2eb59d53b3c937"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── STRINGS ──────────────────────────────────────────────────
+const S = {
+  en:{ey:'Railway Crossing',nm:'Barabanki Junction Crossing',sl:'Gate Status',op:'OPEN',cl:'CLOSED',sn:'CLOSING SOON',nc:'Next Closures',rt:'Report Gate Status',bc:'Gate Closed',bo:'Gate Open',ri:'Is the gate <strong>open or closed</strong> right now?<br>Each report earns you <strong>+10 points</strong>.',pe:'Report to earn +10 points and climb the leaderboard',th:'✅ Reported! +10 points earned',nx:'NEXT',lt:'LATER',nw:'NOW',inm:m=>`in ${m} min`,dur:d=>`~${d} min`,s1:'Trains/Day',s2:'Closed Daily',s3:'Next Open',lb:'Leaderboard',badges:'Badges',t1:'Status',t2:'Report',t3:'Leaderboard',mTitle:'Welcome to RailGate Live 🚦',mSub:'Enter your name to earn points and appear on the leaderboard.',mBtn:'Start Reporting →',ft:'Schedule-based · 178 trains · BBK station<br>Delays not tracked · Always verify before crossing'},
+  hi:{ey:'रेलवे क्रॉसिंग',nm:'बाराबंकी जंक्शन क्रॉसिंग',sl:'गेट की स्थिति',op:'खुला है',cl:'बंद है',sn:'बंद होने वाला है',nc:'अगले बंद',rt:'गेट की स्थिति बताएं',bc:'गेट बंद है',bo:'गेट खुला है',ri:'अभी गेट <strong>खुला है या बंद</strong>?<br>हर रिपोर्ट पर <strong>+10 अंक</strong> मिलेंगे।',pe:'रिपोर्ट करें और लीडरबोर्ड में ऊपर जाएं',th:'✅ रिपोर्ट हो गई! +10 अंक मिले',nx:'अगला',lt:'बाद में',nw:'अभी',inm:m=>`${m} मिनट में`,dur:d=>`~${d} मिनट`,s1:'ट्रेनें/दिन',s2:'बंद रहता है',s3:'अगली बार खुलेगा',lb:'लीडरबोर्ड',badges:'बैज',t1:'स्थिति',t2:'रिपोर्ट',t3:'लीडरबोर्ड',mTitle:'RailGate Live में आपका स्वागत है 🚦',mSub:'लीडरबोर्ड में आने के लिए अपना नाम डालें।',mBtn:'शुरू करें →',ft:'शेड्यूल आधारित · 178 ट्रेनें · BBK स्टेशन<br>देरी नहीं दिखती · क्रॉस करने से पहले खुद देखें'}
+};
+let lang='en';
+
+// ── USER (localStorage for identity, Firestore for points) ───
+function getLocalUser(){try{return JSON.parse(localStorage.getItem('rgl_user')||'null');}catch(e){return null;}}
+function saveLocalUser(u){localStorage.setItem('rgl_user',JSON.stringify(u));}
+
+// ── FIRESTORE HELPERS ────────────────────────────────────────
+async function fbGetUser(name) {
+  try {
+    const snap = await getDoc(doc(db,'users',name));
+    return snap.exists() ? snap.data() : null;
+  } catch(e) { return null; }
+}
+
+async function fbCreateUser(name) {
+  const u = { name, pts:0, reports:0, badges:[], createdAt:serverTimestamp(), lastSeen:serverTimestamp() };
+  await setDoc(doc(db,'users',name), u);
+  return u;
+}
+
+async function fbAddReport(name, type, distMeters=0) {
+  try {
+    // Update user lifetime pts & reports
+    const ref = doc(db,'users',name);
+    const snap = await getDoc(ref);
+    if(!snap.exists()) return;
+    const data = snap.data();
+    const newReports = (data.reports||0)+1;
+    const newPts = (data.pts||0)+10;
+    const badges = getBadgesForCount(newReports);
+    await setDoc(ref, { pts:newPts, reports:newReports, badges, lastSeen:serverTimestamp() }, {merge:true});
+    // Save report event
+    const rRef = doc(collection(db,'reports'));
+    await setDoc(rRef, { user:name, type, timestamp:serverTimestamp(), crossing:'BBK-1', distMeters });
+    // Update cycle leaderboard
+    await fbAddToLeaderboard(name, newPts, newReports, badges);
+    return { pts:newPts, reports:newReports, badges };
+  } catch(e) { console.error(e); return null; }
+}
+
+// ── LEADERBOARD CYCLE ────────────────────────────────────────
+// Resets every 4 days based on a fixed epoch (Jan 1 2026)
+const CYCLE_DAYS = 4;
+const EPOCH = new Date('2026-01-01T00:00:00+05:30').getTime();
+function getCurrentCycleId(){
+  const daysSinceEpoch = Math.floor((Date.now() - EPOCH) / (CYCLE_DAYS * 86400000));
+  return `cycle_${daysSinceEpoch}`;
+}
+
+async function fbGetLeaderboard() {
+  try {
+    const cycleId = getCurrentCycleId();
+    // Query users who have pts in current cycle
+    const q = query(
+      collection(db,'leaderboard_'+cycleId),
+      orderBy('pts','desc'),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d=>d.data());
+  } catch(e) { return []; }
+}
+
+async function fbAddToLeaderboard(name, newPts, newReports, badges) {
+  try {
+    const cycleId = getCurrentCycleId();
+    const ref = doc(db, 'leaderboard_'+cycleId, name);
+    await setDoc(ref, { name, pts:newPts, reports:newReports, badges, updatedAt:serverTimestamp() }, {merge:true});
+  } catch(e) { console.error('Leaderboard update failed', e); }
+}
+
+// ── RAILRADAR LIVE API (via Cloudflare Worker proxy) ────────
+const RR_KEY = 'rg_586be0229b1c4038ba5c767d8f61d2e1';
+const RR_URL = 'https://late-disk-ad76.sameerabhs6060.workers.dev/';
+const CROSSING_OFFSET_MINS = 5; // gate closes 5 min before train arrives at BBK
+
+let liveData = null;
+let lastLiveFetch = 0;
+const LIVE_CACHE_MS = 5 * 60000; // 5 minutes — stays within 300/day free tier
+
+async function fetchLiveBoard() {
+  if(Date.now() - lastLiveFetch < LIVE_CACHE_MS && liveData !== null) return liveData;
+  try {
+    const res = await fetch(RR_URL);
+    if(!res.ok) throw new Error('API error '+res.status);
+    const json = await res.json();
+    liveData = json;
+    lastLiveFetch = Date.now();
+    return json;
+  } catch(e) {
+    console.warn('RailRadar fetch failed, using schedule', e);
+    return null;
+  }
+}
+
+async function getLiveNextClosure(nowMins) {
+  const board = await fetchLiveBoard();
+  if(!board || !board.success || !board.data || !board.data.trains) return null;
+  const cur = ((nowMins%1440)+1440)%1440;
+  const windows = board.data.trains.map(t => {
+    const live = t.live;
+    const stop = t.stop;
+    if(!live || !live.expectedArrivalTime) return null;
+    const dt = new Date(live.expectedArrivalTime);
+    const h = dt.getHours(), m = dt.getMinutes();
+    const arrMins = h*60+m;
+    const depDt = new Date(live.expectedDepartureTime || live.expectedArrivalTime);
+    const depMins = depDt.getHours()*60+depDt.getMinutes();
+    const gateClose = arrMins - CROSSING_OFFSET_MINS;
+    const gateOpen  = depMins + 2;
+    const delay     = live.delayMinutes || 0;
+    return {
+      name: t.train.name, number: t.train.number,
+      dir: t.train.source+'\u2192'+t.train.destination,
+      gateClose, gateOpen, dur: gateOpen-gateClose, delay,
+      platform: stop.platform || ''
+    };
+  }).filter(Boolean);
+  windows.sort((a,b)=>{
+    const ac=((a.gateClose%1440)+1440)%1440;
+    const bc=((b.gateClose%1440)+1440)%1440;
+    return ac-bc;
+  });
+  for(const w of windows){
+    const cl=((w.gateClose%1440)+1440)%1440,op=cl+w.dur;
+    if(cur>=cl&&cur<op) return{...w,state:'closed',minsLeft:Math.ceil(op-cur)};
+  }
+  let next=windows.find(w=>((w.gateClose%1440)+1440)%1440>cur)||windows[0];
+  if(!next) return null;
+  const cl=((next.gateClose%1440)+1440)%1440;
+  const minsAway=cl>cur?cl-cur:(cl+1440)-cur;
+  if(minsAway<=5) return{...next,state:'soon',minsAway:Math.ceil(minsAway)};
+  return{...next,state:'open',minsAway:Math.ceil(minsAway)};
+}
+
+
+const CROWD_THRESHOLD = 3;      // min reports to override schedule
+const CROWD_WINDOW_MS = 10*60*1000; // 10 minutes
+
+let crowdStatus = null; // { type:'closed'|'open', count:N, fetchedAt:timestamp }
+let lastCrowdFetch = 0;
+
+async function fbGetCrowdStatus() {
+  // Cache for 60 seconds to avoid hammering Firestore
+  if(Date.now() - lastCrowdFetch < 60000 && crowdStatus !== null) return crowdStatus;
+  try {
+    const cutoff = new Date(Date.now() - CROWD_WINDOW_MS);
+    const q = query(
+      collection(db,'reports'),
+      where('crossing','==','BBK-1'),
+      where('timestamp','>',cutoff),
+      orderBy('timestamp','desc'),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    const reports = snap.docs.map(d=>d.data());
+    if(reports.length===0){ crowdStatus=null; lastCrowdFetch=Date.now(); return null; }
+    // Count closed vs open
+    const closed = reports.filter(r=>r.type==='closed').length;
+    const open   = reports.filter(r=>r.type==='open').length;
+    const dominant = closed>=open ? 'closed' : 'open';
+    const count = dominant==='closed' ? closed : open;
+    if(count >= CROWD_THRESHOLD){
+      crowdStatus = { type:dominant, count, total:reports.length };
+    } else {
+      crowdStatus = null;
+    }
+    lastCrowdFetch = Date.now();
+    return crowdStatus;
+  } catch(e) { return null; }
+}
+
+// ── BADGES ───────────────────────────────────────────────────
+function getBadgesForCount(n) {
+  const b=[];
+  if(n>=1)   b.push('scout');
+  if(n>=10)  b.push('watcher');
+  if(n>=50)  b.push('guardian');
+  if(n>=100) b.push('legend');
+  return b;
+}
+
+function updateBadgeUI(badges=[]) {
+  ['scout','watcher','guardian','legend','streak','top'].forEach(id=>{
+    document.getElementById('badge-'+id)?.classList.toggle('locked',!badges.includes(id));
+  });
+}
+
+// ── NAME MODAL ───────────────────────────────────────────────
+window.saveName = async function() {
+  const inp = document.getElementById('name-input').value.trim();
+  if(!inp) return;
+  const btn = document.getElementById('m-btn');
+  btn.textContent='Saving...'; btn.disabled=true;
+  // Check if name exists in Firestore
+  let fbUser = await fbGetUser(inp);
+  if(!fbUser) fbUser = await fbCreateUser(inp);
+  const localU = { name:inp, pts:fbUser.pts||0, reports:fbUser.reports||0, badges:fbUser.badges||[] };
+  saveLocalUser(localU);
+  document.getElementById('modal-bg').classList.remove('on');
+  updateProfileUI(localU);
+  btn.textContent='Start Reporting →'; btn.disabled=false;
+};
+
+// ── PROFILE UI ───────────────────────────────────────────────
+function updateProfileUI(u) {
+  if(!u) return;
+  const init = u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('pts-display').textContent = u.pts+' pts';
+  document.getElementById('r-avatar').textContent = init;
+  document.getElementById('r-uname').textContent = u.name;
+  document.getElementById('r-rank').textContent = `${u.reports} reports · ${u.pts} pts`;
+  document.getElementById('lb-my-avatar').textContent = init;
+  document.getElementById('lb-my-name').textContent = u.name;
+  document.getElementById('lb-my-pts').textContent = u.pts;
+  let rank='Gate Scout';
+  if(u.reports>=100) rank='Rail Legend';
+  else if(u.reports>=50) rank='Gate Guardian';
+  else if(u.reports>=10) rank='Rail Watcher';
+  document.getElementById('lb-my-rank').textContent=`${u.reports} reports · ${rank}`;
+  updateBadgeUI(u.badges||[]);
+}
+
+// ── REPORT ───────────────────────────────────────────────────
+// Crossing coordinates
+const CROSSING_LAT = 26.9323420;
+const CROSSING_LNG = 81.1758840;
+const MAX_DIST_M   = 300;
+
+function getDistanceMeters(lat1,lng1,lat2,lng2){
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function checkLocation(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){ reject('no_gps'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve(pos.coords),
+      err=>reject(err.code===1?'denied':'error'),
+      {enableHighAccuracy:true,timeout:8000,maximumAge:0}
+    );
+  });
+}
+
+window.report = async function(type) {
+  const T=S[lang];
+  const localU=getLocalUser();
+  if(!localU){ document.getElementById('modal-bg').classList.add('on'); return; }
+  const thanks=document.getElementById('rthanks');
+
+  // Step 1 — check location
+  thanks.textContent = lang==='hi' ? '📍 लोकेशन चेक हो रही है...' : '📍 Checking your location...';
+  let coords;
+  try {
+    coords = await checkLocation();
+  } catch(err) {
+    if(err==='denied'){
+      thanks.style.color='var(--red)';
+      thanks.textContent = lang==='hi'
+        ? '❌ लोकेशन की अनुमति दें — रिपोर्ट के लिए जरूरी है'
+        : '❌ Allow location access to report gate status';
+    } else {
+      thanks.style.color='var(--red)';
+      thanks.textContent = lang==='hi'
+        ? '❌ GPS नहीं मिला — बाहर जाकर कोशिश करें'
+        : '❌ Could not get GPS — try outside';
+    }
+    setTimeout(()=>{ thanks.textContent=''; thanks.style.color=''; },4000);
+    return;
+  }
+
+  // Step 2 — check distance
+  const dist = Math.round(getDistanceMeters(coords.latitude, coords.longitude, CROSSING_LAT, CROSSING_LNG));
+  if(dist > MAX_DIST_M){
+    thanks.style.color='var(--red)';
+    thanks.textContent = lang==='hi'
+      ? `❌ आप क्रॉसिंग से ${dist}m दूर हैं — 300m के अंदर आएं`
+      : `❌ You are ${dist}m away — must be within 300m of crossing`;
+    setTimeout(()=>{ thanks.textContent=''; thanks.style.color=''; },4000);
+    return;
+  }
+
+  // Step 3 — save report
+  thanks.style.color='';
+  thanks.textContent = lang==='hi' ? '✅ सेव हो रहा है...' : 'Saving...';
+  const updated = await fbAddReport(localU.name, type, dist);
+  if(updated){
+    const newU={...localU,pts:updated.pts,reports:updated.reports,badges:updated.badges};
+    saveLocalUser(newU);
+    updateProfileUI(newU);
+    thanks.style.color='var(--green)';
+    thanks.textContent = lang==='hi'
+      ? `✅ रिपोर्ट हो गई! +10 अंक (${dist}m दूर से)`
+      : `✅ Reported! +10 points (${dist}m from crossing)`;
+  } else {
+    thanks.style.color='var(--red)';
+    thanks.textContent = lang==='hi' ? '❌ सेव नहीं हुआ — दोबारा कोशिश करें' : '❌ Save failed — try again';
+  }
+  setTimeout(()=>{ thanks.textContent=''; thanks.style.color=''; },4000);
+};
+
+// ── LEADERBOARD ──────────────────────────────────────────────
+async function renderLeaderboard() {
+  const el=document.getElementById('lb-list');
+  el.innerHTML='<div class="lb-loading">Loading...</div>';
+  const board = await fbGetLeaderboard();
+  const localU = getLocalUser();
+
+  // Show cycle reset countdown
+  const cycleEl = document.getElementById('cycle-info');
+  const daysSinceEpoch = Math.floor((Date.now() - EPOCH) / (CYCLE_DAYS * 86400000));
+  const nextReset = new Date(EPOCH + (daysSinceEpoch + 1) * CYCLE_DAYS * 86400000);
+  const daysLeft = Math.ceil((nextReset - Date.now()) / 86400000);
+  const hoursLeft = Math.ceil((nextReset - Date.now()) / 3600000);
+  const timeLeft = hoursLeft < 24 ? `${hoursLeft}h` : `${daysLeft} days`;
+  cycleEl.innerHTML = `🔄 Leaderboard resets in <strong>${timeLeft}</strong> · Every 4 days`;
+
+  if(!board.length){ el.innerHTML='<div class="lb-loading">No reporters yet — be the first!</div>'; return; }
+  const rankEmoji=['🥇','🥈','🥉'];
+  const rankClass=['gold','silver','bronze'];
+  el.innerHTML='';
+  board.forEach((row,i)=>{
+    const init=row.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const isMe=localU&&row.name===localU.name;
+    const badgeMap={scout:'Gate Scout',watcher:'Rail Watcher',guardian:'Gate Guardian',legend:'Rail Legend'};
+    const pills=(row.badges||[]).slice(0,2).map(b=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600;background:#FEF3C7;color:#92400E">${badgeMap[b]||b}</span>`).join(' ');
+    el.innerHTML+=`<div class="lb-row" style="${isMe?'background:#FFF7F0;':''}"><div class="lb-rank ${rankClass[i]||''}">${rankEmoji[i]||'#'+(i+1)}</div><div class="lb-avatar">${init}</div><div class="lb-info"><div class="lb-name">${row.name}${isMe?' (You)':''}</div><div class="lb-sub">${row.reports||0} reports · ${pills}</div></div><div><div class="lb-pts">${row.pts||0}</div><div class="lb-pts-lbl">pts</div></div></div>`;
+  });
+  if(localU){
+    const myIdx=board.findIndex(r=>r.name===localU.name);
+    if(myIdx>=0) document.getElementById('lb-my-rank').textContent=`Rank #${myIdx+1} · ${localU.reports} reports`;
+  }
+}
+
+// ── TRAIN ENGINE ─────────────────────────────────────────────
+const TRAINS=[
+  {a:[0,6],d:[0,8],n:"Ayodhya Cantt - Bhavnagar Exp",dir:"FD→BCT",days:"daily"},
+  {a:[0,20],d:[0,22],n:"Krishak Express",dir:"LKO→GKP",days:"daily"},
+  {a:null,d:[0,21],n:"Bhagat Ki Kothi - Kamakhya",dir:"BGKT→KYQ",days:"wed"},
+  {a:[0,19],d:[0,19],n:"NJP - Anand Vihar Exp",dir:"NJP→ANVT",days:"daily"},
+  {a:[0,30],d:[0,30],n:"GKP - ANVT Humsafar (Basti)",dir:"GKP→ANVT",days:"daily"},
+  {a:[0,35],d:[0,35],n:"GKP - ANVT Humsafar (Barhni)",dir:"GKP→ANVT",days:"daily"},
+  {a:[0,36],d:[0,38],n:"Udaipur City - NJP Exp",dir:"UDZ→NJP",days:"sat"},
+  {a:[3,3],d:[3,5],n:"Rapti Ganga Express",dir:"LKO→GKP",days:"daily"},
+  {a:[3,3],d:[3,5],n:"Rapti Ganga Express",dir:"LKO→GKP",days:"wed_fri"},
+  {a:[3,53],d:[3,55],n:"Avadh Assam Express",dir:"LKO→DBRG",days:"daily"},
+  {a:[1,46],d:[1,48],n:"Sabarmati Express",dir:"ADI→GKP",days:"daily"},
+  {a:[1,46],d:[1,48],n:"Sabarmati Express",dir:"ADI→GKP",days:"daily"},
+  {a:[2,8],d:[2,10],n:"Marudhar Express",dir:"JP→CPR",days:"daily"},
+  {a:[2,8],d:[2,10],n:"NJP - Udaipur City Exp",dir:"NJP→UDZ",days:"tue"},
+  {a:[5,20],d:[5,20],n:"Garib Rath Express",dir:"LKO→GKP",days:"daily"},
+  {a:[4,23],d:[4,25],n:"Krishak Express",dir:"GKP→LKO",days:"daily"},
+  {a:[4,46],d:[4,48],n:"Avadh Express",dir:"BCT→GKP",days:"daily"},
+  {a:[4,4],d:[4,6],n:"Ayodhya Express",dir:"FD→LKO",days:"daily"},
+  {a:[5,2],d:[5,4],n:"Kaifiyat SF Express",dir:"GKP→NDLS",days:"daily"},
+  {a:[5,15],d:[5,17],n:"LKO-Faizabad Passenger",dir:"LKO→FD",days:"daily"},
+  {a:[5,21],d:[5,23],n:"Vaishali Express",dir:"GKP→NDLS",days:"daily"},
+  {a:[5,23],d:[5,25],n:"Varanasi - Bareilly Exp",dir:"BSB→BE",days:"daily"},
+  {a:[5,48],d:[5,50],n:"Gorakhdham SF Express",dir:"GKP→NDLS",days:"daily"},
+  {a:[5,58],d:[6,0],n:"Utsarg Express",dir:"GKP→LKO",days:"daily"},
+  {a:[5,58],d:[5,58],n:"Lucknow Jn - Patliputra Exp",dir:"LJN→PNBE",days:"daily"},
+  {a:null,d:[6,50],n:"BBK - Kanpur Central MEMU",dir:"BBK→CNB",days:"mon_sat"},
+  {a:[6,48],d:[6,50],n:"GTNR - GKP Intercity",dir:"GTNR→GKP",days:"daily"},
+  {a:[7,51],d:[7,53],n:"Nakha Jungle - Daliganj Pass",dir:"NKE→DAL",days:"daily"},
+  {a:[7,48],d:[7,50],n:"Bagh Express",dir:"KOAA→LKO",days:"daily"},
+  {a:[9,18],d:[9,20],n:"GKP - Aishbagh Intercity",dir:"GKP→ASH",days:"daily"},
+  {a:[8,4],d:[8,6],n:"Mumbai Bandra - GKP Exp",dir:"BDTS→GKP",days:"sun"},
+  {a:[8,16],d:[8,18],n:"Faizabad - LKO Passenger",dir:"FD→LKO",days:"daily"},
+  {a:[8,25],d:[8,30],n:"Udhna-Ayodhya Cantt Summer Spl",dir:"UDN→AYC",days:"special"},
+  {a:[8,58],d:[9,0],n:"Chhapra - Sabarmati Exp",dir:"CPR→ADI",days:"daily"},
+  {a:[9,0],d:[9,2],n:"Farakka Express",dir:"ANVT→MFP",days:"daily"},
+  {a:[9,16],d:[9,18],n:"Mathura - Chhapra Exp",dir:"MTJ→CPR",days:"daily"},
+  {a:[9,24],d:[9,26],n:"Doon Express",dir:"HW→LKO",days:"daily"},
+  {a:[9,39],d:[9,39],n:"Muzaffarpur - Sabarmati Jan Sadh",dir:"MFP→ADI",days:"daily"},
+  {a:[9,43],d:[9,45],n:"Barauni - Gwalior Mail",dir:"BUI→GWL",days:"daily"},
+  {a:[9,49],d:[9,49],n:"Mumbai Bandra - GKP Antyodaya",dir:"BDTS→GKP",days:"mon"},
+  {a:[9,50],d:null,n:"LKO - BBK MEMU",dir:"LKO→BBK",days:"daily"},
+  {a:[9,53],d:[9,55],n:"Kolkata - Jammu Tawi Express",dir:"KOAA→JAT",days:"daily"},
+  {a:[10,8],d:[10,10],n:"GKP - LJN Intercity",dir:"GKP→LJN",days:"daily"},
+  {a:null,d:[10,10],n:"BBK - LKO Charbagh MEMU",dir:"BBK→LKO",days:"daily"},
+  {a:[10,25],d:[10,27],n:"Rapti Sagar SF Express",dir:"TVC→GKP",days:"daily"},
+  {a:[10,29],d:[10,31],n:"Anand Vihar - Chhapra Amrit Bh",dir:"ANVT→CPR",days:"daily"},
+  {a:[10,50],d:[10,50],n:"Gomti Nagar - Kamakhya Exp",dir:"GTNR→KYQ",days:"daily"},
+  {a:[10,51],d:[10,53],n:"Rapti Sagar SF Express",dir:"GKP→TVC",days:"daily"},
+  {a:[11,0],d:[11,0],n:"Sitamarhi - Delhi Amrit Bharat",dir:"SVJ→DLI",days:"daily"},
+  {a:[11,2],d:[11,4],n:"Varanasi - LKO Intercity",dir:"BSB→LKO",days:"daily"},
+  {a:[11,16],d:[11,18],n:"Madar - Darbhanga Amrit Bharat",dir:"MDAR→DBG",days:"daily"},
+  {a:[11,23],d:[11,25],n:"Barauni - Lucknow Exp",dir:"BUI→LKO",days:"daily"},
+  {a:[11,25],d:[11,27],n:"Mau - Valsad Summer Spl",dir:"MAU→BL",days:"special"},
+  {a:[11,43],d:[11,45],n:"LKO Charbagh - Varanasi Pass",dir:"LKO→BSB",days:"daily"},
+  {a:[11,48],d:[11,48],n:"Chandigarh - Dibrugarh Exp",dir:"CDG→DBRG",days:"daily"},
+  {a:[11,53],d:[11,55],n:"Ganga Sutlej Express",dir:"FZR→CPR",days:"daily"},
+  {a:[12,8],d:[12,10],n:"GKP HYB SPL",dir:"GKP→HYB",days:"special"},
+  {a:[12,16],d:[12,18],n:"Sabarmati - Chhapra Express",dir:"ADI→CPR",days:"fri_sat"},
+  {a:[12,20],d:[12,22],n:"Chhapra - Mathura Express",dir:"CPR→MTJ",days:"daily"},
+  {a:[12,30],d:[12,30],n:"Purulia - Anand Vihar Exp",dir:"PRR→ANVT",days:"daily"},
+  {a:[12,36],d:[12,38],n:"Dibrugarh - GTNR Amrit Bharat",dir:"DBRG→GTNR",days:"daily"},
+  {a:[12,49],d:[12,51],n:"GKP - Mumbai Bandra Exp",dir:"GKP→BDTS",days:"daily"},
+  {a:[12,49],d:[12,49],n:"Antyodaya Express",dir:"GKP→LTT",days:"daily"},
+  {a:[13,6],d:[13,6],n:"Vande Bharat Express",dir:"GKP→LKO",days:"daily"},
+  {a:[13,14],d:[13,16],n:"Ganga Sutlej Express",dir:"CPR→FZR",days:"daily"},
+  {a:[13,14],d:[13,14],n:"Varanasi - Meerut Vande Bharat",dir:"BSB→MUT",days:"daily"},
+  {a:[13,30],d:null,n:"LKO - BBK MEMU",dir:"LKO→BBK",days:"daily"},
+  {a:null,d:[13,35],n:"BBK - Aishbagh MEMU",dir:"BBK→ASH",days:"daily"},
+  {a:[13,53],d:[13,53],n:"Antyodaya Express",dir:"LTT→GKP",days:"daily"},
+  {a:[13,54],d:[13,54],n:"Yesvantpur - GKP Express",dir:"YPR→GKP",days:"daily"},
+  {a:[14,9],d:[14,9],n:"Pune - GKP Express",dir:"PUNE→GKP",days:"daily"},
+  {a:[14,12],d:[14,12],n:"Vande Bharat Express",dir:"LKO→GKP",days:"daily"},
+  {a:[14,13],d:[14,15],n:"Jallianwala Bagh Express",dir:"ASR→GKP",days:"daily"},
+  {a:[14,15],d:[14,15],n:"Jallianwala Bagh Express",dir:"GKP→ASR",days:"daily"},
+  {a:[14,16],d:[14,16],n:"Meerut City - Varanasi VB Exp",dir:"MUT→BSB",days:"daily"},
+  {a:[14,47],d:[14,47],n:"GKP - Yesvantpur Exp",dir:"GKP→YPR",days:"tue"},
+  {a:[14,48],d:[14,50],n:"Okha - GKP Express",dir:"OKHA→GKP",days:"daily"},
+  {a:[14,55],d:[14,55],n:"Bhagat Ki Kothi - Kamakhya",dir:"BGKT→KYQ",days:"wed"},
+  {a:[15,5],d:[15,5],n:"Sushasan Express",dir:"GKP→LKO",days:"daily"},
+  {a:[15,7],d:[15,9],n:"Varanasi - LKO Charbagh Pass",dir:"BSB→LKO",days:"daily"},
+  {a:[15,13],d:[15,13],n:"Malda Town - GTNR Amrit Bharat",dir:"MLDT→GTNR",days:"daily"},
+  {a:[15,38],d:[15,38],n:"Vande Bharat Express",dir:"LKO→GKP",days:"daily"},
+  {a:[15,45],d:null,n:"LKO - BBK MEMU",dir:"LKO→BBK",days:"daily"},
+  {a:[15,56],d:[15,58],n:"Panvel - GKP Express",dir:"PNVL→GKP",days:"daily"},
+  {a:[15,59],d:[15,59],n:"Amarnath SF Express",dir:"GKP→SVDK",days:"daily"},
+  {a:[16,3],d:[16,3],n:"Kamakhya - Gandhidham Exp",dir:"KYQ→GIMB",days:"tue"},
+  {a:[16,5],d:[16,5],n:"Guwahati - Okha Dwarka Exp",dir:"GHY→OKHA",days:"tue"},
+  {a:[16,11],d:[16,13],n:"GTNR - Godda Express",dir:"GTNR→GDEA",days:"fri"},
+  {a:[16,14],d:[16,14],n:"Sabarmati - Muzaffarpur Jan Sadh",dir:"ADI→MFP",days:"daily"},
+  {a:null,d:[16,15],n:"BBK - LKO MEMU",dir:"BBK→LKO",days:"daily"},
+  {a:[16,24],d:[16,26],n:"Bhavnagar - Ayodhya Cantt Exp",dir:"BVP→AYC",days:"daily"},
+  {a:[16,33],d:[16,35],n:"Amrapali Express",dir:"GKP→ASN",days:"daily"},
+  {a:[16,38],d:[16,40],n:"Lucknow - Barauni Express",dir:"LKO→BUI",days:"daily"},
+  {a:[16,45],d:[16,45],n:"Vande Bharat Express",dir:"GKP→LKO",days:"daily"},
+  {a:[16,51],d:[16,53],n:"LKO - Varanasi Intercity",dir:"LKO→BSB",days:"daily"},
+  {a:[17,6],d:[17,8],n:"LJN - GKP Intercity",dir:"LJN→GKP",days:"daily"},
+  {a:[17,10],d:[17,15],n:"Ayodhya Cantt Summer Special",dir:"AYC→UDN",days:"special"},
+  {a:[17,26],d:[17,28],n:"Farakka Express",dir:"MFP→ANVT",days:"daily"},
+  {a:[17,27],d:[17,28],n:"Sadbhavana Express",dir:"LKO→ASR",days:"fri"},
+  {a:[17,28],d:[17,30],n:"Aishbagh - GKP Intercity",dir:"ASH→GKP",days:"daily"},
+  {a:[17,46],d:[17,48],n:"Jammu Tawi - Kolkata Express",dir:"JAT→KOAA",days:"daily"},
+  {a:[17,50],d:[17,52],n:"LKO - Faizabad Passenger",dir:"LKO→FD",days:"daily"},
+  {a:[17,53],d:[17,53],n:"Mour Dhwaj Express",dir:"GKP→LKO",days:"daily"},
+  {a:[18,3],d:[18,5],n:"Faizabad - LKO Charbagh Pass",dir:"FD→LKO",days:"daily"},
+  {a:[18,16],d:[18,18],n:"Darbhanga - Khatipura Amrit Bh",dir:"DBG→JP",days:"daily"},
+  {a:[18,23],d:[18,25],n:"Daliganj - Nakha Jungle Pass",dir:"DAL→NKE",days:"daily"},
+  {a:[18,45],d:[18,45],n:"Amarnath Express",dir:"SVDK→GKP",days:"daily"},
+  {a:[18,46],d:[18,48],n:"Avadh Assam Express",dir:"DBRG→LKO",days:"daily"},
+  {a:[18,48],d:[18,50],n:"Ayodhya Express",dir:"LKO→FD",days:"daily"},
+  {a:[18,51],d:[18,51],n:"Prayagraj - GKP Vande Bharat",dir:"PRYJ→GKP",days:"daily"},
+  {a:[18,58],d:[18,58],n:"GTNR - Malda Town Amrit Bharat",dir:"GTNR→MLDT",days:"daily"},
+  {a:[19,6],d:[19,8],n:"Darbhanga - Madar Amrit Bharat",dir:"DBG→MDAR",days:"daily"},
+  {a:[19,10],d:[19,15],n:"BRC GKP SPL",dir:"BRC→GKP",days:"special"},
+  {a:[19,12],d:[19,14],n:"GTNR - Dibrugarh Amrit Bharat",dir:"GTNR→DBRG",days:"daily"},
+  {a:[19,13],d:[19,13],n:"Garib Rath Express",dir:"GKP→LKO",days:"daily"},
+  {a:[19,13],d:[19,15],n:"Doon Express",dir:"LKO→HW",days:"daily"},
+  {a:[19,20],d:[19,22],n:"ANVT - Ayodhya Cantt Summer Spl",dir:"ANVT→AYC",days:"special"},
+  {a:[19,35],d:[19,37],n:"Nakaha Jungle - Lucknow Pass",dir:"NKE→LKO",days:"daily"},
+  {a:[19,45],d:[19,45],n:"Bihar Sampark Kranti Exp",dir:"MFP→NDLS",days:"daily"},
+  {a:[19,45],d:null,n:"LKO - BBK MEMU",dir:"LKO→BBK",days:"daily"},
+  {a:[19,48],d:[19,50],n:"Ayodhya Cantt - ANVT Summer Spl",dir:"AYC→ANVT",days:"special"},
+  {a:[19,54],d:[19,56],n:"GKP - GTNR Intercity",dir:"GKP→GTNR",days:"daily"},
+  {a:[20,6],d:[20,6],n:"Bapudham Motihari - ANVT Amrit Bh",dir:"BPUH→ANVT",days:"daily"},
+  {a:null,d:[20,15],n:"BBK - LKO MEMU",dir:"BBK→LKO",days:"daily"},
+  {a:[20,33],d:[20,35],n:"Gorakhdham SF Express",dir:"LKO→GKP",days:"daily"},
+  {a:[20,48],d:[20,50],n:"Utsarg Express",dir:"LKO→GKP",days:"daily"},
+  {a:[20,56],d:[20,58],n:"Vaishali Express",dir:"NDLS→GKP",days:"daily"},
+  {a:[20,56],d:[20,56],n:"Bihar Sampark Kranti Exp",dir:"NDLS→MFP",days:"daily"},
+  {a:[21,1],d:[21,3],n:"Sabarmati Express",dir:"GKP→ADI",days:"daily"},
+  {a:[21,25],d:null,n:"Kanpur Central - BBK MEMU",dir:"CNB→BBK",days:"daily"},
+  {a:[21,28],d:[21,30],n:"Gwalior - Barauni Mail",dir:"GWL→BUI",days:"daily"},
+  {a:[21,36],d:[21,36],n:"Okha - Guwahati Dwarka Exp",dir:"OKHA→GHY",days:"sat"},
+  {a:[21,39],d:[21,41],n:"Kaifiyat SF Express",dir:"NDLS→GKP",days:"daily"},
+  {a:[21,46],d:[21,48],n:"GTNR - Chhapra Express",dir:"GTNR→CPR",days:"daily"},
+  {a:[21,53],d:[21,53],n:"Loknayak Express",dir:"GKP→LKO",days:"sun"},
+  {a:[21,55],d:[21,55],n:"Patna - Indore Express",dir:"PNBE→INDB",days:"mon"},
+  {a:[21,56],d:[21,56],n:"GKP PUNE Express",dir:"GKP→PUNE",days:"tue"},
+  {a:[22,3],d:[22,5],n:"Kushinagar SF Express",dir:"LKO→GKP",days:"daily"},
+  {a:[22,17],d:[22,17],n:"Lucknow - Chhapra Express",dir:"LKO→CPR",days:"daily"},
+  {a:[22,34],d:[22,34],n:"Patna - Kota Express",dir:"PNBE→KOTA",days:"daily"},
+  {a:[22,41],d:[22,43],n:"Varanasi - Bareilly Express",dir:"BSB→BE",days:"daily"},
+  {a:[22,46],d:[22,48],n:"Avadh Express",dir:"GKP→BCT",days:"daily"},
+  {a:[22,49],d:[22,49],n:"Delhi - Sitamarhi Amrit Bharat",dir:"DLI→SVJ",days:"daily"},
+  {a:[22,51],d:[22,51],n:"Amrit Bharat Express",dir:"GKP→HWH",days:"daily"},
+  {a:[22,52],d:[22,54],n:"Marudhar Express",dir:"CPR→JP",days:"daily"},
+  {a:[22,52],d:[22,52],n:"Sapt Kranti SF Express",dir:"GKP→NDLS",days:"daily"},
+  {a:[23,1],d:[23,1],n:"ANVT - Bapudham Motihari Amrit Bh",dir:"ANVT→BPUH",days:"daily"},
+  {a:[23,13],d:[23,13],n:"Sapt Kranti SF Express",dir:"NDLS→GKP",days:"daily"},
+  {a:[23,18],d:[23,20],n:"Bagh Express",dir:"LKO→KOAA",days:"daily"},
+  {a:[23,49],d:[23,49],n:"Arunachal AC SF Express",dir:"ANVT→DBRG",days:"daily"},
+  {a:[23,51],d:[23,53],n:"Izzatnagar - GKP Express",dir:"IZN→GKP",days:"daily"},
+  {a:[23,53],d:[23,55],n:"Shaheed Express",dir:"GKP→ASR",days:"daily"},
+  {a:[2,43],d:[2,43],n:"Poorabiya Express",dir:"GKP→ANVT",days:"daily"},
+  {a:[2,45],d:[2,47],n:"Kushinagar SF Express",dir:"GKP→LKO",days:"daily"},
+  {a:[3,14],d:[3,14],n:"ANVT - GKP Humsafar",dir:"ANVT→GKP",days:"daily"},
+  {a:[3,19],d:[3,19],n:"Champaran Humsafar Express",dir:"ANVT→MFP",days:"daily"},
+  {a:[3,21],d:[3,23],n:"Amrapali Express",dir:"ASN→GKP",days:"daily"},
+  {a:[3,27],d:[3,27],n:"Jallianwala Bagh Express",dir:"GKP→ASR",days:"daily"},
+  {a:[3,31],d:[3,31],n:"Arunachal AC SF Express",dir:"DBRG→ANVT",days:"daily"},
+  {a:[3,37],d:[3,37],n:"Amritsar - NJP Amrit Bharat",dir:"ASR→NJP",days:"daily"},
+  {a:[3,38],d:[3,38],n:"Garib Nawaz Express",dir:"GKP→AII",days:"daily"},
+  {a:[3,40],d:[3,40],n:"Garib Rath Express",dir:"LKO→GKP",days:"daily"},
+  {a:[4,9],d:[4,9],n:"Sushasan Express",dir:"LKO→GKP",days:"daily"},
+  {a:[4,23],d:[4,25],n:"Krishak Express",dir:"GKP→LKO",days:"daily"},
+  {a:[4,31],d:[4,31],n:"Amrit Bharat Express",dir:"HWH→GKP",days:"daily"},
+  {a:[4,46],d:[4,48],n:"Avadh Express",dir:"BCT→GKP",days:"daily"},
+  {a:[4,58],d:[4,58],n:"New Tinsukia - Amritsar Exp",dir:"NTSK→ASR",days:"tue"},
+  {a:[5,6],d:[5,8],n:"GKP - Izzatnagar Express",dir:"GKP→IZN",days:"daily"},
+  {a:[6,6],d:[6,6],n:"Porbandar - Muzaffarpur Exp",dir:"PBR→MFP",days:"daily"},
+  {a:[6,41],d:[6,43],n:"Godda - GTNR Express",dir:"GDEA→GTNR",days:"sat"},
+  {a:[7,1],d:[7,3],n:"Saryu Yamuna Express",dir:"CPR→BE",days:"daily"},
+  {a:[7,7],d:[7,7],n:"Mumbai LTT - Azamgarh SF Exp",dir:"LTT→AZ",days:"daily"},
+  {a:[7,15],d:[7,15],n:"Chhapra - Lucknow Express",dir:"CPR→LKO",days:"daily"},
+  {a:[7,16],d:[7,18],n:"Shaheed Express",dir:"ASR→GKP",days:"daily"},
+  {a:[7,34],d:[7,34],n:"Kota - Patna Express",dir:"KOTA→PNBE",days:"daily"},
+  {a:[8,36],d:[8,36],n:"GTNR - Darbhanga Amrit Bharat",dir:"GTNR→DBG",days:"daily"},
+  {a:[9,0],d:[9,2],n:"Farakka Express (AYC)",dir:"ANVT→MFP",days:"daily"},
+  {a:[9,39],d:[9,39],n:"GKP - Mumbai Bandra Antyodaya",dir:"GKP→BDTS",days:"daily"}
+];
+
+const B4=3,AF=2;
+function tm(t){return t?t[0]*60+t[1]:null;}
+function fmt12(m){m=((m%1440)+1440)%1440;const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;return `${h12}:${String(mn).padStart(2,'0')} ${ap}`;}
+const WINS=TRAINS.map(t=>{let a=tm(t.a),d=tm(t.d);if(a===null&&d===null)return null;if(a===null)a=d;if(d===null)d=a+3;return{n:t.n,dir:t.dir,cl:a-B4,op:d+AF,dur:(d+AF)-(a-B4)};}).filter(Boolean).sort((a,b)=>a.cl-b.cl);
+
+function getIST(){const n=new Date(),utc=n.getTime()+n.getTimezoneOffset()*60000;return new Date(utc+5.5*3600000);}
+function nowMins(){const n=getIST();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
+
+function getStatus(nm){const cur=((nm%1440)+1440)%1440;for(const w of WINS){const cl=((w.cl%1440)+1440)%1440,op=cl+w.dur;if(cur>=cl&&cur<op)return{state:'closed',w,left:Math.ceil(op-cur)};}let nxt=WINS.find(w=>((w.cl%1440)+1440)%1440>cur)||WINS[0];const ncl=((nxt.cl%1440)+1440)%1440,away=ncl>cur?ncl-cur:(ncl+1440)-cur;if(away<=5)return{state:'soon',w:nxt,away:Math.ceil(away)};return{state:'open',w:nxt,away:Math.ceil(away)};}
+function upcoming(nm,n=5){const cur=((nm%1440)+1440)%1440,res=[];for(const w of WINS){if(res.length>=n)break;const cl=((w.cl%1440)+1440)%1440;if(cl>cur)res.push({...w,away:cl-cur,cl});}for(const w of WINS){if(res.length>=n)break;const cl=((w.cl%1440)+1440)%1440;if(cl<=cur)res.push({...w,away:(cl+1440)-cur,cl});}return res.slice(0,n);}
+
+// ── RENDER ───────────────────────────────────────────────────
+async function render(){
+  const T=S[lang],nm=nowMins(),st=getStatus(nm);
+
+  // Static labels
+  document.getElementById('ley').textContent=T.ey;
+  document.getElementById('lname').textContent=T.nm;
+  document.getElementById('lsl').textContent=T.sl;
+  document.getElementById('lnc').textContent=T.nc;
+  document.getElementById('lrt').textContent=T.rt;
+  document.getElementById('lbc').textContent=T.bc;
+  document.getElementById('lbo').textContent=T.bo;
+  document.getElementById('llb').textContent=T.lb;
+  document.getElementById('lbadges').textContent=T.badges;
+  document.getElementById('lri').innerHTML=T.ri;
+  document.getElementById('lpe').textContent=T.pe;
+  document.getElementById('s1').textContent=T.s1;
+  document.getElementById('s2').textContent=T.s2;
+  document.getElementById('s3').textContent=T.s3;
+  document.getElementById('t1').textContent=T.t1;
+  document.getElementById('t2').textContent=T.t2;
+  document.getElementById('t3').textContent=T.t3;
+  document.getElementById('lft').innerHTML=T.ft+'<br><a href="https://railgatelive.com">railgatelive.com</a>';
+  document.getElementById('m-title').textContent=T.mTitle;
+  document.getElementById('m-sub').textContent=T.mSub;
+  document.getElementById('m-btn').textContent=T.mBtn;
+
+  // Fetch crowd status
+  const crowd = await fbGetCrowdStatus();
+  const liveNext = await getLiveNextClosure(nm);
+
+  // Priority: 1) Crowd reports (3+ in 10 min) → 2) RailRadar live → 3) Schedule
+  let effectiveState = st.state;
+  let isLive = false;
+  let isRailRadar = false;
+  let liveSource = null;
+
+  if(crowd){
+    effectiveState = crowd.type;
+    isLive = true;
+  } else if(liveNext){
+    // Use RailRadar data to refine next closure
+    isRailRadar = true;
+    liveSource = liveNext;
+    const cur = ((nm%1440)+1440)%1440;
+    const cl  = ((liveNext.gateClose%1440)+1440)%1440;
+    const op  = cl + liveNext.dur;
+    if(cur >= cl && cur < op)      effectiveState = 'closed';
+    else if(cl - cur <= 5)         effectiveState = 'soon';
+    else                           effectiveState = 'open';
+  }
+
+  const hero=document.getElementById('hero');
+  const icons={open:'🟢',closed:'🔴',soon:'🟡'};
+
+  if(isLive){
+    // CROWD LIVE
+    hero.className='hero '+effectiveState;
+    document.getElementById('hero-ico').textContent=effectiveState==='closed'?'🔴':'🟢';
+    document.getElementById('lsl').innerHTML=`Gate Status &nbsp;<span style="background:#16A34A;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:.06em">LIVE</span>`;
+    document.getElementById('smain').textContent=effectiveState==='closed'?(lang==='hi'?'बंद है':'CLOSED'):(lang==='hi'?'खुला है':'OPEN');
+    document.getElementById('ssub').textContent=lang==='hi'
+      ?`${crowd.count} लोगों ने रिपोर्ट किया — 10 मिनट में अपडेट होगा`
+      :`Reported by ${crowd.count} people nearby · Updates in 10 min`;
+    document.getElementById('s3-val').textContent='LIVE';
+  } else if(isRailRadar){
+    // RAILRADAR LIVE
+    const cur = ((nm%1440)+1440)%1440;
+    const cl  = ((liveSource.gateClose%1440)+1440)%1440;
+    const minsAway = cl > cur ? cl-cur : (cl+1440)-cur;
+    const minsLeft = cl + liveSource.dur - cur;
+    hero.className='hero '+effectiveState;
+    document.getElementById('hero-ico').textContent=icons[effectiveState];
+    document.getElementById('lsl').innerHTML=`Gate Status &nbsp;<span style="background:#2563EB;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:.06em">LIVE</span>`;
+    document.getElementById('smain').textContent=effectiveState==='closed'?(lang==='hi'?'बंद है':'CLOSED'):effectiveState==='soon'?(lang==='hi'?'बंद होने वाला है':'CLOSING SOON'):(lang==='hi'?'खुला है':'OPEN');
+    const delayText = liveSource.delay > 0 ? (lang==='hi'?` · ${liveSource.delay} मिनट लेट`:` · ${liveSource.delay} min late`):'';
+    if(effectiveState==='closed'){
+      document.getElementById('ssub').textContent=lang==='hi'?`${liveSource.name} गुजर रही है`:`${liveSource.name} passing`;
+      document.getElementById('s3-val').textContent=T.dur(Math.ceil(minsLeft));
+    } else if(effectiveState==='soon'){
+      document.getElementById('ssub').textContent=lang==='hi'?`${liveSource.name} ${Math.ceil(minsAway)} मिनट में आ रही है`:`${liveSource.name} arriving in ~${Math.ceil(minsAway)} min`;
+      document.getElementById('s3-val').textContent=T.inm(Math.ceil(minsAway));
+    } else {
+      document.getElementById('ssub').textContent=lang==='hi'?`अगली ट्रेन ${Math.ceil(minsAway)} मिनट में`:`Next train in ~${Math.ceil(minsAway)} min`;
+      document.getElementById('s3-val').textContent=T.inm(Math.ceil(minsAway));
+    }
+  } else {
+    // SCHEDULE FALLBACK
+    hero.className='hero '+st.state;
+    document.getElementById('hero-ico').textContent=icons[st.state];
+    document.getElementById('lsl').innerHTML=`Gate Status &nbsp;<span style="background:var(--ink4);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:.06em">PREDICTED</span>`;
+    document.getElementById('smain').textContent=T[st.state==='open'?'op':st.state==='closed'?'cl':'sn'];
+    if(st.state==='closed'){
+      document.getElementById('ssub').textContent=lang==='hi'?`${st.w.n} गुजर रही है — ${st.left} मिनट में खुलेगा`:`${st.w.n} passing — opens in ~${st.left} min`;
+      document.getElementById('s3-val').textContent=T.dur(st.left);
+    } else if(st.state==='soon'){
+      document.getElementById('ssub').textContent=lang==='hi'?`${st.w.n} ${st.away} मिनट में आ रही है`:`${st.w.n} arriving in ~${st.away} min`;
+      document.getElementById('s3-val').textContent=T.inm(st.away);
+    } else {
+      document.getElementById('ssub').textContent=lang==='hi'?`अगली ट्रेन ${st.away} मिनट में`:`Next train in ~${st.away} min`;
+      document.getElementById('s3-val').textContent=T.inm(st.away);
+    }
+  }
+
+  // ── TIMELINE — uses live RailRadar data if available, else schedule ──
+  const tlist = document.getElementById('tlist');
+  tlist.innerHTML = '';
+
+  const board = await fetchLiveBoard();
+  let timelineTrains = [];
+
+  if(board && board.success && board.data && board.data.trains && board.data.trains.length) {
+    // Build timeline from RailRadar live data
+    const cur = ((nm%1440)+1440)%1440;
+    timelineTrains = board.data.trains.map(t => {
+      const live = t.live;
+      if(!live || !live.expectedArrivalTime) return null;
+      const dt  = new Date(live.expectedArrivalTime);
+      const dep = new Date(live.expectedDepartureTime || live.expectedArrivalTime);
+      const arrMins = dt.getHours()*60+dt.getMinutes();
+      const depMins = dep.getHours()*60+dep.getMinutes();
+      const cl  = arrMins - CROSSING_OFFSET_MINS;
+      const op  = depMins + 2;
+      const delay = live.delayMinutes || 0;
+      const clN = ((cl%1440)+1440)%1440;
+      const opN = clN + (op-cl);
+      let state = 'upcoming';
+      let minsAway = clN > cur ? clN-cur : (clN+1440)-cur;
+      if(cur >= clN && cur < opN){ state='now'; minsAway=0; }
+      return {
+        name: t.train.name,
+        dir:  t.train.source+'→'+t.train.destination,
+        cl: clN, op: opN,
+        dur: op-cl, delay, state, minsAway,
+        platform: t.stop.platform || '',
+        isLive: live.type === 'upcoming' || live.type === 'live'
+      };
+    }).filter(Boolean)
+      .sort((a,b)=>a.cl-b.cl);
+
+    // Show current if closed, then next 4
+    const nowTrain = timelineTrains.find(w=>w.state==='now');
+    // Only show future trains — filter out any whose closure time already passed (minsAway > 720 means it wrapped to tomorrow)
+    const futureTrns = timelineTrains
+      .filter(w=>w.state!=='now' && w.minsAway < 720)
+      .slice(0, nowTrain?4:5);
+
+    if(nowTrain){
+      const minsLeft = Math.ceil(nowTrain.op - cur);
+      const delayTxt = nowTrain.delay>0?` · ${nowTrain.delay}m late`:'';
+      tlist.innerHTML+=`<div class="tcard t-now"><div><div class="tcard-time">${fmt12(nowTrain.cl)}</div><div class="tcard-name">${nowTrain.name}${delayTxt}</div><div class="tcard-dir">${nowTrain.dir}${nowTrain.platform?' · Pf '+nowTrain.platform:''}</div></div><div class="tcard-right"><div class="tbadge b-now">${T.nw}</div><div class="tcard-dur" style="color:var(--red)">${T.dur(minsLeft)} left</div></div></div>`;
+    }
+    futureTrns.forEach((w,i)=>{
+      const isNxt = i===0;
+      const delayTxt = w.delay>0?` · ${w.delay}m late`:'';
+      const platTxt = w.platform?' · Pf '+w.platform:'';
+      tlist.innerHTML+=`<div class="tcard${isNxt?' t-next':''}"><div><div class="tcard-time">${fmt12(w.cl)}</div><div class="tcard-name">${w.name}${delayTxt}</div><div class="tcard-dir">${w.dir}${platTxt}</div>${isNxt?`<div class="tcard-in">${T.inm(Math.round(w.minsAway))}</div>`:''}</div><div class="tcard-right"><div class="tbadge ${isNxt?'b-next':'b-late'}">${isNxt?T.nx:T.lt}</div><div class="tcard-dur">${T.dur(w.dur)}</div></div></div>`;
+    });
+
+  } else {
+    // Fallback to static schedule
+    const up = upcoming(nm, 5);
+    const fallbackState = crowd ? crowd.type : st.state;
+    if(fallbackState==='closed'){
+      const cl=((st.w.cl%1440)+1440)%1440;
+      tlist.innerHTML+=`<div class="tcard t-now"><div><div class="tcard-time">${fmt12(cl)}</div><div class="tcard-name">${st.w.n}</div><div class="tcard-dir">${st.w.dir}</div></div><div class="tcard-right"><div class="tbadge b-now">${T.nw}</div><div class="tcard-dur" style="color:var(--red)">${T.dur(st.left)} left</div></div></div>`;
+    }
+    up.forEach((w,i)=>{
+      const isNxt=i===0&&fallbackState!=='closed';
+      tlist.innerHTML+=`<div class="tcard${isNxt?' t-next':''}"><div><div class="tcard-time">${fmt12(w.cl)}</div><div class="tcard-name">${w.n}</div><div class="tcard-dir">${w.dir}</div>${isNxt?`<div class="tcard-in">${T.inm(Math.round(w.away))}</div>`:''}</div><div class="tcard-right"><div class="tbadge ${isNxt?'b-next':'b-late'}">${isNxt?T.nx:T.lt}</div><div class="tcard-dur">${T.dur(w.dur)}</div></div></div>`;
+    });
+  }
+}
+
+function tick(){
+  const n=getIST();
+  document.getElementById('clk').textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('dt').textContent=`${days[n.getDay()]}, ${n.getDate()} ${mons[n.getMonth()]}`;
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+window.goTab = function(id){
+  ['home','report','lb'].forEach(t=>{
+    document.getElementById('page-'+t).classList.toggle('on',t===id);
+    document.getElementById('tab-'+t).classList.toggle('on',t===id);
+  });
+  if(id==='lb') renderLeaderboard();
+};
+
+window.setLang = function(l){
+  lang=l;
+  document.getElementById('ben').classList.toggle('on',l==='en');
+  document.getElementById('bhi').classList.toggle('on',l==='hi');
+  render();
+};
+
+// ── EVENT LISTENERS ──────────────────────────────────────────
+
+document.getElementById('m-btn').addEventListener('click', saveName);
+document.getElementById('btn-closed').addEventListener('click', ()=>report('closed'));
+document.getElementById('btn-open').addEventListener('click', ()=>report('open'));
+document.getElementById('ben').addEventListener('click', ()=>setLang('en'));
+document.getElementById('bhi').addEventListener('click', ()=>setLang('hi'));
+document.getElementById('pts-chip').addEventListener('click', ()=>goTab('lb'));
+document.getElementById('tab-home').addEventListener('click', ()=>goTab('home'));
+document.getElementById('tab-report').addEventListener('click', ()=>goTab('report'));
+document.getElementById('tab-lb').addEventListener('click', ()=>goTab('lb'));
+
+// ── INIT ─────────────────────────────────────────────────────
+const localU=getLocalUser();
+if(localU){
+  document.getElementById('modal-bg').classList.remove('on');
+  // Sync from Firestore on load
+  fbGetUser(localU.name).then(fbU=>{
+    if(fbU){const synced={...localU,pts:fbU.pts||0,reports:fbU.reports||0,badges:fbU.badges||[]};saveLocalUser(synced);updateProfileUI(synced);}
+    else updateProfileUI(localU);
+  });
+}
+tick(); render();
+setInterval(tick,1000);
+setInterval(render, 5 * 60000); // re-render every 5 min matching API cache
+</script>
+</body>
+</html>
