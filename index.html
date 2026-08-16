@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arogya Bridge — India Medical Value Travel</title>
+<meta name="description" content="Arogya Bridge connects international patients to NABH/JCI-accredited Indian hospitals for orthopaedic and cardiac care — a medical value travel facilitation business plan.">
+<style>
+  :root{
+    --blue:#2a78d6;
+    --blue-dark:#184f95;
+    --orange:#eb6834;
+    --aqua:#1baf7a;
+    --yellow:#eda100;
+    --navy:#0b2036;
+    --navy-2:#0f2c47;
+    --surface:#fcfcfb;
+    --plane:#f9f9f7;
+    --panel:#ffffff;
+    --ink:#0b0b0b;
+    --ink-2:#52514e;
+    --muted:#898781;
+    --grid:#e1e0d9;
+    --baseline:#c3c2b7;
+    --border:rgba(11,11,11,0.10);
+    --radius:14px;
+    --maxw:1180px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--plane);
+    color:var(--ink);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  img,svg{max-width:100%;}
+  .chart-panel svg{width:100%; height:auto; display:block;}
+  a{color:inherit;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  section{padding:88px 0;}
+  h1,h2,h3,h4{line-height:1.15; margin:0 0 14px; font-weight:700; letter-spacing:-0.01em;}
+  h2{font-size:clamp(1.6rem,3.2vw,2.3rem);}
+  h3{font-size:1.2rem;}
+  p{margin:0 0 14px; color:var(--ink-2);}
+  .eyebrow{
+    display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--blue); margin-bottom:12px;
+  }
+  .section-head{max-width:720px; margin:0 0 44px;}
+  .section-head p{font-size:1.02rem;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:13px 24px; border-radius:999px;
+    font-weight:600; font-size:.95rem; text-decoration:none; border:1px solid transparent;
+    cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{background:var(--orange); color:#fff; box-shadow:0 6px 18px rgba(235,104,52,.28);}
+  .btn-primary:hover{background:#d95926;}
+  .btn-ghost{background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.35);}
+  .btn-ghost:hover{background:rgba(255,255,255,.16);}
+  .btn-outline{background:transparent; color:var(--navy); border-color:var(--border);}
+  .btn-outline:hover{background:#fff;}
+
+  /* NAV */
+  header{
+    position:sticky; top:0; z-index:50; background:rgba(11,32,54,.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  nav.wrap{display:flex; align-items:center; justify-content:space-between; height:72px; padding-top:0; padding-bottom:0;}
+  .brand{display:flex; align-items:center; gap:10px; color:#fff; text-decoration:none; font-weight:700; font-size:1.05rem;}
+  .brand-mark{width:34px; height:34px; flex:none;}
+  .nav-links{display:flex; gap:28px; list-style:none; margin:0; padding:0;}
+  .nav-links a{color:rgba(255,255,255,.82); text-decoration:none; font-size:.9rem; font-weight:500;}
+  .nav-links a:hover{color:#fff;}
+  .nav-cta{display:flex; align-items:center; gap:14px;}
+  .nav-toggle{display:none; background:none; border:0; color:#fff; font-size:1.4rem; cursor:pointer;}
+  @media (max-width: 880px){
+    .nav-links{display:none;}
+    .nav-toggle{display:block;}
+  }
+
+  /* HERO */
+  .hero{
+    background:radial-gradient(1100px 520px at 15% -10%, #123a5e 0%, var(--navy) 55%, #081729 100%);
+    color:#fff; padding:96px 0 64px; position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:""; position:absolute; inset:0; opacity:.5; pointer-events:none;
+    background:
+      radial-gradient(420px 260px at 88% 12%, rgba(42,120,214,.35), transparent 60%),
+      radial-gradient(360px 240px at 78% 78%, rgba(235,104,52,.18), transparent 60%);
+  }
+  .hero-inner{position:relative; display:grid; grid-template-columns:1.15fr .85fr; gap:56px; align-items:center;}
+  @media (max-width: 900px){ .hero-inner{grid-template-columns:1fr;} }
+  .hero h1{font-size:clamp(2.1rem,4.6vw,3.3rem); margin-bottom:18px;}
+  .hero .lede{color:rgba(255,255,255,.78); font-size:1.08rem; max-width:560px;}
+  .hero-ctas{display:flex; gap:14px; margin-top:28px; flex-wrap:wrap;}
+  .hero-card{
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:var(--radius);
+    padding:26px; backdrop-filter:blur(6px);
+  }
+  .hero-card h4{color:#fff; font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:16px; color:rgba(255,255,255,.6);}
+  .hero-stat-row{display:flex; justify-content:space-between; padding:12px 0; border-top:1px solid rgba(255,255,255,.12);}
+  .hero-stat-row:first-of-type{border-top:none;}
+  .hero-stat-row .label{color:rgba(255,255,255,.7); font-size:.86rem;}
+  .hero-stat-row .value{font-weight:700; font-size:1.02rem;}
+
+  .stat-strip{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(255,255,255,.12);
+    border-top:1px solid rgba(255,255,255,.12); margin-top:64px; border-radius:var(--radius); overflow:hidden;
+  }
+  @media (max-width: 760px){ .stat-strip{grid-template-columns:repeat(2,1fr);} }
+  .stat-strip .cell{background:rgba(255,255,255,.04); padding:26px 22px;}
+  .stat-strip .num{font-size:1.7rem; font-weight:800; color:#fff;}
+  .stat-strip .cap{font-size:.82rem; color:rgba(255,255,255,.62); margin-top:4px;}
+
+  /* GRID / CARDS */
+  .grid{display:grid; gap:20px;}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  @media (max-width: 900px){ .grid-3{grid-template-columns:repeat(2,1fr);} .grid-4{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width: 620px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:26px; box-shadow:0 1px 2px rgba(11,11,11,.04);
+  }
+  .card h3{margin-bottom:8px;}
+  .card .tag{
+    display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    padding:4px 10px; border-radius:999px; margin-bottom:12px;
+  }
+  .tag-blue{background:#e8f1fc; color:var(--blue-dark);}
+  .tag-orange{background:#fdeee7; color:#b9481d;}
+  .tag-aqua{background:#e4f7ef; color:#0e7a51;}
+
+  .icon-badge{
+    width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+    background:#e8f1fc; color:var(--blue); margin-bottom:14px; flex:none;
+  }
+
+  section.alt{background:var(--surface);}
+  section.dark{background:linear-gradient(180deg,#0e2338,#0b1c2e); color:#fff;}
+  section.dark p{color:rgba(255,255,255,.72);}
+  section.dark h2{color:#fff;}
+
+  table{width:100%; border-collapse:collapse; font-size:.92rem;}
+  thead th{
+    text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+    padding:10px 14px; border-bottom:1px solid var(--grid);
+  }
+  tbody td{padding:14px; border-bottom:1px solid var(--grid); color:var(--ink-2); vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody td:first-child{color:var(--ink); font-weight:600;}
+  .table-wrap{overflow-x:auto; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);}
+  .table-wrap table{min-width:560px;}
+  .savings-pill{
+    display:inline-block; background:#e4f7ef; color:#0e7a51; font-weight:700; font-size:.82rem;
+    padding:3px 10px; border-radius:999px;
+  }
+
+  .checklist{list-style:none; margin:0; padding:0;}
+  .checklist li{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--grid); font-size:.94rem; color:var(--ink-2);}
+  .checklist li:last-child{border-bottom:none;}
+  .checklist .dot{
+    flex:none; width:22px; height:22px; border-radius:50%; background:#e4f7ef; color:#0e7a51;
+    display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:800; margin-top:1px;
+  }
+
+  /* CHART CHROME */
+  .chart-panel{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:24px;}
+  .chart-panel h4{font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; font-weight:700;}
+  .chart-panel .chart-title{font-size:1.05rem; font-weight:700; color:var(--ink); margin-bottom:18px;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:.82rem; color:var(--ink-2);}
+  .legend .item{display:flex; align-items:center; gap:7px;}
+  .legend .swatch{width:11px; height:11px; border-radius:3px;}
+  .chart-note{font-size:.8rem; color:var(--muted); margin-top:10px;}
+
+  /* TIMELINE */
+  .timeline{position:relative; margin-left:14px; padding-left:34px; border-left:2px solid var(--grid);}
+  .timeline .step{position:relative; padding-bottom:30px;}
+  .timeline .step:last-child{padding-bottom:0;}
+  .timeline .step::before{
+    content:attr(data-n); position:absolute; left:-45px; top:0; width:28px; height:28px; border-radius:50%;
+    background:var(--blue); color:#fff; font-size:.78rem; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
+  .timeline .step h4{margin:0 0 4px; font-size:.98rem;}
+  .timeline .step p{margin:0; font-size:.88rem;}
+
+  .phase-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:16px;}
+  @media (max-width:1000px){ .phase-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .phase-grid{grid-template-columns:1fr;} }
+  .phase{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px; border-top:4px solid var(--blue);}
+  .phase .when{font-size:.76rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:700;}
+  .phase h4{margin:6px 0 8px; font-size:1rem;}
+  .phase p{font-size:.86rem; margin:0;}
+
+  .tier-card{border-radius:var(--radius); padding:26px; border:1px solid var(--border); background:var(--panel);}
+  .tier-card.priority{border-color:var(--orange); box-shadow:0 0 0 1px var(--orange), 0 10px 24px rgba(235,104,52,.10);}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0;}
+  .chip{background:#f1f1ee; color:var(--ink-2); font-size:.8rem; padding:5px 12px; border-radius:999px;}
+  .priority .chip{background:#fdeee7; color:#b9481d;}
+
+  .cta-band{
+    background:linear-gradient(120deg,#0b2036,#173f63); color:#fff; border-radius:20px; padding:56px 48px;
+    display:flex; align-items:center; justify-content:space-between; gap:32px; flex-wrap:wrap;
+  }
+  .cta-band h2{color:#fff; margin-bottom:8px;}
+  .cta-band p{color:rgba(255,255,255,.72); margin:0; max-width:520px;}
+
+  footer{background:var(--navy); color:rgba(255,255,255,.65); padding:48px 0 28px; font-size:.86rem;}
+  footer .foot-grid{display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; padding-bottom:28px; border-bottom:1px solid rgba(255,255,255,.1);}
+  footer a{color:rgba(255,255,255,.65); text-decoration:none;}
+  footer a:hover{color:#fff;}
+  footer .cols{display:flex; gap:56px; flex-wrap:wrap;}
+  footer .cols h5{color:#fff; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin:0 0 12px;}
+  footer .cols ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  footer .bottom{padding-top:20px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  .disclaimer{font-size:.82rem; color:var(--muted); background:var(--panel); border:1px dashed var(--border); border-radius:12px; padding:16px 20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="brand" href="#top">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="19" fill="#e8f1fc" fill-opacity=".14"/>
+        <path d="M20 6c-6 4-11 5-11 5v10c0 8 5 12.5 11 13 6-.5 11-5 11-13V11s-5-1-11-5z" fill="#2a78d6"/>
+        <path d="M14 20.5l4 4 8-8.5" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      Arogya Bridge
+    </a>
+    <ul class="nav-links">
+      <li><a href="#market">Market</a></li>
+      <li><a href="#model">Model</a></li>
+      <li><a href="#procedures">Procedures</a></li>
+      <li><a href="#legal">Licensing</a></li>
+      <li><a href="#investment">Investment</a></li>
+      <li><a href="#financials">Financials</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="#contact" style="padding:10px 20px;">Partner With Us</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+    </div>
+  </nav>
+  <ul class="nav-links" id="mobileMenu" style="display:none; flex-direction:column; gap:0; padding:0 24px 18px;">
+    <li style="padding:10px 0;"><a href="#market">Market</a></li>
+    <li style="padding:10px 0;"><a href="#model">Model</a></li>
+    <li style="padding:10px 0;"><a href="#procedures">Procedures</a></li>
+    <li style="padding:10px 0;"><a href="#legal">Licensing</a></li>
+    <li style="padding:10px 0;"><a href="#investment">Investment</a></li>
+    <li style="padding:10px 0;"><a href="#financials">Financials</a></li>
+    <li style="padding:10px 0;"><a href="#roadmap">Roadmap</a></li>
+  </ul>
+</header>
+
+<div id="top"></div>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <span class="eyebrow" style="color:#7fb3f2;">India Medical Value Travel</span>
+      <h1>Connecting the world's patients to India's most trusted hospitals.</h1>
+      <p class="lede">Arogya Bridge is a medical value travel facilitator: we match international patients with NABH/JCI-accredited Indian hospitals for orthopaedic and cardiac care, and run the entire journey — visa, travel, concierge and recovery — end to end.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#model">Explore the Business Model</a>
+        <a class="btn btn-ghost" href="#financials">See the Financials</a>
+      </div>
+    </div>
+    <div class="hero-card">
+      <h4>Why now</h4>
+      <div class="hero-stat-row"><span class="label">India MVT market (2025–26)</span><span class="value">USD 8.7–13B</span></div>
+      <div class="hero-stat-row"><span class="label">Projected by 2030</span><span class="value">USD 16–19B</span></div>
+      <div class="hero-stat-row"><span class="label">Annual growth</span><span class="value">12–21% CAGR</span></div>
+      <div class="hero-stat-row"><span class="label">Cost savings vs US/UK/Gulf</span><span class="value">60–90%</span></div>
+      <div class="hero-stat-row"><span class="label">Global tourism ranking</span><span class="value">Top 10</span></div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="stat-strip">
+      <div class="cell"><div class="num">₹25–45L</div><div class="cap">Lean start-up capital (~USD 30–54k)</div></div>
+      <div class="cell"><div class="num">10–25%</div><div class="cap">Hospital commission per patient (avg ~15%)</div></div>
+      <div class="cell"><div class="num">$900–1,400</div><div class="cap">Gross margin per patient</div></div>
+      <div class="cell"><div class="num">12–18 mo</div><div class="cap">Typical break-even</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="summary">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Executive Summary</span>
+      <h2>A capital-light business built on trust, not just referrals</h2>
+      <p>India's medical value travel sector is scaling fast, backed by government tailwinds — the Heal in India initiative, e-Medical visas, and five new Regional Medical Hubs announced in the 2026-27 Union Budget. Arogya Bridge is built to capture that growth with a focused, high-trust model.</p>
+    </div>
+    <div class="grid grid-4">
+      <div class="card">
+        <span class="tag tag-blue">Opportunity</span>
+        <h3>A fast-growing, diversifying market</h3>
+        <p>India is a top-10 global medical tourism destination with 60–90% cost savings on major surgeries and strong government backing.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-orange">The Business</span>
+        <h3>Paid intermediary, full service</h3>
+        <p>We generate leads abroad, match patients to the right surgeon/hospital, and handle visas, travel, accommodation and on-ground concierge support — earning a commission and/or service fee.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-aqua">What It Takes</span>
+        <h3>No single licence — a checklist</h3>
+        <p>Standard company registration plus voluntary but important accreditations: NABH Medical Value Travel Facilitator standards and Ministry of Tourism registration.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-blue">The Numbers</span>
+        <h3>$225k–420k Year-2 gross margin</h3>
+        <p>At 250–300 patients/year and ~$900–1,400 gross margin per patient, with net margins of 25–40% once fixed costs are covered.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="market">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Market Opportunity</span>
+      <h2>Large, fast-growing, and actively diversifying</h2>
+      <p>Estimates vary by methodology, but all point the same direction — a large market with room for new, well-run facilitators. Hospital groups (Apollo, Fortis, Max, Medanta) report strong new growth from Africa, the CIS region and Southeast Asia in 2026, offsetting softness from Bangladesh and West Asia.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:stretch;">
+      <div class="chart-panel">
+        <h4>Market Size</h4>
+        <div class="chart-title">Current value vs. 2030 projection (USD billion)</div>
+        <div id="chartMarket"></div>
+        <div class="chart-note">Range reflects government and industry estimate spreads. Source: Ministry of Tourism, industry research.</div>
+      </div>
+      <div class="chart-panel">
+        <h4>Diversifying Corridors</h4>
+        <div class="chart-title">2025 medical-visa arrivals, ex-Bangladesh</div>
+        <div id="chartOrigin"></div>
+        <div class="chart-note">Bangladesh remains #1 by volume at 325,127 arrivals, but its share fell from ~75% (2024) to ~64% (2025) — the opening this chart tracks.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:28px;">
+      <table>
+        <thead><tr><th>Metric</th><th>Figure</th><th>Source basis</th></tr></thead>
+        <tbody>
+          <tr><td>Current market value</td><td>≈ USD 8.7 – 13 billion (2025–26)</td><td>Government / industry estimates</td></tr>
+          <tr><td>Projected value by 2030</td><td>USD 16.2 – 19 billion</td><td>Government of India, Ministry of Tourism</td></tr>
+          <tr><td>Annual growth rate (CAGR)</td><td>12% – 21%</td><td>Industry research</td></tr>
+          <tr><td>Foreign patients treated per year</td><td>≈ 1.4 – 2 million</td><td>Industry estimates</td></tr>
+          <tr><td>India's rank on the Medical Tourism Index</td><td>10th globally</td><td>Medical Tourism Association</td></tr>
+          <tr><td>Cost savings vs USA/UK/Gulf</td><td>60% – 90% on comparable procedures</td><td>Multiple hospital & platform data</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="countries">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Which Countries to Target</span>
+      <h2>Prioritise on visa ease, purchasing power, and white space</h2>
+      <p>We rank corridors on three factors: visa ease (e-Medical visa "fast-track" nationals get 24–72 hour approval vs. paper visas that take weeks), patient purchasing power, and how under-served the corridor is by existing large players.</p>
+    </div>
+    <div class="grid grid-3">
+      <div class="tier-card priority">
+        <span class="tag tag-orange">Tier 1 — Start Here</span>
+        <h3>East/West Africa + GCC</h3>
+        <div class="chips">
+          <span class="chip">Kenya</span><span class="chip">Tanzania</span><span class="chip">Uganda</span>
+          <span class="chip">Nigeria</span><span class="chip">South Africa</span><span class="chip">Oman</span>
+          <span class="chip">UAE</span><span class="chip">Saudi Arabia</span><span class="chip">Bahrain</span>
+        </div>
+        <p>e-Medical visa fast-track (24–72 hr approval); GCC patients carry higher package values; Africa is the fastest-growing, least saturated corridor.</p>
+      </div>
+      <div class="tier-card">
+        <span class="tag tag-blue">Tier 2 — High Volume</span>
+        <h3>Bangladesh, Iraq</h3>
+        <div class="chips"><span class="chip">Bangladesh</span><span class="chip">Iraq</span></div>
+        <p>Largest existing patient pools. Bangladesh needs a paper visa via IVAC so onboarding is slower, but volume potential is unmatched.</p>
+      </div>
+      <div class="tier-card">
+        <span class="tag tag-aqua">Tier 3 — Expansion (Year 2+)</span>
+        <h3>CIS States</h3>
+        <div class="chips"><span class="chip">Uzbekistan</span><span class="chip">Turkmenistan</span><span class="chip">Other CIS</span></div>
+        <p>Fastest percentage growth in 2025–26. Indian hospital chains are building structured pathways with embassies here — arriving early locks in exclusive local partnerships.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="model">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Business Model</span>
+      <h2>The coordination layer between patient and hospital</h2>
+      <p>A medical tourism facilitator sits between the patient and the Indian healthcare system. Core services span the entire journey:</p>
+    </div>
+    <div class="grid grid-3" style="margin-bottom:36px;">
+      <div class="card"><div class="icon-badge">🌐</div><h3>Lead Gen & Pre-Consultation</h3><p>Website, local marketing/agent network and telemedicine screening in the source country.</p></div>
+      <div class="card"><div class="icon-badge">🩺</div><h3>Clinical Matching</h3><p>Connecting the patient's case — reports, scans, diagnosis — to the right specialist and hospital, with a written cost estimate.</p></div>
+      <div class="card"><div class="icon-badge">🛂</div><h3>Visa Support</h3><p>Preparing the hospital invitation letter and documentation for the e-Medical / e-Medical Attendant visa.</p></div>
+      <div class="card"><div class="icon-badge">✈️</div><h3>Travel & Logistics</h3><p>Flights, airport pickup, accommodation for patient and attendants, local transport.</p></div>
+      <div class="card"><div class="icon-badge">🤝</div><h3>On-Ground Concierge</h3><p>Interpreter, hospital liaison, discharge coordination, sightseeing/wellness add-ons during recovery.</p></div>
+      <div class="card"><div class="icon-badge">📋</div><h3>Post-Treatment</h3><p>Teleconsultation follow-up, physiotherapy coordination, records handover to the home-country doctor.</p></div>
+    </div>
+
+    <h3 style="margin-bottom:16px;">Two positioning models — most successful facilitators blend both</h3>
+    <div class="grid grid-2">
+      <div class="card">
+        <span class="tag tag-blue">Hospital-Commission Model</span>
+        <h3>Hospital pays, patient doesn't</h3>
+        <p>Hospital pays you 10–25% of the treatment package as a referral/marketing fee; patient pays no extra fee.</p>
+        <p style="color:var(--ink); font-weight:600; font-size:.88rem;">Best for: high-volume, price-sensitive corridors (Africa, Bangladesh)</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-orange">Concierge / Fee-for-Service</span>
+        <h3>Premium, transparent experience</h3>
+        <p>Patient pays a flat USD 500–2,500 service fee directly for full concierge support; you may still receive a smaller hospital fee.</p>
+        <p style="color:var(--ink); font-weight:600; font-size:.88rem;">Best for: higher-value GCC / CIS patients</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="procedures">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Target Procedures & Indicative Pricing</span>
+      <h2>Orthopaedic and cardiac: high ticket, strong cost advantage</h2>
+      <p>High ticket size, strong India cost advantage, and consistent demand from all three priority regions. Prices vary by hospital, implant brand, robotic vs. manual technique and room category — always confirm in writing with the hospital before the patient travels.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Procedure</th><th>Typical India Package (USD)</th><th>Typical US Price</th><th>Approx. Savings</th></tr></thead>
+        <tbody>
+          <tr><td>Knee replacement (single)</td><td>4,500 – 7,000</td><td>35,000 – 50,000</td><td><span class="savings-pill">80–85%</span></td></tr>
+          <tr><td>Knee replacement (both knees)</td><td>8,500 – 10,500</td><td>65,000 – 100,000</td><td><span class="savings-pill">~85%</span></td></tr>
+          <tr><td>Hip replacement (single)</td><td>5,000 – 7,500</td><td>40,000 – 50,000</td><td><span class="savings-pill">80–85%</span></td></tr>
+          <tr><td>Heart bypass surgery (CABG)</td><td>5,000 – 10,000</td><td>70,000 – 130,000</td><td><span class="savings-pill">85–90%</span></td></tr>
+          <tr><td>Robotic cardiac bypass</td><td>7,500 – 14,500</td><td>100,000+</td><td><span class="savings-pill">~85%</span></td></tr>
+          <tr><td>Heart valve replacement</td><td>6,500 – 12,000</td><td>80,000 – 150,000</td><td><span class="savings-pill">~85–90%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="legal">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Legal Structure, Registration & Licensing</span>
+      <h2>No single licence — a compliance checklist</h2>
+      <p>There is no single "medical tourism licence" in India — the business runs on standard company registration plus healthcare-specific accreditation, built up roughly in this order.</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Core registration — do first</h3>
+        <ul class="checklist">
+          <li><span class="dot">1</span>Register a Private Limited Company with the Ministry of Corporate Affairs — credibility with hospitals and lets you raise investment later</li>
+          <li><span class="dot">2</span>Apply for PAN and TAN for the company</li>
+          <li><span class="dot">3</span>Register for GST — commission income is a taxable service; export-of-services benefits apply (zero-rated GST with a Letter of Undertaking)</li>
+          <li><span class="dot">4</span>Register under the state Shops & Establishments Act for your office</li>
+          <li><span class="dot">5</span>Open a current account with an AD bank for FEMA-compliant inward foreign remittances</li>
+          <li><span class="dot">6</span>Udyam/MSME registration — optional, unlocks collateral-free loans and tender eligibility</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Sector accreditation — within Year 1</h3>
+        <ul class="checklist">
+          <li><span class="dot">1</span>NABH "Medical Value Travel Facilitator" (MVTF) accreditation — increasingly expected by top hospital chains before empanelment</li>
+          <li><span class="dot">2</span>Ministry of Tourism recognition under the National Medical & Wellness Tourism Promotion Board</li>
+          <li><span class="dot">3</span>FSSAI food licence — if arranging meals/catering for patients and attendants</li>
+          <li><span class="dot">4</span>Professional indemnity / liability insurance</li>
+          <li><span class="dot">5</span>Empanelment MOUs with 3–5 NABH/JCI-accredited hospitals — commission %, exclusivity and payment cycle in writing</li>
+          <li><span class="dot">6</span>DPDP Act 2023 compliance — written data-protection and consent policy for medical records and passport data</li>
+          <li><span class="dot">7</span>Trademark registration for your brand name</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="investment">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Investment Required</span>
+      <h2>Two realistic starting scales</h2>
+      <p>Pick based on available capital and risk appetite.</p>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:28px;">
+      <div class="card">
+        <span class="tag tag-blue">Lean Start-up</span>
+        <h3>₹25–45 lakh <span style="color:var(--muted); font-weight:500; font-size:.85rem;">(~USD 30,000–54,000)</span></h3>
+        <p>Year 1, one office, 2–3 countries. Covers registration, a small office in a medical-hub city, website/CRM/WhatsApp Business API, digital marketing, a 3–4 person core team, hospital tie-ups, and compliance.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-orange">Growth Model</span>
+        <h3>₹75L–1.5 crore <span style="color:var(--muted); font-weight:500; font-size:.85rem;">(~USD 90,000–180,000)</span></h3>
+        <p>Multi-country, in-market representatives. Adds rep offices/exclusive agents in 2 source countries, an 8–10 person team including a medical advisor and 24/7 support desk, and a bigger performance-marketing budget.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cost Head (Lean Model)</th><th>One-time (₹)</th><th>Annual Recurring (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Company registration, GST, trademark, legal</td><td>60,000 – 1,00,000</td><td>—</td></tr>
+          <tr><td>Small office (Delhi NCR, Chennai, Mumbai or Bengaluru)</td><td>1,00,000 (deposit/fit-out)</td><td>3,00,000 – 6,00,000</td></tr>
+          <tr><td>Website, CRM, WhatsApp Business API, basic tech</td><td>2,00,000 – 4,00,000</td><td>60,000 – 1,20,000</td></tr>
+          <tr><td>Digital marketing (Google/Meta ads, content, SEO)</td><td>—</td><td>5,00,000 – 10,00,000</td></tr>
+          <tr><td>Core team: 3–4 people (coordinator, ops, sales, language specialist)</td><td>—</td><td>9,00,000 – 15,00,000</td></tr>
+          <tr><td>Hospital tie-up travel, agent commissions, source-country visits</td><td>1,50,000</td><td>2,00,000 – 4,00,000</td></tr>
+          <tr><td>NABH MVTF process, FSSAI, insurance, compliance</td><td>1,00,000 – 2,00,000</td><td>50,000 – 1,00,000</td></tr>
+          <tr><td>Working capital / contingency (3 months upfront)</td><td>3,00,000 – 5,00,000</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="financials">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Revenue Model & Profitability</span>
+      <h2>Unit economics that scale with volume</h2>
+      <p>Break-even typically lands month 12–18, once you're closing roughly 15–20 patients a month — enough to cover the ₹4–6 lakh/month fixed-cost base of the lean model. Profitability accelerates after that because most of the cost base is fixed while commission and fee income scale directly with volume.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:stretch; margin-bottom:20px;">
+      <div class="chart-panel">
+        <h4>Per Patient · Blended Average</h4>
+        <div class="chart-title">Gross revenue composition (USD 1,475)</div>
+        <div id="chartDonut"></div>
+      </div>
+      <div class="chart-panel">
+        <h4>Three-Year Projection</h4>
+        <div class="chart-title">Gross revenue vs. net profit (USD, midpoint)</div>
+        <div id="chartFinancials"></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Year</th><th>Patients</th><th>Gross Revenue</th><th>Fixed Costs</th><th>Net Profit</th><th>Net Margin</th></tr></thead>
+        <tbody>
+          <tr><td>Year 1 (ramp-up)</td><td>60 – 100</td><td>USD 90,000 – 150,000</td><td>USD 55,000 – 70,000</td><td>USD (10,000) – 40,000</td><td>Break-even to ~25%</td></tr>
+          <tr><td>Year 2</td><td>220 – 300</td><td>USD 325,000 – 445,000</td><td>USD 90,000 – 120,000</td><td>USD 130,000 – 210,000</td><td>35% – 45%</td></tr>
+          <tr><td>Year 3</td><td>450 – 600</td><td>USD 665,000 – 890,000</td><td>USD 140,000 – 180,000</td><td>USD 300,000 – 420,000</td><td>40% – 48%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="marketing">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Marketing & Patient Acquisition</span>
+      <h2>Trust beats ad spend in this category</h2>
+    </div>
+    <div class="grid grid-3">
+      <div class="card"><div class="icon-badge">🧑‍🤝‍🧑</div><h3>Local Presence</h3><p>A bilingual representative or agent in each priority country builds trust faster than digital ads alone — many patients decide via word-of-mouth and diaspora networks.</p></div>
+      <div class="card"><div class="icon-badge">💻</div><h3>Digital</h3><p>Google Ads and Meta/WhatsApp campaigns targeting procedure + "India treatment cost" locally; a content-rich site with itemised pricing converts better than vague "contact us" competitors.</p></div>
+      <div class="card"><div class="icon-badge">🔗</div><h3>Referral Network</h3><p>General physicians, diagnostic labs and community/religious organisations are strong lead sources for planned surgeries like joint replacement.</p></div>
+      <div class="card"><div class="icon-badge">🏛️</div><h3>Embassy Relationships</h3><p>Hospital chains are formally engaging embassies (e.g. Uzbekistan) to build structured referral pathways — we can position as that structured channel.</p></div>
+      <div class="card"><div class="icon-badge">🎥</div><h3>Testimonials</h3><p>Patient testimonials and before/after mobility videos are unusually persuasive for orthopaedic procedures specifically.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="journey">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Patient Journey</span>
+      <h2>Ten steps, one point of contact</h2>
+    </div>
+    <div class="timeline">
+      <div class="step" data-n="1"><h4>Inquiry & report review</h4><p>Via WhatsApp, website or local agent.</p></div>
+      <div class="step" data-n="2"><h4>Free teleconsultation</h4><p>With an empanelled specialist; written cost estimate issued.</p></div>
+      <div class="step" data-n="3"><h4>Confirmation & invitation letter</h4><p>Patient confirms; hospital issues the invitation letter for the e-Medical visa.</p></div>
+      <div class="step" data-n="4"><h4>Visa filing support</h4><p>e-Medical + e-Medical Attendant for up to 2 relatives.</p></div>
+      <div class="step" data-n="5"><h4>Travel arranged</h4><p>Flight booking, airport pickup, hotel/guesthouse check-in near the hospital.</p></div>
+      <div class="step" data-n="6"><h4>Hospital admission</h4><p>Interpreter support, daily family updates.</p></div>
+      <div class="step" data-n="7"><h4>Surgery & recovery</h4><p>In-hospital recovery, discharge summary translation.</p></div>
+      <div class="step" data-n="8"><h4>Step-down recovery</h4><p>Recovery stay plus physiotherapy coordination.</p></div>
+      <div class="step" data-n="9"><h4>Departure logistics</h4><p>Fit-to-fly clearance and travel home.</p></div>
+      <div class="step" data-n="10"><h4>Post-return follow-up</h4><p>Teleconsultation follow-ups and satisfaction/referral outreach.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="risks">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Key Risks & Mitigation</span>
+      <h2>Known risks, with a plan for each</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Visa/geopolitical disruption</td><td>Diversify across 4–5 source countries from the start rather than depending on one corridor.</td></tr>
+          <tr><td>Hospitals bypassing you</td><td>Add value beyond referral — visa handling, logistics, interpreter, post-op follow-up — that hospitals' own international desks rarely match.</td></tr>
+          <tr><td>Payment/commission disputes</td><td>Signed empanelment MOUs with clear commission %, invoicing schedule and dispute clause before sending patients.</td></tr>
+          <tr><td>Clinical complications / dissatisfaction</td><td>Only empanel NABH/JCI-accredited hospitals; carry professional indemnity insurance; keep thorough documentation.</td></tr>
+          <tr><td>Competition from established platforms</td><td>Win on deep specialisation (ortho + cardiac only) and country focus rather than covering everything everywhere.</td></tr>
+          <tr><td>Currency and payment-collection friction</td><td>Invoice in USD via an AD-bank current account; use escrow or staged payment where possible.</td></tr>
+          <tr><td>Data privacy breach</td><td>DPDP Act–compliant consent flows, encrypted storage, restricted access.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="roadmap">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">12-Month Roadmap</span>
+      <h2>From registration to break-even</h2>
+    </div>
+    <div class="phase-grid">
+      <div class="phase"><div class="when">Months 1–2</div><h4>Setup</h4><p>Company registration, GST, bank account, website live, MOUs signed with 3–5 hospitals.</p></div>
+      <div class="phase"><div class="when">Months 3–4</div><h4>Launch</h4><p>Local agent/rep engaged in Kenya + Oman/UAE, first digital campaigns live, NABH MVTF application filed.</p></div>
+      <div class="phase"><div class="when">Months 4–6</div><h4>First Patients</h4><p>Target 5–10 patients/month; refine visa and logistics process; collect testimonials.</p></div>
+      <div class="phase"><div class="when">Months 6–9</div><h4>Scale-Up</h4><p>Add Tanzania + Nigeria; target 15–20 patients/month; hire dedicated patient-coordinator.</p></div>
+      <div class="phase"><div class="when">Months 9–12</div><h4>Expand</h4><p>Add Iraq; explore CIS entry (Uzbekistan); target 25–30 patients/month; reach break-even.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="cta-band">
+      <div>
+        <h2>India's window to lead in medical value travel is open now</h2>
+        <p>The regulatory bar to entry is low — the trust bar is high. Accreditation, transparent pricing and genuine end-to-end care are what separate a durable business from a lead-generation reseller.</p>
+      </div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap;">
+        <a class="btn btn-primary" href="mailto:hello@arogyabridge.example">Talk to Us</a>
+        <a class="btn btn-outline" style="background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.3);" href="#top">Back to Top</a>
+      </div>
+    </div>
+    <div class="disclaimer" style="margin-top:28px;">
+      This site presents a planning aid, not legal, tax or medical advice — validate licensing, GST treatment and hospital contract terms with a qualified Indian company-secretary/healthcare lawyer and chartered accountant before you launch.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="#top" style="margin-bottom:10px; display:inline-flex;">
+          <svg class="brand-mark" viewBox="0 0 40 40" fill="none" style="width:28px;height:28px;">
+            <circle cx="20" cy="20" r="19" fill="#e8f1fc" fill-opacity=".1"/>
+            <path d="M20 6c-6 4-11 5-11 5v10c0 8 5 12.5 11 13 6-.5 11-5 11-13V11s-5-1-11-5z" fill="#3987e5"/>
+            <path d="M14 20.5l4 4 8-8.5" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          Arogya Bridge
+        </a>
+        <p style="max-width:260px; color:rgba(255,255,255,.5); font-size:.85rem;">India medical value travel, simplified — orthopaedic and cardiac care, end to end.</p>
+      </div>
+      <div class="cols">
+        <div>
+          <h5>Plan</h5>
+          <ul><li><a href="#market">Market</a></li><li><a href="#model">Business Model</a></li><li><a href="#investment">Investment</a></li></ul>
+        </div>
+        <div>
+          <h5>Operations</h5>
+          <ul><li><a href="#legal">Licensing</a></li><li><a href="#journey">Patient Journey</a></li><li><a href="#roadmap">Roadmap</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="bottom">
+      <span>© 2026 Arogya Bridge. Planning aid only — not legal, tax or medical advice.</span>
+      <span>Built from the India Medical Tourism Business Plan.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var toggle = document.getElementById('navToggle');
+  var menu = document.getElementById('mobileMenu');
+  toggle.addEventListener('click', function(){
+    menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'flex' : 'none';
+  });
+  menu.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){ menu.style.display = 'none'; });
+  });
+})();
+
+/* ---------- lightweight SVG chart helpers (no external deps) ---------- */
+var INK = '#0b0b0b', INK2 = '#52514e', MUTED = '#898781', GRID = '#e1e0d9';
+var BLUE = '#2a78d6', ORANGE = '#eb6834', AQUA = '#1baf7a';
+
+function svgEl(tag, attrs){
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(var k in attrs){ el.setAttribute(k, attrs[k]); }
+  return el;
+}
+function fmt(n){ return n >= 1000 ? n.toLocaleString('en-US') : n; }
+
+/* Range (dumbbell) chart: categories with [low, high] */
+function rangeChart(containerId, data, opts){
+  opts = opts || {};
+  var w = 460, h = data.length * 74 + 30;
+  var padL = 46, padR = 40;
+  var maxVal = Math.max.apply(null, data.map(function(d){return d.high;})) * 1.12;
+  var svg = svgEl('svg', {viewBox: '0 0 '+w+' '+h, width:'100%', role:'img', 'aria-label': opts.label||''});
+  var innerW = w - padL - padR;
+  data.forEach(function(d, i){
+    var y = 26 + i * 74;
+    var x1 = padL + (d.low/maxVal)*innerW;
+    var x2 = padL + (d.high/maxVal)*innerW;
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:w-padR, y2:y, stroke:GRID, 'stroke-width':1}));
+    svg.appendChild(svgEl('text', {x:padL, y:y-14, fill:INK, 'font-size':13, 'font-weight':700}))
+      .textContent = d.label;
+    svg.appendChild(svgEl('line', {x1:x1, y1:y, x2:x2, y2:y, stroke: d.color||BLUE, 'stroke-width':6, 'stroke-linecap':'round'}));
+    var c1 = svgEl('circle', {cx:x1, cy:y, r:6, fill:'#fff', stroke:d.color||BLUE, 'stroke-width':3}); svg.appendChild(c1);
+    var c2 = svgEl('circle', {cx:x2, cy:y, r:6, fill:d.color||BLUE}); svg.appendChild(c2);
+    var lbl = svgEl('text', {x:x1, y:y+22, fill:INK2, 'font-size':11.5}); lbl.textContent = '$'+d.low+'B'; lbl.setAttribute('text-anchor','middle'); svg.appendChild(lbl);
+    var lbl2 = svgEl('text', {x:x2, y:y+22, fill:INK, 'font-size':11.5, 'font-weight':700}); lbl2.textContent = '$'+d.high+'B'; lbl2.setAttribute('text-anchor','middle'); svg.appendChild(lbl2);
+  });
+  document.getElementById(containerId).appendChild(svg);
+}
+
+/* Horizontal bar chart: single sequential hue */
+function hBarChart(containerId, data){
+  var w = 460, rowH = 40, padTop = 8;
+  var h = data.length * rowH + padTop;
+  var maxVal = Math.max.apply(null, data.map(function(d){return d.value;})) * 1.08;
+  var labelW = 110, valueW = 64, barAreaW = w - labelW - valueW - 12;
+  var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, width:'100%'});
+  data.forEach(function(d, i){
+    var y = padTop + i*rowH;
+    var barW = (d.value/maxVal) * barAreaW;
+    var label = svgEl('text', {x:0, y:y+rowH/2+4, fill:INK, 'font-size':12.5, 'font-weight':600}); label.textContent = d.label; svg.appendChild(label);
+    svg.appendChild(svgEl('rect', {x:labelW, y:y+8, width:barAreaW, height:16, rx:4, fill:'#eef1f5'}));
+    var bw = Math.max(barW,3);
+    svg.appendChild(svgEl('rect', {x:labelW, y:y+8, width:bw, height:16, rx:4, fill:BLUE}));
+    var val = svgEl('text', {x:labelW+barAreaW+10, y:y+rowH/2+4, fill:INK2, 'font-size':12}); val.textContent = fmt(d.value); svg.appendChild(val);
+  });
+  document.getElementById(containerId).appendChild(svg);
+}
+
+/* Donut chart */
+function donutChart(containerId, data){
+  var size = 220, r = 78, cx = 110, cy = 110, strokeW = 34;
+  var total = data.reduce(function(s,d){return s+d.value;}, 0);
+  var svg = svgEl('svg', {viewBox:'0 0 300 220', width:'100%'});
+  var circ = 2*Math.PI*r;
+  var offset = 0;
+  data.forEach(function(d){
+    var frac = d.value/total;
+    var len = frac*circ;
+    var circle = svgEl('circle', {
+      cx:cx, cy:cy, r:r, fill:'none', stroke:d.color, 'stroke-width':strokeW,
+      'stroke-dasharray': len+' '+(circ-len), 'stroke-dashoffset': -offset, transform:'rotate(-90 '+cx+' '+cy+')'
+    });
+    svg.appendChild(circle);
+    offset += len;
+  });
+  var centerVal = svgEl('text', {x:cx, y:cy-4, 'text-anchor':'middle', fill:INK, 'font-size':22, 'font-weight':800}); centerVal.textContent='$'+total.toLocaleString('en-US'); svg.appendChild(centerVal);
+  var centerLbl = svgEl('text', {x:cx, y:cy+16, 'text-anchor':'middle', fill:MUTED, 'font-size':11}); centerLbl.textContent='per patient'; svg.appendChild(centerLbl);
+  document.getElementById(containerId).appendChild(svg);
+  var legend = document.createElement('div'); legend.className = 'legend';
+  data.forEach(function(d){
+    var item = document.createElement('div'); item.className='item';
+    item.innerHTML = '<span class="swatch" style="background:'+d.color+'"></span>'+d.label+' — $'+d.value;
+    legend.appendChild(item);
+  });
+  document.getElementById(containerId).appendChild(legend);
+}
+
+/* Grouped bar chart (2 series) */
+function groupedBarChart(containerId, categories, series){
+  var w = 460, h = 260, padL = 46, padB = 30, padT = 14;
+  var innerW = w - padL - 10, innerH = h - padB - padT;
+  var maxVal = 0;
+  series.forEach(function(s){ s.values.forEach(function(v){ if(v>maxVal) maxVal=v; }); });
+  maxVal *= 1.15;
+  var groupW = innerW / categories.length;
+  var barW = groupW / (series.length+1.4);
+  var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, width:'100%'});
+
+  [0,0.25,0.5,0.75,1].forEach(function(t){
+    var y = padT + innerH - t*innerH;
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:w-8, y2:y, stroke:GRID, 'stroke-width':1}));
+  });
+
+  categories.forEach(function(cat, ci){
+    var gx = padL + ci*groupW;
+    series.forEach(function(s, si){
+      var val = s.values[ci];
+      var bh = (val/maxVal)*innerH;
+      var bx = gx + (si+0.7)*barW;
+      var by = padT + innerH - bh;
+      svg.appendChild(svgEl('rect', {x:bx, y:by, width:barW*0.82, height:bh, rx:3, fill:s.color}));
+    });
+    var lbl = svgEl('text', {x:gx+groupW/2, y:h-8, 'text-anchor':'middle', fill:INK2, 'font-size':12}); lbl.textContent = cat; svg.appendChild(lbl);
+  });
+
+  document.getElementById(containerId).appendChild(svg);
+  var legend = document.createElement('div'); legend.className='legend';
+  series.forEach(function(s){
+    var item = document.createElement('div'); item.className='item';
+    item.innerHTML = '<span class="swatch" style="background:'+s.color+'"></span>'+s.name;
+    legend.appendChild(item);
+  });
+  document.getElementById(containerId).appendChild(legend);
+}
+
+/* ---------- render charts ---------- */
+rangeChart('chartMarket', [
+  {label:'2025–26 (Current)', low:8.7, high:13, color:BLUE},
+  {label:'2030 (Projected)', low:16.2, high:19, color:ORANGE}
+]);
+
+hBarChart('chartOrigin', [
+  {label:'Iraq', value:30989},
+  {label:'Uzbekistan', value:13699},
+  {label:'Somalia', value:11506},
+  {label:'Turkmenistan', value:10231},
+  {label:'Oman', value:9738},
+  {label:'Kenya', value:9357}
+]);
+
+donutChart('chartDonut', [
+  {label:'Hospital commission', value:975, color:BLUE},
+  {label:'Concierge/service fee', value:350, color:ORANGE},
+  {label:'Ancillary margin', value:150, color:AQUA}
+]);
+
+groupedBarChart('chartFinancials', ['Year 1','Year 2','Year 3'], [
+  {name:'Gross revenue', color:BLUE, values:[120000, 385000, 777500]},
+  {name:'Net profit', color:ORANGE, values:[15000, 170000, 360000]}
+]);
+</script>
+</body>
+</html>
