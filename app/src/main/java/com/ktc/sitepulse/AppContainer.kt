@@ -2,6 +2,7 @@ package com.ktc.sitepulse
 
 import android.content.Context
 import com.ktc.sitepulse.data.repo.AnnouncementRepository
+import com.ktc.sitepulse.data.repo.AppVersionRepository
 import com.ktc.sitepulse.data.repo.ArrivalRequestRepository
 import com.ktc.sitepulse.data.repo.AttendanceRepository
 import com.ktc.sitepulse.data.repo.AuthRepository
@@ -30,6 +31,7 @@ class AppContainer(context: Context) {
     val settingsRepository = SettingsRepository()
     val announcementRepository = AnnouncementRepository()
     val pushTokensRepository = PushTokensRepository()
+    val appVersionRepository = AppVersionRepository()
     val netlifyApi = NetlifyApi()
     val locationProvider = LocationProvider(context)
     val wifiProvider = WifiProvider(context)

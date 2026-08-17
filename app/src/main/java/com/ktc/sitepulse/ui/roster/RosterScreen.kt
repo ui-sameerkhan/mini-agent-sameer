@@ -152,8 +152,12 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         uri?.let { viewModel.startBackupRestore(it) }
     }
     val pendingRestore by viewModel.pendingRestore.collectAsState()
+    val versionGate by viewModel.versionGate.collectAsState()
 
     var announcementText by remember { mutableStateOf("") }
+    var minVersionCodeText by remember { mutableStateOf("") }
+    var updateUrlText by remember { mutableStateOf("") }
+    var updateMessageText by remember { mutableStateOf("") }
     var leaveId by remember { mutableStateOf("") }
     var leaveFrom by remember { mutableStateOf("") }
     var leaveTo by remember { mutableStateOf("") }
@@ -196,6 +200,40 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) { Text("📣 Send to Everyone") }
             statusMessages["announcementStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("FORCE UPDATE / APP VERSION", fontWeight = FontWeight.Bold)
+            Text(
+                "Blocks anyone on an older build the moment you save this — even if their app is already open. "
+                    + "This device is currently running version code ${com.ktc.sitepulse.BuildConfig.VERSION_CODE} (${com.ktc.sitepulse.BuildConfig.VERSION_NAME}).",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            Text(
+                "Currently enforced minimum: ${versionGate?.minVersionCode?.takeIf { it > 0 } ?: "none"}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp),
+            )
+            OutlinedTextField(
+                minVersionCodeText, { minVersionCodeText = it.filter { c -> c.isDigit() } },
+                label = { Text("Minimum Version Code (0 = no gate)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                updateUrlText, { updateUrlText = it }, label = { Text("Update download link (shown to blocked users)") },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                updateMessageText, { updateMessageText = it }, label = { Text("Message (optional)") },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            Button(
+                onClick = { viewModel.saveVersionGate(minVersionCodeText.toLongOrNull() ?: 0L, updateUrlText, updateMessageText) },
+                colors = ButtonDefaults.buttonColors(containerColor = SpRed),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            ) { Text("Save") }
+            statusMessages["versionGateStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
         }
     }
 

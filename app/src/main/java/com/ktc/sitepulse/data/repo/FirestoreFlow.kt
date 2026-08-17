@@ -1,6 +1,7 @@
 package com.ktc.sitepulse.data.repo
 
 import android.util.Log
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
@@ -18,6 +19,19 @@ fun Query.asFlow(): Flow<List<DocumentSnapshot>> = callbackFlow {
             return@addSnapshotListener
         }
         if (snapshot != null) trySend(snapshot.documents)
+    }
+    awaitClose { registration.remove() }
+}
+
+/** Live-subscribes a single document — used by AppVersionRepository so a force-update
+ * threshold change in the Console is picked up immediately, even by an already-open app. */
+fun DocumentReference.asFlow(): Flow<DocumentSnapshot?> = callbackFlow {
+    val registration = addSnapshotListener { snapshot, error ->
+        if (error != null) {
+            close(error)
+            return@addSnapshotListener
+        }
+        trySend(snapshot)
     }
     awaitClose { registration.remove() }
 }

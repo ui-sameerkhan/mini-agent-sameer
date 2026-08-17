@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.collectAsState
+import com.ktc.sitepulse.BuildConfig
 import com.ktc.sitepulse.data.repo.ParseDiagnostics
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.util.CrashReporter
@@ -45,6 +46,7 @@ import com.ktc.sitepulse.ui.components.SitePulseHeader
 import com.ktc.sitepulse.ui.components.SitePulseTabBar
 import com.ktc.sitepulse.ui.components.SpTab
 import com.ktc.sitepulse.ui.dashboard.DashboardScreen
+import com.ktc.sitepulse.ui.forceupdate.ForceUpdateScreen
 import com.ktc.sitepulse.ui.login.LoginScreen
 import com.ktc.sitepulse.ui.officestaff.OfficeStaffScreen
 import com.ktc.sitepulse.ui.roster.RosterScreen
@@ -62,6 +64,14 @@ fun SitePulseRoot() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    // Remote force-update gate — checked before anything else renders, live (not just at cold
+    // start), so an admin can shut off this exact installed build at will. See versionGate.
+    val versionGate by viewModel.versionGate.collectAsState()
+    versionGate?.takeIf { it.minVersionCode > BuildConfig.VERSION_CODE }?.let { gate ->
+        ForceUpdateScreen(gate = gate, onSignOut = viewModel::logout)
+        return
+    }
 
     val context = LocalContext.current
     var lastCrash by remember { mutableStateOf(CrashReporter.lastCrash(context)) }

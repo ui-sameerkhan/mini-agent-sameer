@@ -8,6 +8,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Announcement
+import com.ktc.sitepulse.data.model.AppVersionGate
 import com.ktc.sitepulse.data.model.ArrivalRequest
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
@@ -126,6 +127,26 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun dismissAnnouncement(id: String) { _dismissedAnnouncementId.value = id }
+
+    // Live (not one-time), so bumping minVersionCode in the Console blocks an already-open
+    // session immediately — not just on the next cold start. Eagerly collected (not
+    // WhileSubscribed) so it's already known by the time SitePulseRoot renders its first frame.
+    val versionGate: StateFlow<AppVersionGate?> = session.map { it.isLoggedIn }.distinctUntilChanged()
+        .flatMapLatest { loggedIn -> if (loggedIn) container.appVersionRepository.live().catch { emit(null) } else flowOf(null) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Admin-only: sets/clears the remote force-update threshold. */
+    fun saveVersionGate(minVersionCode: Long, updateUrl: String, message: String) {
+        viewModelScope.launch {
+            setStatus("versionGateStatus", "⏳ Saving…")
+            try {
+                container.appVersionRepository.save(minVersionCode, updateUrl, message)
+                setStatus("versionGateStatus", "✅ Saved.")
+            } catch (e: Throwable) {
+                setStatus("versionGateStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
 
     // Office staff accounts are permanently bound to the first Worker ID they check in with —
     // loaded eagerly (not lazily via stateIn's WhileSubscribed) so CheckInScreen can lock the
