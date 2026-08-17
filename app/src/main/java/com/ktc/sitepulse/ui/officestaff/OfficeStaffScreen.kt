@@ -34,6 +34,7 @@ import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.components.NotificationsCard
 import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
 import com.ktc.sitepulse.ui.theme.SpGreenMid
@@ -71,17 +72,10 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         OutlinedButton(onClick = onBack) { Text("← Back to Check-In") }
 
-        Text("NOTIFICATIONS", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    "Get a push notification for admin announcements — even when the app is closed.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp),
-                )
-                Button(onClick = viewModel::enableNotifications, modifier = Modifier.fillMaxWidth()) { Text("🔔 Enable Notifications") }
-                statusMessages["pushStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
-            }
-        }
+        NotificationsCard(
+            viewModel, "Get a push notification for admin announcements — even when the app is closed.",
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        )
 
         Text("APPLY FOR LEAVE", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
