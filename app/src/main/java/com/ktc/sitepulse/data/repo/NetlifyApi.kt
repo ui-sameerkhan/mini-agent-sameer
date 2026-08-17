@@ -30,7 +30,9 @@ class NetlifyApi(private val client: OkHttpClient = OkHttpClient()) {
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
     suspend fun sendPush(token: String, title: String, body: String, url: String): PushResult {
-        if (Constants.NETLIFY_BASE_URL.isBlank()) return PushResult.NetworkError("Netlify base URL not configured")
+        if (Constants.SEND_PUSH_FUNCTION_URL.contains("REPLACE_AFTER_DEPLOY")) {
+            return PushResult.NetworkError("Push function not deployed yet — see functions/README.md")
+        }
         return try {
             withContext(Dispatchers.IO) {
                 val payload = JSONObject().apply {
@@ -40,7 +42,7 @@ class NetlifyApi(private val client: OkHttpClient = OkHttpClient()) {
                     put("url", url)
                 }
                 val request = Request.Builder()
-                    .url(Constants.SEND_PUSH_URL)
+                    .url(Constants.SEND_PUSH_FUNCTION_URL)
                     .post(payload.toString().toRequestBody(jsonMedia))
                     .build()
                 client.newCall(request).execute().use { resp ->

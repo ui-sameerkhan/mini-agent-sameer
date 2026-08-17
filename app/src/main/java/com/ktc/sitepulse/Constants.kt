@@ -13,11 +13,17 @@ object Constants {
 
     const val DEFAULT_GEOFENCE_RADIUS_M = 500
 
-    // Netlify site hosting send-push.js / send-email.js / weekly-backup.js from the
-    // original PWA repo — reused as-is so new-arrival notifications keep working.
+    // Netlify site hosting send-email.js / weekly-backup.js from the original PWA repo —
+    // reused as-is; email delivery hasn't shown the same silent-failure symptoms push had.
     const val NETLIFY_BASE_URL = "https://ktc-manpower.netlify.app"
-    val SEND_PUSH_URL get() = "$NETLIFY_BASE_URL/.netlify/functions/send-push"
     val SEND_EMAIL_URL get() = "$NETLIFY_BASE_URL/.netlify/functions/send-email"
+
+    // Push moved off the old Netlify send-push.js (likely still on Google's legacy FCM API,
+    // shut down June 2024 — see functions/README.md) to a first-party Firebase Cloud Function
+    // whose logs are actually reachable. Deploy functions/ per that README, then paste the
+    // printed URL here. Left as a placeholder until then — NetlifyApi.sendPush() detects it
+    // and reports a clear error instead of firing requests at a URL that doesn't exist.
+    const val SEND_PUSH_FUNCTION_URL = "https://REPLACE_AFTER_DEPLOY"
 
     const val WORKERS_PAGE_SIZE = 50
     const val FIRESTORE_BATCH_LIMIT = 450
