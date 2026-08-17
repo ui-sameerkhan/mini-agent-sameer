@@ -15,6 +15,7 @@ import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Site
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.data.repo.PushResult
 import com.ktc.sitepulse.data.repo.SessionState
 import com.ktc.sitepulse.domain.BackupRestoreResult
 import com.ktc.sitepulse.domain.DateUtils
@@ -642,8 +643,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /** Admin-only broadcast: saves the announcement (guaranteed in-app banner for everyone) and
-     * best-effort pushes it to every device that has opted into notifications. */
+    /**
+     * Admin-only broadcast: saves the announcement (guaranteed in-app banner for everyone) then
+     * pushes it to every device that opted in. The fan-out used to be wrapped in a silent
+     * try/catch — with no logcat access on the only test device, that made a push that never
+     * arrived undiagnosable ("saved fine, banner shows, but nothing in the notification bar"
+     * looked identical whether zero devices were registered, Firestore denied the token read,
+     * or Netlify itself failed). The status message now reports which of those actually happened.
+     */
     fun sendAnnouncement(message: String) {
         val text = message.trim()
         if (text.isBlank()) { setStatus("announcementStatus", "❌ Enter a message."); return }
@@ -651,13 +658,26 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             setStatus("announcementStatus", "⏳ Sending…")
             try {
                 container.announcementRepository.send(text, session.value.email, DateUtils.nowIso())
-                setStatus("announcementStatus", "✅ Sent — every signed-in user will see it now.")
                 try {
-                    container.pushTokensRepository.allTokens().forEach { token ->
-                        container.netlifyApi.sendPush(token, "SitePulse announcement", text, "#/")
+                    val tokens = container.pushTokensRepository.allTokens()
+                    if (tokens.isEmpty()) {
+                        setStatus("announcementStatus", "✅ Shown in-app now. No devices are registered for push yet — each user needs to tap Enable Notifications first.")
+                    } else {
+                        val results = tokens.map { token -> container.netlifyApi.sendPush(token, "SitePulse announcement", text, "#/") }
+                        val okCount = results.count { it is PushResult.Success }
+                        val firstError = results.firstOrNull { it !is PushResult.Success }
+                        val detail = when (firstError) {
+                            is PushResult.HttpError -> " (send-push returned HTTP ${firstError.code})"
+                            is PushResult.NetworkError -> " (${firstError.message})"
+                            else -> ""
+                        }
+                        setStatus(
+                            "announcementStatus",
+                            "✅ Shown in-app now. Push reached $okCount / ${tokens.size} registered device(s).$detail"
+                        )
                     }
                 } catch (e: Throwable) {
-                    // Push fan-out failed silently — the announcement itself is already saved and shown in-app.
+                    setStatus("announcementStatus", "✅ Shown in-app now, but couldn't read the device list to push: ${e.message ?: e::class.simpleName}")
                 }
             } catch (e: Throwable) {
                 setStatus("announcementStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
