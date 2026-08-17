@@ -76,7 +76,7 @@ object ReportEngine {
         } else {
             val exportHeaders = listOf(
                 "Date", "Project Code", "Project Name", "Worker ID", "Worker Name", "Designation",
-                "Assigned Site", "Company", "Shift", "Check IN", "Check OUT", "IN Location",
+                "Assigned Site", "Company", "Shift", "Check IN", "Check OUT", "Hours", "IN Location",
                 "OUT Location", "Dist from Site (m)", "Marked By", "ERP Aligned Site", "Site Match"
             )
             fun toRow(a: Attendance): List<String> {
@@ -89,7 +89,7 @@ object ReportEngine {
                 return listOf(
                     a.date, a.siteCode, a.siteName, a.workerId, w?.name ?: "", w?.designation ?: "",
                     w?.site ?: "", w?.company?.ifBlank { null } ?: "KTC", a.shift ?: "",
-                    DateUtils.formatTimeHm(a.checkIn), DateUtils.formatTimeHm(a.out),
+                    DateUtils.formatTimeHm(a.checkIn), DateUtils.formatTimeHm(a.out), hoursLabel(a),
                     a.inGps?.let { "${it.lat}, ${it.lng}" } ?: "",
                     a.outGps?.let { "${it.lat}, ${it.lng}" } ?: "",
                     a.inDist?.toString() ?: "", a.markedBy, a.alignedSite ?: "", siteMatchLabel
@@ -124,6 +124,16 @@ object ReportEngine {
                         headers = listOf("Project Code", "Trade", "Present Count"), rows = tradeRows
                     )
                 }
+                if (params.range == "month") {
+                    val hoursRows = monthlyHoursSummary(sorted, workerById, includeSiteColumn = true)
+                    if (hoursRows.isNotEmpty()) {
+                        addSheet(
+                            wb, styles, "MONTHLY HOURS", title = "SITEPULSE — MONTHLY HOURS (ALL PROJECTS)", meta = metaLines,
+                            headers = listOf("Project Code", "Worker ID", "Worker Name", "Designation", "Days Present", "Total Hours", "Avg Hours/Day"),
+                            rows = hoursRows
+                        )
+                    }
+                }
             } else if (sorted.isNotEmpty()) {
                 addSheet(
                     wb, styles, sheetName(params.siteScope),
@@ -136,6 +146,16 @@ object ReportEngine {
                         wb, styles, "TRADE SUMMARY", title = "SITEPULSE — TRADE-WISE SUMMARY: ${params.siteScope}", meta = metaLines,
                         headers = listOf("Trade", "Present Count"), rows = tradeRows
                     )
+                }
+                if (params.range == "month") {
+                    val hoursRows = monthlyHoursSummary(sorted, workerById, includeSiteColumn = false)
+                    if (hoursRows.isNotEmpty()) {
+                        addSheet(
+                            wb, styles, "MONTHLY HOURS", title = "SITEPULSE — MONTHLY HOURS: ${params.siteScope}", meta = metaLines,
+                            headers = listOf("Worker ID", "Worker Name", "Designation", "Days Present", "Total Hours", "Avg Hours/Day"),
+                            rows = hoursRows
+                        )
+                    }
                 }
             }
 
@@ -162,6 +182,9 @@ object ReportEngine {
 
     private fun sheetName(code: String): String = code.take(31).ifBlank { "NA" }
 
+    private fun hoursLabel(a: Attendance): String =
+        DateUtils.hoursBetween(a.checkIn, a.out)?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: ""
+
     private fun buildMetaLines(p: Params): List<String> {
         val generated = "Generated: ${DateUtils.formatDateTime(DateUtils.nowIso())} · By: ${p.generatedBy}"
         val dateLine = if (p.range == "day") "Date: ${p.dateOrMonth}" else "Month: ${p.dateOrMonth}"
@@ -183,6 +206,32 @@ object ReportEngine {
                 .sortedByDescending { it[1].toInt() }
         }
     }
+
+    /** Total hours worked per worker per project for the export's date range — the "Days
+     * Present" and "Total Hours" a worker logs against each project code they checked into.
+     * A worker who covered two projects in the same month gets a row per project, which is
+     * the point: hours are attributed to wherever they actually worked, not one home site. */
+    private fun monthlyHoursSummary(rows: List<Attendance>, workerById: Map<String, Worker>, includeSiteColumn: Boolean): List<List<String>> {
+        val present = rows.filter { it.hasIn }
+        return present.groupBy { it.siteCode to it.workerId }
+            .map { (key, recs) ->
+                val (site, workerId) = key
+                val w = workerById[workerId]
+                val totalHours = recs.sumOf { DateUtils.hoursBetween(it.checkIn, it.out) ?: 0.0 }
+                val daysPresent = recs.map { it.date }.distinct().size
+                val avgHours = if (daysPresent > 0) totalHours / daysPresent else 0.0
+                val base = listOf(
+                    workerId, w?.name ?: "", w?.designation ?: "", daysPresent.toString(),
+                    String.format(java.util.Locale.US, "%.2f", totalHours),
+                    String.format(java.util.Locale.US, "%.2f", avgHours),
+                )
+                RowWithSort2(site, totalHours, if (includeSiteColumn) listOf(site) + base else base)
+            }
+            .sortedWith(compareBy({ it.site }, { -it.totalHours }))
+            .map { it.row }
+    }
+
+    private data class RowWithSort2(val site: String, val totalHours: Double, val row: List<String>)
 
     private fun buildAbsentDay(
         date: String, expected: List<Worker>, dayRows: List<Attendance>, leaves: List<Leave>,

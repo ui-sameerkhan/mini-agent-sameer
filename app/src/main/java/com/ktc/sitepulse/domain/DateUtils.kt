@@ -79,6 +79,19 @@ object DateUtils {
         }
     }
 
+    /** Hours between a check-in and check-out ISO instant, or null if either is missing/unparseable
+     * or out precedes in (e.g. a still-open shift). Real elapsed time, so a night shift crossing
+     * midnight is handled automatically — no separate date-rollover logic needed. */
+    fun hoursBetween(inIso: String?, outIso: String?): Double? {
+        if (inIso.isNullOrBlank() || outIso.isNullOrBlank()) return null
+        return try {
+            val seconds = java.time.Duration.between(Instant.parse(inIso), Instant.parse(outIso)).seconds
+            if (seconds < 0) null else seconds / 3600.0
+        } catch (e: DateTimeParseException) {
+            null
+        }
+    }
+
     fun isWithin(dateStr: String, fromDate: String, toDate: String): Boolean {
         val d = LocalDate.parse(dateStr, ISO_DATE)
         val from = LocalDate.parse(fromDate, ISO_DATE)
