@@ -1,48 +1,84 @@
-# mini-agent-sameer
-A simple and responsive AI chat UI built using React and TailwindCSS. The chat simulates a Mini-Agent behavior with memory, basic calculation, and typing delay using a mock backend function. Perfect demonstration of state management, UI components, and async logic handling.
+# Rail Gate Tracker
 
-# Mini-Agent Chat UI
+A live dashboard that predicts the open/closed status of Indian Railway
+level crossing (LC) gates, computed from train timetables and running
+delays — React + TypeScript + Tailwind, built with Vite.
 
-This project is a simple, responsive chat interface built using **React** and **TailwindCSS**, designed to simulate the experience of interacting with a lightweight AI agent. It includes message history, typing indication, and a mock backend function that handles basic logic like remembering user input and performing simple calculations.
+## Why "predicted", not "live sensor data"
 
----
+Indian Railways doesn't publish a free, public real-time feed for exact
+train GPS position or LC gate sensor state — running status is only
+available through NTES/CRIS or licensed commercial aggregators. So instead
+of pretending to show sensor data this app doesn't have, it does what a
+gatekeeper does: works out when a train is due, and derives gate state from
+that.
 
-## 🚀 Features
+**Everything you see here — stations, trains, schedules, gate numbers,
+coordinates, and live delays — is illustrative sample data for one short,
+fictionalised stretch of the New Delhi–Agra corridor.** It is not sourced
+from an official IR timetable or feed, and must not be used for real
+travel, safety, or operational decisions. See `src/data/*.ts` for the
+disclaimers next to each dataset.
 
-- **Clean, responsive chat UI**
-- **User and Agent message bubbles** with left/right alignment
-- **Typing indicator** while the agent is "thinking"
-- **Mock backend** to simulate agent responses
-- **Short-term memory** (e.g., “Remember my cat's name is Fluffy”)
-- **Simple calculator ability** (e.g., “What is 10 + 5?”)
-- **Custom color theme** using TailwindCSS
-- **Agent profile avatar** in header
+## How gate status is computed
 
----
+1. **ETA at the gate** (`src/lib/gateLogic.ts::computeTrainPass`) — each
+   level crossing sits at a known distance along the block section between
+   two stations. A train's ETA at the crossing is the scheduled departure
+   time from the section's start station, linearly interpolated by
+   distance, then shifted by that train's current live delay.
+2. **Occupancy window** — a train occupies the crossing from
+   `ETA - closeBeforeMin` (Indian Railways lowers gates some minutes ahead
+   of an approaching train) through `ETA + (train length / speed) + clearance
+   buffer` (time for the full rake to clear the road, plus a safety margin).
+3. **Merging** (`mergeClosedIntervals`) — overlapping or back-to-back
+   occupancy windows (e.g. two trains crossing close together) are merged
+   into one continuous closure, and the UI lists every train responsible.
+4. **State** (`deriveStatus`) — `CLOSED` if now falls inside a window,
+   `CLOSING_SOON` if a window starts within the next 10 minutes, else
+   `OPEN`.
 
-## 🛠️ Tech Stack
+This is all pure, unit-tested logic (`src/lib/gateLogic.test.ts`) decoupled
+from where the delay numbers come from.
 
-| Tool / Library | Purpose |
-|----------------|---------|
-| React          | UI and component structure |
-| TailwindCSS (CDN) | Styling with utility classes |
-| TypeScript     | Type safety (optional use) |
-| Vite           | Fast development server and build |
+## Live data: pluggable by design
 
----
+`src/lib/liveTrainService.ts` defines a small `TrainStatusProvider`
+interface — `init`, `tick`, `snapshot` — that the gate-status engine and UI
+depend on. `MockTrainStatusProvider` simulates delays with a bounded random
+walk so gates actually cycle open/closed while you watch. To connect a real
+data source (a licensed NTES/CRIS feed, a commercial rail-data API, or your
+own trackside reporting), implement the same interface against it and swap
+it in inside `src/hooks/useLiveRailData.ts` — nothing else in the app needs
+to change.
 
-## 🧠 Mock Backend Logic
+The on-screen clock is a simulated timeline (starting at a fixed 09:00, not
+wall-clock time), with playback controls (pause, and 1×/60×/300×/900×
+speed) so you can watch a full day's worth of gate cycles in seconds. A
+real deployment would replace this with the actual current time.
 
-The function `mockAgentResponse(prompt)` simulates how a backend agent might respond.  
-It includes:
+## Project structure
 
-- 1-second artificial delay (`setTimeout`) to mimic thinking
-- Basic **calculator** tool
-- **Memory save & recall**
-- Simple conversational responses ("hello", "help")
+```
+src/
+  types.ts                  Domain types (Station, Train, LevelCrossing, CrossingStatus, ...)
+  data/                     Sample stations/trains/crossings (clearly marked illustrative)
+  lib/
+    time.ts                 HH:MM <-> minute helpers, duration formatting
+    liveTrainService.ts     TrainStatusProvider interface + mock implementation
+    gateLogic.ts            ETA, occupancy, interval-merging, OPEN/CLOSING_SOON/CLOSED derivation
+    gateLogic.test.ts       Unit tests for the logic above
+  hooks/useLiveRailData.ts  Owns the simulated clock + ticks the provider + recomputes statuses
+  components/               ControlBar, SummaryStrip, CrossingCard, StatusBadge, GateIcon
+  App.tsx
+```
 
-Example:
-```js
-if (prompt.includes("Remember my cat's name is Fluffy")) {
-  memory["cat's name"] = "Fluffy";
-}
+## Development
+
+```bash
+npm install
+npm run dev      # start the dev server
+npm run test     # run the gate-logic unit tests
+npm run build    # typecheck + production build
+npm run lint      # oxlint
+```
