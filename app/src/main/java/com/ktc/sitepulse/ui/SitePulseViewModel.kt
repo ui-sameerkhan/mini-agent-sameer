@@ -10,6 +10,7 @@ import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Announcement
 import com.ktc.sitepulse.data.model.AppVersionGate
 import com.ktc.sitepulse.data.model.ArrivalRequest
+import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.data.model.Leave
@@ -116,6 +117,35 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     val pendingLeaveRequests: StateFlow<List<Leave>> = session.map { it.isAdmin }.distinctUntilChanged()
         .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Company-wide holidays — a worker with no attendance on one of these dates shows as
+     * "HOLIDAY" rather than "ABSENT" on the Absent Report. Admin manages the list from Roster. */
+    val holidays: StateFlow<List<Holiday>> = session.map { it.isAdmin }.distinctUntilChanged()
+        .flatMapLatest { isAdmin -> if (isAdmin) container.holidayRepository.live().recoverToEmpty("Holidays") else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addHoliday(date: String, name: String) {
+        if (date.isBlank() || name.isBlank()) { setStatus("holidayStatus", "❌ Enter both a date and a name."); return }
+        viewModelScope.launch {
+            try {
+                container.holidayRepository.add(date, name.trim(), session.value.email, DateUtils.nowIso())
+                setStatus("holidayStatus", "✅ Holiday added.")
+            } catch (e: Throwable) {
+                setStatus("holidayStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun deleteHoliday(date: String) {
+        viewModelScope.launch {
+            try {
+                container.holidayRepository.delete(date)
+                setStatus("holidayStatus", "🗑 Holiday removed.")
+            } catch (e: Throwable) {
+                setStatus("holidayStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
 
     private val liveAnnouncement: StateFlow<Announcement?> = session.map { it.isLoggedIn }.distinctUntilChanged()
         .flatMapLatest { loggedIn -> if (loggedIn) container.announcementRepository.latest().catch { emit(null) } else flowOf(null) }
@@ -427,6 +457,30 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
             } catch (e: Throwable) {
                 setStatus("leaveStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /** Same as [markLeave], for a whole crew at once — a rain day, public holiday, or site
+     * shutdown affecting many workers rather than marking each one individually. */
+    fun markLeaveBulk(workerIds: List<String>, fromDate: String, toDate: String, reason: String?, leaveType: String = "Annual") {
+        if (fromDate.isBlank()) { setStatus("leaveStatus", "❌ Enter a From date."); return }
+        if (workerIds.isEmpty()) { setStatus("leaveStatus", "❌ Select at least one worker."); return }
+        viewModelScope.launch {
+            try {
+                val now = DateUtils.nowIso()
+                val leaves = workerIds.mapNotNull { id ->
+                    val worker = workers.value.find { it.id == id } ?: return@mapNotNull null
+                    Leave(
+                        workerId = id, site = worker.site.orEmpty(), fromDate = fromDate,
+                        toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
+                        ts = now, leaveType = leaveType,
+                    )
+                }
+                container.leaveRepository.bulkAdd(leaves)
+                setStatus("leaveStatus", "✅ Leave marked for ${leaves.size} worker(s).")
+            } catch (e: Throwable) {
+                setStatus("leaveStatus", "❌ Bulk mark failed: ${e.message ?: e::class.simpleName}")
             }
         }
     }
@@ -749,13 +803,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             container.attendanceRepository.getForMonth(params.dateOrMonth)
         }
         val leaves = container.leaveRepository.all()
+        val holidays = container.holidayRepository.all()
         val outDir = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
         val workersSnapshot = workers.value
         val sitesSnapshot = sites.value
         // Apache POI's workbook writing is blocking CPU/disk work — keep it off the
         // Main/Compose dispatcher the caller is on.
         return withContext(Dispatchers.IO) {
-            ReportEngine.generate(outDir, attendanceRows, workersSnapshot, sitesSnapshot, leaves, params)
+            ReportEngine.generate(outDir, attendanceRows, workersSnapshot, sitesSnapshot, leaves, holidays, params)
         }
     }
 

@@ -61,7 +61,7 @@ object BackupRestoreEngine {
     }
 
     private val WORKER_HEADERS = listOf("SNo", "ID", "Name", "Designation", "Company", "Site", "Aligned Date", "Status", "Left Date", "Annual Leave Days")
-    private val SITE_HEADERS = listOf("Code", "Name", "Latitude", "Longitude", "Geofence Radius (m)", "WiFi SSID")
+    private val SITE_HEADERS = listOf("Code", "Name", "Latitude", "Longitude", "Geofence Radius (m)", "WiFi SSID", "Night Start Hour", "Day Start Hour")
     private val ATTENDANCE_HEADERS = listOf(
         "Date", "Site Code", "Site Name", "Worker ID", "Shift", "Check IN", "Check OUT",
         "IN Lat", "IN Lng", "OUT Lat", "OUT Lng", "IN Dist (m)", "OUT Dist (m)", "Marked Via", "Marked By", "Last Action",
@@ -104,6 +104,8 @@ object BackupRestoreEngine {
             lng = m["Longitude"]?.toDoubleOrNull() ?: 0.0,
             radius = m["Geofence Radius (m)"]?.toLongOrNull() ?: 500,
             wifiSsid = m["WiFi SSID"]?.ifBlank { null },
+            nightStartHour = m["Night Start Hour"]?.toLongOrNull(),
+            dayStartHour = m["Day Start Hour"]?.toLongOrNull(),
         )
     }
 

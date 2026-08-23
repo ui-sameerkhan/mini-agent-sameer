@@ -108,5 +108,12 @@ service cloud.firestore {
         request.resource.data.email == email;
       allow delete: if isAdmin();
     }
+
+    // holidays/{date} — doc id is the "YYYY-MM-DD" date itself. Read by anyone signed in
+    // (low-sensitivity reference data, same pattern as sites); only admin manages the list.
+    match /holidays/{date} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
   }
 }

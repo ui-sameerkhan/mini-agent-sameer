@@ -30,8 +30,10 @@ object DateUtils {
 
     fun localHour(): Int = LocalTime.now().hour
 
-    fun shiftFor(hour: Int = localHour()): String =
-        if (hour >= 18 || hour < 5) "Night" else "Day"
+    /** nightStart/dayStart let a specific site override the company-wide 18:00/05:00 default
+     * (e.g. a site running a genuinely different shift pattern) — see Site.nightStartHour. */
+    fun shiftFor(hour: Int = localHour(), nightStart: Int = 18, dayStart: Int = 5): String =
+        if (hour >= nightStart || hour < dayStart) "Night" else "Day"
 
     /** Formats an ISO instant string to a localized "h:mm a" time, or "" if null/unparseable. */
     fun formatTimeHm(iso: String?): String {

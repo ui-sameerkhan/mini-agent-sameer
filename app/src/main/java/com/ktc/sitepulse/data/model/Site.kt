@@ -17,4 +17,9 @@ data class Site(
      * office staff can punch in/out indoors where GPS is often unreliable.
      */
     val wifiSsid: String? = null,
+    /** Hour-of-day (0-23) boundaries for this site's Day/Night shift split — null means
+     * "use the company default" (18 / 5, see DateUtils.shiftFor). Only needs setting for a
+     * site that genuinely runs different hours than the rest of the company. */
+    val nightStartHour: Long? = null,
+    val dayStartHour: Long? = null,
 )

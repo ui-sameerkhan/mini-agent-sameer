@@ -1,6 +1,7 @@
 package com.ktc.sitepulse.domain
 
 import com.ktc.sitepulse.data.model.Attendance
+import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Site
 import com.ktc.sitepulse.data.model.Worker
@@ -53,8 +54,10 @@ object ReportEngine {
         workers: List<Worker>,
         sites: List<Site>,
         leaves: List<Leave>,
+        holidays: List<Holiday> = emptyList(),
         params: Params,
     ): File {
+        val holidayDates = holidays.map { it.date }.toSet()
         val workerById = workers.associateBy { it.id }
         val scoped = if (params.siteScope == "ALL") attendanceRows else attendanceRows.filter { it.siteCode == params.siteScope }
         val sorted = scoped.sortedWith(compareBy({ it.siteCode }, { it.date }, { it.workerId }))
@@ -161,9 +164,9 @@ object ReportEngine {
             }
 
             val absentRows = if (params.range == "day") {
-                buildAbsentDay(params.dateOrMonth, expected, sorted, leaves)
+                buildAbsentDay(params.dateOrMonth, expected, sorted, leaves, holidayDates)
             } else {
-                buildAbsentMonth(params.dateOrMonth, expected, workerById, allAttendanceForMonth = attendanceRows, leaves)
+                buildAbsentMonth(params.dateOrMonth, expected, workerById, allAttendanceForMonth = attendanceRows, leaves, holidayDates)
             }
             if (absentRows.first.isNotEmpty()) {
                 addSheet(
@@ -235,18 +238,24 @@ object ReportEngine {
     private data class RowWithSort2(val site: String, val totalHours: Double, val row: List<String>)
 
     private fun buildAbsentDay(
-        date: String, expected: List<Worker>, dayRows: List<Attendance>, leaves: List<Leave>,
+        date: String, expected: List<Worker>, dayRows: List<Attendance>, leaves: List<Leave>, holidayDates: Set<String>,
     ): Pair<List<List<String>>, List<String>> {
         val presentIds = dayRows.filter { it.hasIn }.map { it.workerId }.toSet()
+        val isHoliday = date in holidayDates
         val headers = listOf("Date", "Project Code", "Worker ID", "Worker Name", "Designation", "Company", "Status", "Aligned Since")
         val rows = expected.filter { it.id !in presentIds }
             .sortedWith(compareBy({ it.site ?: "" }, { it.name }))
             .map { w ->
                 val onLeave = leaves.any { it.workerId == w.id && it.status == "approved" && DateUtils.isWithin(date, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
+                val status = when {
+                    isHoliday -> "HOLIDAY"
+                    onLeave -> "ON LEAVE"
+                    else -> "ABSENT"
+                }
                 listOf(
                     date, w.site ?: "", w.id, w.name, w.designation,
                     w.company?.ifBlank { null } ?: "KTC",
-                    if (onLeave) "ON LEAVE" else "ABSENT",
+                    status,
                     w.alignedDate ?: ""
                 )
             }
@@ -255,24 +264,27 @@ object ReportEngine {
 
     private fun buildAbsentMonth(
         monthStr: String, expected: List<Worker>, workerById: Map<String, Worker>,
-        allAttendanceForMonth: List<Attendance>, leaves: List<Leave>,
+        allAttendanceForMonth: List<Attendance>, leaves: List<Leave>, holidayDates: Set<String>,
     ): Pair<List<List<String>>, List<String>> {
         val elapsed = DateUtils.elapsedDaysFor(monthStr)
         val byWorker = allAttendanceForMonth.filter { it.hasIn }.groupBy { it.workerId }
-        val headers = listOf("Project Code", "Worker ID", "Worker Name", "Designation", "Company", "Days Elapsed", "Days Present", "Days On Leave", "Days Absent", "Attendance %")
+        val monthHolidayCount = (1..elapsed).count { day -> "%s-%02d".format(monthStr, day) in holidayDates }
+        val headers = listOf("Project Code", "Worker ID", "Worker Name", "Designation", "Company", "Days Elapsed", "Days Present", "Days On Leave", "Days Holiday", "Days Absent", "Attendance %")
         val rows = expected.map { w ->
             val presentDates = (byWorker[w.id] ?: emptyList()).map { it.date }.distinct().size
             val leaveCount = (1..elapsed).count { day ->
                 val dateStr = "%s-%02d".format(monthStr, day)
-                leaves.any { it.workerId == w.id && it.status == "approved" && DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
+                dateStr !in holidayDates &&
+                    leaves.any { it.workerId == w.id && it.status == "approved" && DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
             }
-            val absent = maxOf(0, elapsed - presentDates - leaveCount)
-            val pct = if (elapsed > 0) Math.round(presentDates * 100.0 / elapsed) else 0
+            val absent = maxOf(0, elapsed - presentDates - leaveCount - monthHolidayCount)
+            val workingDays = maxOf(0, elapsed - monthHolidayCount)
+            val pct = if (workingDays > 0) Math.round(presentDates * 100.0 / workingDays) else 0
             RowWithSort(
                 absent,
                 listOf(
                     w.site ?: "", w.id, w.name, w.designation, w.company?.ifBlank { null } ?: "KTC",
-                    elapsed.toString(), presentDates.toString(), leaveCount.toString(), absent.toString(), "$pct%"
+                    elapsed.toString(), presentDates.toString(), leaveCount.toString(), monthHolidayCount.toString(), absent.toString(), "$pct%"
                 )
             )
         }.sortedWith(compareBy({ -it.absent }, { it.row[0] })).map { it.row }

@@ -166,7 +166,10 @@ class AttendanceEngine(
         }
 
         val nowIso = DateUtils.nowIso()
-        val shift = DateUtils.shiftFor()
+        val shift = DateUtils.shiftFor(
+            nightStart = (site.nightStartHour ?: 18L).toInt(),
+            dayStart = (site.dayStartHour ?: 5L).toInt(),
+        )
 
         // The ERP/biometric roster's "aligned site" is informational, not a hard gate — a
         // worker can genuinely be sent to cover a different site for a day. Rather than

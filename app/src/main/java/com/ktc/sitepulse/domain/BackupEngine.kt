@@ -66,9 +66,12 @@ object BackupEngine {
 
         addSheet(
             wb, styles, "SITES", "SITEPULSE — FULL BACKUP: SITES", meta,
-            headers = listOf("Code", "Name", "Latitude", "Longitude", "Geofence Radius (m)", "WiFi SSID"),
+            headers = listOf("Code", "Name", "Latitude", "Longitude", "Geofence Radius (m)", "WiFi SSID", "Night Start Hour", "Day Start Hour"),
             rows = sites.sortedBy { it.code }.map { s ->
-                listOf(s.code, s.name, s.lat.toString(), s.lng.toString(), s.radius.toString(), s.wifiSsid ?: "")
+                listOf(
+                    s.code, s.name, s.lat.toString(), s.lng.toString(), s.radius.toString(), s.wifiSsid ?: "",
+                    s.nightStartHour?.toString() ?: "", s.dayStartHour?.toString() ?: "",
+                )
             },
         )
 

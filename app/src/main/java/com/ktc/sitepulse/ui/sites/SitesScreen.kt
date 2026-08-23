@@ -72,6 +72,12 @@ fun SitesScreen(viewModel: SitePulseViewModel) {
                         site.wifiSsid?.takeIf { it.isNotBlank() }?.let {
                             Text("📶 Office WiFi: $it", fontSize = 12.sp, color = SpBlue)
                         }
+                        if (site.nightStartHour != null || site.dayStartHour != null) {
+                            Text(
+                                "🕒 Custom shift: Night ${site.nightStartHour ?: 18}:00 · Day ${site.dayStartHour ?: 5}:00",
+                                fontSize = 12.sp, color = SpBlue,
+                            )
+                        }
                         Row(Modifier.padding(top = 8.dp)) {
                             OutlinedButton(onClick = {
                                 val uri = Uri.parse("https://maps.google.com/?q=${site.lat},${site.lng}")
@@ -112,6 +118,8 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
     var lng by remember { mutableStateOf(existing?.lng?.toString() ?: "") }
     var radius by remember { mutableStateOf((existing?.radius ?: 500).toString()) }
     var wifiSsid by remember { mutableStateOf(existing?.wifiSsid ?: "") }
+    var nightStartHour by remember { mutableStateOf(existing?.nightStartHour?.toString() ?: "") }
+    var dayStartHour by remember { mutableStateOf(existing?.dayStartHour?.toString() ?: "") }
     var gpsStatus by remember { mutableStateOf("") }
     var wifiStatus by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -166,6 +174,22 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) { Text("📶 Use My Current WiFi Network") }
                 if (wifiStatus.isNotBlank()) Text(wifiStatus, fontSize = 12.sp)
+
+                Text(
+                    "Optional: only set these if this site runs different shift hours than the company default (Night: 18:00, Day: 05:00). Leave blank to use the default.",
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                )
+                Row(Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        nightStartHour, { nightStartHour = it.filter { c -> c.isDigit() } },
+                        label = { Text("Night Starts (0-23)") }, modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        dayStartHour, { dayStartHour = it.filter { c -> c.isDigit() } },
+                        label = { Text("Day Starts (0-23)") }, modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    )
+                }
             }
         },
         confirmButton = {
@@ -178,6 +202,8 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                         Site(
                             code = code.trim().uppercase(), name = name.trim(), lat = latD, lng = lngD, radius = radI,
                             wifiSsid = wifiSsid.trim().ifBlank { null },
+                            nightStartHour = nightStartHour.toLongOrNull()?.coerceIn(0, 23),
+                            dayStartHour = dayStartHour.toLongOrNull()?.coerceIn(0, 23),
                         )
                     )
                 }

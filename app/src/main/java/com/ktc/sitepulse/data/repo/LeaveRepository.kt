@@ -18,6 +18,16 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
         collection.add(leave).await()
     }
 
+    /** Admin marking a whole crew on leave at once (rain day, public holiday, site shutdown) —
+     * one new "approved" leave doc per worker, in a single batch. */
+    suspend fun bulkAdd(leaves: List<Leave>) {
+        leaves.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { l -> batch.set(collection.document(), l) }
+            batch.commit().await()
+        }
+    }
+
     /**
      * Firestore's @DocumentId annotation is supposed to auto-populate Leave.docId from the
      * snapshot on toObject(), but that mapping proved unreliable in practice — approve/reject/

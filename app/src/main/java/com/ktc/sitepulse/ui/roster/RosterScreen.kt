@@ -7,13 +7,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -21,15 +24,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
+import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
@@ -138,6 +145,8 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val siteDeviationsToday by viewModel.siteDeviationsToday.collectAsState()
     val pendingImport by viewModel.pendingImport.collectAsState()
     val workers by viewModel.workers.collectAsState()
+    val sites by viewModel.sites.collectAsState()
+    val holidays by viewModel.holidays.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -159,6 +168,9 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var leaveTo by remember { mutableStateOf("") }
     var leaveReason by remember { mutableStateOf("") }
     var leaveType by remember { mutableStateOf("Annual") }
+    var bulkLeaveOpen by remember { mutableStateOf(false) }
+    var holidayDate by remember { mutableStateOf("") }
+    var holidayName by remember { mutableStateOf("") }
     var rosterSearch by remember { mutableStateOf("") }
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
@@ -442,6 +454,38 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) { Text("Mark Leave") }
             statusMessages["leaveStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+            OutlinedButton(onClick = { bulkLeaveOpen = true }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                Text("👥 Bulk Mark Leave (Multiple Employees)")
+            }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("COMPANY HOLIDAYS", fontWeight = FontWeight.Bold)
+            Text(
+                "A worker with no attendance on one of these dates shows as HOLIDAY instead of ABSENT on the Absent Report.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            OutlinedTextField(holidayDate, { holidayDate = it }, label = { Text("Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(holidayName, { holidayName = it }, label = { Text("Holiday Name") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            Button(
+                onClick = { viewModel.addHoliday(holidayDate, holidayName); holidayDate = ""; holidayName = "" },
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            ) { Text("Add Holiday") }
+            statusMessages["holidayStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+            if (holidays.isNotEmpty()) {
+                holidays.sortedBy { it.date }.forEach { h ->
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(h.name, fontWeight = FontWeight.SemiBold)
+                            Text(h.date, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        OutlinedButton(onClick = { viewModel.deleteHoliday(h.date) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed)) { Text("Delete") }
+                    }
+                }
+            }
         }
     }
 
@@ -481,6 +525,99 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     pendingRestore?.let { pending ->
         com.ktc.sitepulse.ui.components.RestoreConfirmDialog(pending, onConfirm = viewModel::confirmBackupRestore, onDismiss = viewModel::cancelBackupRestore)
     }
+
+    if (bulkLeaveOpen) {
+        BulkLeaveDialog(
+            sites = sites, workers = workers,
+            onDismiss = { bulkLeaveOpen = false },
+            onSave = { workerIds, fromDate, toDate, reason, type ->
+                viewModel.markLeaveBulk(workerIds, fromDate, toDate, reason, type)
+                bulkLeaveOpen = false
+            },
+        )
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BulkLeaveDialog(
+    sites: List<com.ktc.sitepulse.data.model.Site>,
+    workers: List<Worker>,
+    onDismiss: () -> Unit,
+    onSave: (workerIds: List<String>, fromDate: String, toDate: String, reason: String?, leaveType: String) -> Unit,
+) {
+    var siteCode by remember { mutableStateOf("") }
+    var siteExpanded by remember { mutableStateOf(false) }
+    var fromDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
+    var toDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
+    var reason by remember { mutableStateOf("") }
+    var leaveType by remember { mutableStateOf("Annual") }
+    var search by remember { mutableStateOf("") }
+    val selected = remember { mutableStateListOf<String>() }
+
+    val filteredWorkers = workers.filter { w ->
+        (siteCode.isBlank() || w.site == siteCode) &&
+            (search.isBlank() || w.name.contains(search, true) || w.id.contains(search, true))
+    }
+    val visibleWorkers = filteredWorkers.take(200)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Bulk Mark Leave") },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                ExposedDropdownMenuBox(expanded = siteExpanded, onExpandedChange = { siteExpanded = it }) {
+                    OutlinedTextField(
+                        value = siteCode.ifBlank { "All Sites" }, onValueChange = {}, readOnly = true, label = { Text("Site (optional filter)") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = siteExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    )
+                    ExposedDropdownMenu(expanded = siteExpanded, onDismissRequest = { siteExpanded = false }) {
+                        DropdownMenuItem(text = { Text("All Sites") }, onClick = { siteCode = ""; siteExpanded = false })
+                        sites.forEach { s -> DropdownMenuItem(text = { Text("${s.code} — ${s.name}") }, onClick = { siteCode = s.code; siteExpanded = false }) }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    OutlinedTextField(fromDate, { fromDate = it }, label = { Text("From (YYYY-MM-DD)") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(toDate, { toDate = it }, label = { Text("To (YYYY-MM-DD)") }, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                }
+                LeaveTypeField(leaveType, { leaveType = it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(reason, { reason = it }, label = { Text("Reason (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+
+                OutlinedTextField(
+                    search, { search = it }, label = { Text("Search workers…") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true,
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${selected.size} selected", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    TextButton(onClick = { selected.clear(); selected.addAll(visibleWorkers.map { it.id }) }) { Text("Select Shown") }
+                    TextButton(onClick = { selected.clear() }) { Text("Clear") }
+                }
+                visibleWorkers.forEach { w ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = selected.contains(w.id),
+                            onCheckedChange = { checked -> if (checked) selected.add(w.id) else selected.remove(w.id) },
+                        )
+                        Text("${w.name} (ID ${w.id})", Modifier.weight(1f), fontSize = 13.sp)
+                    }
+                }
+                if (filteredWorkers.size > visibleWorkers.size) {
+                    Text(
+                        "+ ${filteredWorkers.size - visibleWorkers.size} more — search to narrow.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selected.toList(), fromDate, toDate, reason.ifBlank { null }, leaveType) },
+                enabled = selected.isNotEmpty() && fromDate.isNotBlank(),
+            ) { Text("Mark ${selected.size} Worker(s) on Leave") }
+        },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 /** Walks the full cause chain — ExceptionInInitializerError's own .message is always null; the real reason is in .cause. */

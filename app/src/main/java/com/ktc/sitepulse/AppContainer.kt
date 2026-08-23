@@ -7,6 +7,7 @@ import com.ktc.sitepulse.data.repo.ArrivalRequestRepository
 import com.ktc.sitepulse.data.repo.AttendanceRepository
 import com.ktc.sitepulse.data.repo.AuthRepository
 import com.ktc.sitepulse.data.repo.BlockedRepository
+import com.ktc.sitepulse.data.repo.HolidayRepository
 import com.ktc.sitepulse.data.repo.LeaveRepository
 import com.ktc.sitepulse.data.repo.LocationProvider
 import com.ktc.sitepulse.data.repo.NetlifyApi
@@ -27,6 +28,7 @@ class AppContainer(context: Context) {
     val blockedRepository = BlockedRepository()
     val arrivalRequestRepository = ArrivalRequestRepository()
     val leaveRepository = LeaveRepository()
+    val holidayRepository = HolidayRepository()
     val staffWorkerLinkRepository = StaffWorkerLinkRepository()
     val settingsRepository = SettingsRepository()
     val announcementRepository = AnnouncementRepository()
