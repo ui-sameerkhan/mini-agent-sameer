@@ -716,6 +716,20 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /** Same manual-correction semantics as [correctAttendance], applied to many workers at once
+     * for the same date/site/shift/times — backfilling a whole crew for a day the app wasn't used. */
+    suspend fun correctAttendanceBulk(date: String, workerIds: List<String>, fields: Map<String, Any?>) {
+        try {
+            container.attendanceRepository.bulkWriteMark(
+                date, workerIds,
+                fields + mapOf("corrected" to true, "correctedBy" to session.value.email, "correctedAt" to DateUtils.nowIso())
+            )
+            setStatus("attendanceEditStatus", "✅ Marked ${workerIds.size} worker(s) for $date.")
+        } catch (e: Throwable) {
+            setStatus("attendanceEditStatus", "❌ Bulk mark failed: ${e.message ?: e::class.simpleName}")
+        }
+    }
+
     // ---- Reports ----
 
     suspend fun attendanceForDate(date: String): List<Attendance> =

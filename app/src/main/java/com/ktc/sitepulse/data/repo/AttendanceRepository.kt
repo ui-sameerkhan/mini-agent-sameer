@@ -59,6 +59,19 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
         collection.document(docId(date, workerId)).set(fields, SetOptions.merge()).await()
     }
 
+    /** Bulk manual-correction write — same merge semantics as writeMark, applied to many workers
+     * at once for the same date (e.g. backfilling a whole crew for a day the app wasn't used). */
+    suspend fun bulkWriteMark(date: String, workerIds: List<String>, commonFields: Map<String, Any?>) {
+        workerIds.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { workerId ->
+                val fields = commonFields + mapOf("workerId" to workerId, "date" to date)
+                batch.set(collection.document(docId(date, workerId)), fields, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+    }
+
     /** Batched upsert used by the full-backup restore flow — merges onto whatever's already there. */
     suspend fun batchUpsert(records: List<Attendance>) {
         records.chunked(Constants.FIRESTORE_BATCH_LIMIT).forEach { chunk ->

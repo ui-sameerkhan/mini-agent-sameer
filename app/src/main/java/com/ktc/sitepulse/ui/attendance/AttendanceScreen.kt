@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,10 +24,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Site
+import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.ui.SitePulseViewModel
@@ -66,6 +70,7 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
     var downloadStatus by remember { mutableStateOf("") }
     var editingRecord by remember { mutableStateOf<Attendance?>(null) }
     var addingNew by remember { mutableStateOf(false) }
+    var bulkMarking by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDate) { dayRows = viewModel.attendanceForDate(selectedDate) }
 
@@ -82,6 +87,9 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
         if (session.isAdmin) {
             OutlinedButton(onClick = { addingNew = true }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 Text("+ Add Manual Attendance Record")
+            }
+            OutlinedButton(onClick = { bulkMarking = true }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text("📋 Bulk Mark Attendance (Multiple Employees)")
             }
             statusMessages["attendanceEditStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
         }
@@ -226,6 +234,149 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
             },
         )
     }
+    if (bulkMarking) {
+        BulkAttendanceDialog(
+            date = selectedDate, sites = sites, workers = workers,
+            onDismiss = { bulkMarking = false },
+            onSave = { workerIds, fields ->
+                scope.launch {
+                    viewModel.correctAttendanceBulk(selectedDate, workerIds, fields)
+                    refreshDay()
+                    bulkMarking = false
+                }
+            },
+        )
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BulkAttendanceDialog(
+    date: String,
+    sites: List<Site>,
+    workers: List<Worker>,
+    onDismiss: () -> Unit,
+    onSave: (workerIds: List<String>, fields: Map<String, Any?>) -> Unit,
+) {
+    val context = LocalContext.current
+    var siteCode by remember { mutableStateOf("") }
+    var siteExpanded by remember { mutableStateOf(false) }
+    var shift by remember { mutableStateOf("Day") }
+    var shiftExpanded by remember { mutableStateOf(false) }
+    var inTime by remember { mutableStateOf("") }
+    var outTime by remember { mutableStateOf("") }
+    var outNextDay by remember { mutableStateOf(false) }
+    var search by remember { mutableStateOf("") }
+    val selected = remember { mutableStateListOf<String>() }
+
+    fun pickTime(current: String, onPicked: (String) -> Unit) {
+        val parts = current.split(":").mapNotNull { it.toIntOrNull() }
+        TimePickerDialog(context, { _, hh, mm -> onPicked("%02d:%02d".format(hh, mm)) }, parts.getOrNull(0) ?: 9, parts.getOrNull(1) ?: 0, true).show()
+    }
+
+    val filteredWorkers = workers.filter { w ->
+        (siteCode.isBlank() || w.site == siteCode) &&
+            (search.isBlank() || w.name.contains(search, true) || w.id.contains(search, true))
+    }
+    val visibleWorkers = filteredWorkers.take(200)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Bulk Mark Attendance — $date") },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                ExposedDropdownMenuBox(expanded = siteExpanded, onExpandedChange = { siteExpanded = it }) {
+                    OutlinedTextField(
+                        value = siteCode.ifBlank { "Select Site *" }, onValueChange = {}, readOnly = true, label = { Text("Site") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = siteExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    )
+                    ExposedDropdownMenu(expanded = siteExpanded, onDismissRequest = { siteExpanded = false }) {
+                        sites.forEach { s ->
+                            DropdownMenuItem(text = { Text("${s.code} — ${s.name}") }, onClick = { siteCode = s.code; siteExpanded = false; selected.clear() })
+                        }
+                    }
+                }
+                ExposedDropdownMenuBox(expanded = shiftExpanded, onExpandedChange = { shiftExpanded = it }, modifier = Modifier.padding(top = 8.dp)) {
+                    OutlinedTextField(
+                        value = shift, onValueChange = {}, readOnly = true, label = { Text("Shift") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = shiftExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    )
+                    ExposedDropdownMenu(expanded = shiftExpanded, onDismissRequest = { shiftExpanded = false }) {
+                        listOf("Day", "Night").forEach { s -> DropdownMenuItem(text = { Text(s) }, onClick = { shift = s; shiftExpanded = false }) }
+                    }
+                }
+                OutlinedButton(onClick = { pickTime(inTime) { inTime = it } }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(if (inTime.isBlank()) "Set Check-In Time (applies to everyone selected)" else "Check-In: $inTime")
+                }
+                OutlinedButton(onClick = { pickTime(outTime) { outTime = it } }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(if (outTime.isBlank()) "Set Check-Out Time (optional)" else "Check-Out: $outTime")
+                }
+                if (outTime.isNotBlank()) {
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = outNextDay, onCheckedChange = { outNextDay = it })
+                        Text("Check-out is on the next calendar day (night shift)", fontSize = 11.sp)
+                    }
+                }
+
+                OutlinedTextField(
+                    search, { search = it }, label = { Text("Search workers…") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true,
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${selected.size} selected", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    TextButton(onClick = { selected.clear(); selected.addAll(visibleWorkers.map { it.id }) }) { Text("Select Shown") }
+                    TextButton(onClick = { selected.clear() }) { Text("Clear") }
+                }
+                if (siteCode.isBlank()) {
+                    Text("Select a site to list its workers.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                } else {
+                    visibleWorkers.forEach { w ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = selected.contains(w.id),
+                                onCheckedChange = { checked -> if (checked) selected.add(w.id) else selected.remove(w.id) },
+                            )
+                            Text("${w.name} (ID ${w.id})", Modifier.weight(1f), fontSize = 13.sp)
+                        }
+                    }
+                    if (filteredWorkers.size > visibleWorkers.size) {
+                        Text(
+                            "+ ${filteredWorkers.size - visibleWorkers.size} more — search to narrow.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+                Text(
+                    "⚠️ Applies the same check-in/out time to every selected worker — tagged as a manual correction and visible on every Excel export.",
+                    color = SpAmberMid, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val site = sites.find { it.code == siteCode }
+                    val fields = mutableMapOf<String, Any?>(
+                        "siteCode" to siteCode, "siteName" to (site?.name ?: ""),
+                        "shift" to shift, "markedVia" to "manual", "lastAction" to DateUtils.nowIso(),
+                    )
+                    if (inTime.isNotBlank()) {
+                        val (h, m) = inTime.split(":").map { it.toInt() }
+                        fields["in"] = DateUtils.isoFromLocalTime(date, h, m)
+                    }
+                    if (outTime.isNotBlank()) {
+                        val (h, m) = outTime.split(":").map { it.toInt() }
+                        fields["out"] = DateUtils.isoFromLocalTime(date, h, m, plusDays = if (outNextDay) 1 else 0)
+                    }
+                    onSave(selected.toList(), fields)
+                },
+                enabled = siteCode.isNotBlank() && selected.isNotEmpty() && inTime.isNotBlank(),
+            ) { Text("Mark ${selected.size} Worker(s)") }
+        },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
