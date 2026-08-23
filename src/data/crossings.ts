@@ -60,14 +60,13 @@ export const crossings: LevelCrossing[] = [
     lng: 81.195,
   },
   {
-    // Coordinates from a location shared by the user (a Google Maps pin,
-    // no place name attached). Placed on the LKO-BBK line since that's the
-    // section it geographically sits nearest to; road name is a
-    // placeholder — rename it once you know the actual crossing/road name.
-    id: 'lc-user-pinned',
+    // Coordinates from a location shared by the user (a Google Maps pin).
+    // Placed on the LKO-BBK line since that's the section it geographically
+    // sits nearest to.
+    id: 'lc-banki-crossing',
     gateNumber: 'LC-33',
-    name: 'Pinned Crossing (near Barabanki town)',
-    road: 'Unnamed local road — rename once confirmed',
+    name: 'Banki Crossing',
+    road: 'Banki Road',
     fromStation: 'LKO',
     toStation: 'BBK',
     km: 26,
