@@ -10,6 +10,7 @@ import com.ktc.sitepulse.data.repo.AttendanceRepository
 import com.ktc.sitepulse.data.repo.BlockedRepository
 import com.ktc.sitepulse.data.repo.GpsException
 import com.ktc.sitepulse.data.repo.LocationProvider
+import com.ktc.sitepulse.data.repo.MockLocationException
 import com.ktc.sitepulse.data.repo.WifiProvider
 import com.ktc.sitepulse.data.repo.toLatLng
 import kotlin.math.roundToLong
@@ -122,6 +123,17 @@ class AttendanceEngine(
         } else {
             val fix = try {
                 locationProvider.getCurrentFix()
+            } catch (e: MockLocationException) {
+                blockedRepo.log(
+                    Blocked(
+                        workerId = worker.id, name = worker.name, date = today, time = DateUtils.nowIso(),
+                        gps = null, nearestSite = "MOCK_LOCATION", distance = -1, action = dir.name,
+                    )
+                )
+                return MarkResult.Blocked(
+                    "🚫 GPS SPOOFING DETECTED",
+                    "${worker.name}'s device is reporting a fake/mock location. Disable any fake-GPS app or developer mock-location setting and try again."
+                )
             } catch (e: GpsException) {
                 return MarkResult.Failure("🚫 LOCATION REQUIRED — Please allow GPS access, or connect to an office WiFi network. (${e.message})", retryable = true)
             } catch (e: Exception) {

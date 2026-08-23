@@ -18,6 +18,7 @@ data class Worker(
     val alignedDate: String? = null,
     val status: String = "active",
     val leftDate: String? = null,
+    val annualLeaveDays: Long = 30,
 ) {
     @get:Exclude
     val isOutsourced: Boolean get() = !company.isNullOrBlank()

@@ -42,7 +42,9 @@ import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.components.DesignationField
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
+import com.ktc.sitepulse.ui.components.LeaveTypeField
 import com.ktc.sitepulse.ui.components.NotificationsCard
 import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
@@ -115,7 +117,7 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
             }
             if (existing == null && workerId.isNotBlank()) {
                 OutlinedTextField(name, { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(trade, { trade = it }, label = { Text("Designation / Trade") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                DesignationField(trade, { trade = it }, modifier = Modifier.padding(top = 8.dp), label = "Designation / Trade")
             }
             Button(
                 onClick = { viewModel.submitNewArrival(site, workerId, name, trade, date) },
@@ -156,6 +158,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var leaveFrom by remember { mutableStateOf("") }
     var leaveTo by remember { mutableStateOf("") }
     var leaveReason by remember { mutableStateOf("") }
+    var leaveType by remember { mutableStateOf("Annual") }
     var rosterSearch by remember { mutableStateOf("") }
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
@@ -337,7 +340,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text(leave.requestedBy ?: leave.markedBy, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                                "${leave.leaveType} · ${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -388,7 +391,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text("${w?.name ?: leave.workerId} (ID ${leave.workerId})", fontWeight = FontWeight.SemiBold)
                             Text(
-                                "${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                                "${leave.leaveType} · ${leave.fromDate} → ${leave.toDate}" + (leave.reason?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(leave.requestedBy ?: leave.markedBy, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
@@ -431,9 +434,10 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 OutlinedTextField(leaveFrom, { leaveFrom = it }, label = { Text("From (YYYY-MM-DD)") }, modifier = Modifier.weight(1f))
                 OutlinedTextField(leaveTo, { leaveTo = it }, label = { Text("To (YYYY-MM-DD)") }, modifier = Modifier.weight(1f).padding(start = 8.dp))
             }
+            LeaveTypeField(leaveType, { leaveType = it }, modifier = Modifier.padding(top = 8.dp))
             OutlinedTextField(leaveReason, { leaveReason = it }, label = { Text("Reason (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             Button(
-                onClick = { viewModel.markLeave(leaveId, leaveFrom, leaveTo, leaveReason.ifBlank { null }) },
+                onClick = { viewModel.markLeave(leaveId, leaveFrom, leaveTo, leaveReason.ifBlank { null }, leaveType) },
                 colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) { Text("Mark Leave") }

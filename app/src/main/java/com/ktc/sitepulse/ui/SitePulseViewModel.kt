@@ -411,7 +411,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ---- Roster / leave / arrivals ----
 
-    fun markLeave(workerId: String, fromDate: String, toDate: String, reason: String?) {
+    fun markLeave(workerId: String, fromDate: String, toDate: String, reason: String?, leaveType: String = "Annual") {
         viewModelScope.launch {
             val worker = workers.value.find { it.id == workerId }
             if (worker == null) { setStatus("leaveStatus", "❌ Worker ID not found."); return@launch }
@@ -421,13 +421,25 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                     Leave(
                         workerId = workerId, site = worker.site.orEmpty(), fromDate = fromDate,
                         toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
-                        ts = DateUtils.nowIso(),
+                        ts = DateUtils.nowIso(), leaveType = leaveType,
                     )
                 )
                 setStatus("leaveStatus", "✅ Leave marked for ${worker.name}.")
             } catch (e: Throwable) {
                 setStatus("leaveStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
+        }
+    }
+
+    /** Approved-Annual-leave days a worker has used within a given year, for balance display. */
+    fun annualLeaveUsedDays(leaves: List<Leave>, workerId: String, year: Int = DateUtils.todayStrUtc().substring(0, 4).toInt()): Int {
+        return leaves.filter {
+            it.workerId == workerId && it.status == "approved" && it.leaveType == "Annual" &&
+                it.fromDate.take(4).toIntOrNull() == year
+        }.sumOf { l ->
+            val from = runCatching { java.time.LocalDate.parse(l.fromDate) }.getOrNull() ?: return@sumOf 0
+            val to = runCatching { java.time.LocalDate.parse(l.toDate.ifBlank { l.fromDate }) }.getOrNull() ?: from
+            (java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1).toInt().coerceAtLeast(0)
         }
     }
 
@@ -447,14 +459,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ---- Office staff: self-service leave application + own attendance history ----
 
-    suspend fun submitLeaveApplication(workerId: String, fromDate: String, toDate: String, reason: String?) {
+    suspend fun submitLeaveApplication(workerId: String, fromDate: String, toDate: String, reason: String?, leaveType: String = "Annual") {
         if (fromDate.isBlank()) { setStatus("myLeaveStatus", "❌ Enter a From date."); return }
         val worker = workers.value.find { it.id == workerId.trim() }
         container.leaveRepository.add(
             Leave(
                 workerId = workerId.trim(), site = worker?.site.orEmpty(), fromDate = fromDate,
                 toDate = toDate.ifBlank { fromDate }, reason = reason, markedBy = session.value.email,
-                ts = DateUtils.nowIso(), status = "pending", requestedBy = session.value.email,
+                ts = DateUtils.nowIso(), status = "pending", requestedBy = session.value.email, leaveType = leaveType,
             )
         )
         setStatus("myLeaveStatus", "✅ Leave application submitted — pending admin approval.")
@@ -682,6 +694,25 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: Throwable) {
                 setStatus("announcementStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
+        }
+    }
+
+    /**
+     * Admin-only manual attendance fix — for a GPS glitch, a forgotten check-in, or a day the
+     * app wasn't used at all. Uses the same merge-write as a live check-in/out, so it works
+     * equally for editing an existing record or creating one that never existed. Always tagged
+     * corrected/correctedBy/correctedAt so it stays visible on every Excel export rather than
+     * silently blending in with a genuine GPS-verified mark.
+     */
+    suspend fun correctAttendance(date: String, workerId: String, fields: Map<String, Any?>) {
+        try {
+            container.attendanceRepository.writeMark(
+                date, workerId,
+                fields + mapOf("corrected" to true, "correctedBy" to session.value.email, "correctedAt" to DateUtils.nowIso())
+            )
+            setStatus("attendanceEditStatus", "✅ Record saved.")
+        } catch (e: Throwable) {
+            setStatus("attendanceEditStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
         }
     }
 

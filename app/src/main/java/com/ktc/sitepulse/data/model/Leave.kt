@@ -17,6 +17,8 @@ data class Leave(
     val fromDate: String = "",
     val toDate: String = "",
     val reason: String? = null,
+    /** "Annual" | "Sick" | "Unpaid" | "Other" — only "Annual" counts against a worker's yearly balance. */
+    val leaveType: String = "Annual",
     val markedBy: String = "",
     val ts: String = "",
     val status: String = "approved", // "approved" | "pending" | "rejected"

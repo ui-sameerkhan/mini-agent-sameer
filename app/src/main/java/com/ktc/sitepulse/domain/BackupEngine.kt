@@ -58,9 +58,9 @@ object BackupEngine {
 
         addSheet(
             wb, styles, "WORKERS", "SITEPULSE — FULL BACKUP: WORKERS", meta,
-            headers = listOf("SNo", "ID", "Name", "Designation", "Company", "Site", "Aligned Date", "Status", "Left Date"),
+            headers = listOf("SNo", "ID", "Name", "Designation", "Company", "Site", "Aligned Date", "Status", "Left Date", "Annual Leave Days"),
             rows = workers.sortedBy { it.sno }.map { w ->
-                listOf(w.sno.toString(), w.id, w.name, w.designation, w.company ?: "", w.site ?: "", w.alignedDate ?: "", w.status, w.leftDate ?: "")
+                listOf(w.sno.toString(), w.id, w.name, w.designation, w.company ?: "", w.site ?: "", w.alignedDate ?: "", w.status, w.leftDate ?: "", w.annualLeaveDays.toString())
             },
         )
 
@@ -77,6 +77,7 @@ object BackupEngine {
             headers = listOf(
                 "Date", "Site Code", "Site Name", "Worker ID", "Shift", "Check IN", "Check OUT",
                 "IN Lat", "IN Lng", "OUT Lat", "OUT Lng", "IN Dist (m)", "OUT Dist (m)", "Marked Via", "Marked By", "Last Action",
+                "Corrected", "Corrected By", "Corrected At",
             ),
             rows = attendance.sortedWith(compareBy({ it.date }, { it.siteCode }, { it.workerId })).map { a ->
                 listOf(
@@ -84,6 +85,7 @@ object BackupEngine {
                     a.inGps?.lat?.toString() ?: "", a.inGps?.lng?.toString() ?: "",
                     a.outGps?.lat?.toString() ?: "", a.outGps?.lng?.toString() ?: "",
                     a.inDist?.toString() ?: "", a.outDist?.toString() ?: "", a.markedVia, a.markedBy, a.lastAction,
+                    if (a.corrected) "Yes" else "", a.correctedBy ?: "", a.correctedAt ?: "",
                 )
             },
         )
@@ -91,12 +93,12 @@ object BackupEngine {
         addSheet(
             wb, styles, "LEAVES", "SITEPULSE — FULL BACKUP: LEAVE RECORDS", meta,
             headers = listOf(
-                "Doc ID", "Worker ID", "Site", "From", "To", "Reason", "Status", "Marked By",
+                "Doc ID", "Worker ID", "Site", "Leave Type", "From", "To", "Reason", "Status", "Marked By",
                 "Requested By", "Approved By", "Approved At", "Rejected By", "Rejected At", "Timestamp",
             ),
             rows = leaves.sortedByDescending { it.ts }.map { l ->
                 listOf(
-                    l.docId, l.workerId, l.site, l.fromDate, l.toDate, l.reason ?: "", l.status, l.markedBy,
+                    l.docId, l.workerId, l.site, l.leaveType, l.fromDate, l.toDate, l.reason ?: "", l.status, l.markedBy,
                     l.requestedBy ?: "", l.approvedBy ?: "", l.approvedAt ?: "", l.rejectedBy ?: "", l.rejectedAt ?: "", l.ts,
                 )
             },

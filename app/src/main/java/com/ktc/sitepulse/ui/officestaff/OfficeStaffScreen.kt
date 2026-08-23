@@ -34,6 +34,7 @@ import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.components.LeaveTypeField
 import com.ktc.sitepulse.ui.components.NotificationsCard
 import com.ktc.sitepulse.ui.theme.SpAmberMid
 import com.ktc.sitepulse.ui.theme.SpBrandBlueMid
@@ -45,6 +46,7 @@ import kotlinx.coroutines.launch
 fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
     val statusMessages by viewModel.statusMessages.collectAsState()
     val myLinkedWorkerId by viewModel.myLinkedWorkerId.collectAsState()
+    val workers by viewModel.workers.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -52,6 +54,7 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
     var fromDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
     var toDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
     var reason by remember { mutableStateOf("") }
+    var leaveType by remember { mutableStateOf("Annual") }
 
     // Once this account has checked in under a Worker ID, leave applications are filed under
     // that same locked ID rather than letting the free-text field drift to a different one.
@@ -92,6 +95,14 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
                         color = SpBrandBlueMid, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+                workers.find { it.id == workerId }?.let { w ->
+                    val used = viewModel.annualLeaveUsedDays(myLeaves, workerId)
+                    Text(
+                        "Annual Leave: $used of ${w.annualLeaveDays} days used this year",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                LeaveTypeField(leaveType, { leaveType = it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                     OutlinedButton(onClick = {
                         val (y, m, d) = fromDate.split("-").map { it.toInt() }
@@ -109,7 +120,7 @@ fun OfficeStaffScreen(viewModel: SitePulseViewModel, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         scope.launch {
-                            viewModel.submitLeaveApplication(workerId, fromDate, toDate, reason.ifBlank { null })
+                            viewModel.submitLeaveApplication(workerId, fromDate, toDate, reason.ifBlank { null }, leaveType)
                             refresh()
                         }
                     },
@@ -146,7 +157,7 @@ private fun LeaveRequestRow(leave: Leave) {
     Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
         Row(Modifier.padding(12.dp).fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text("${leave.fromDate} → ${leave.toDate}", fontWeight = FontWeight.SemiBold)
+                Text("${leave.leaveType} · ${leave.fromDate} → ${leave.toDate}", fontWeight = FontWeight.SemiBold)
                 leave.reason?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Text(label, color = color, fontWeight = FontWeight.Bold)

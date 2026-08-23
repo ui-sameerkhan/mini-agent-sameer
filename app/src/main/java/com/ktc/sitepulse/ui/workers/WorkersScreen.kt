@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.ui.SitePulseViewModel
+import com.ktc.sitepulse.ui.components.DesignationField
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
 import com.ktc.sitepulse.ui.components.TypedDeleteConfirmDialog
 import com.ktc.sitepulse.ui.theme.SpAmberMid
@@ -204,6 +205,7 @@ private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.da
     var company by remember { mutableStateOf(existing?.company ?: "") }
     var site by remember { mutableStateOf(existing?.site ?: "") }
     var siteExpanded by remember { mutableStateOf(false) }
+    var annualLeaveDays by remember { mutableStateOf((existing?.annualLeaveDays ?: 30L).toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -212,8 +214,12 @@ private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.da
             Column {
                 OutlinedTextField(id, { id = it }, label = { Text("Employee ID *") }, modifier = Modifier.fillMaxWidth(), enabled = existing == null)
                 OutlinedTextField(name, { name = it }, label = { Text("Full Name *") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(designation, { designation = it }, label = { Text("Designation *") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                DesignationField(designation, { designation = it }, modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(company, { company = it }, label = { Text("Company (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(
+                    annualLeaveDays, { annualLeaveDays = it.filter { c -> c.isDigit() } },
+                    label = { Text("Annual Leave Days") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
                 ExposedDropdownMenuBox(expanded = siteExpanded, onExpandedChange = { siteExpanded = it }, modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedTextField(
                         value = site.ifBlank { "Unassigned" }, onValueChange = {}, readOnly = true,
@@ -236,6 +242,7 @@ private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.da
                             sno = existing?.sno ?: 0, id = id.trim(), name = name.trim(), designation = designation.trim(),
                             company = company.ifBlank { null }, site = site.ifBlank { null },
                             alignedDate = existing?.alignedDate, status = existing?.status ?: "active", leftDate = existing?.leftDate,
+                            annualLeaveDays = annualLeaveDays.toLongOrNull() ?: 30L,
                         )
                     )
                 }

@@ -44,6 +44,12 @@ data class Attendance(
     val deviationReviewed: Boolean = false,
     val deviationReviewedBy: String? = null,
     val deviationReviewedAt: String? = null,
+    /** Set when an admin manually created or edited this record (e.g. a missed check-in due to a
+     * GPS glitch or a day the app wasn't used) rather than it being written by a live check-in/out.
+     * Kept visible rather than silently overwritten, so a corrected record is still traceable. */
+    val corrected: Boolean = false,
+    val correctedBy: String? = null,
+    val correctedAt: String? = null,
 ) {
     @get:Exclude
     val hasIn: Boolean get() = !checkIn.isNullOrBlank()

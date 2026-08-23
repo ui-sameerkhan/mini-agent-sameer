@@ -77,7 +77,7 @@ object ReportEngine {
             val exportHeaders = listOf(
                 "Date", "Project Code", "Project Name", "Worker ID", "Worker Name", "Designation",
                 "Assigned Site", "Company", "Shift", "Check IN", "Check OUT", "Hours", "IN Location",
-                "OUT Location", "Dist from Site (m)", "Marked By", "ERP Aligned Site", "Site Match"
+                "OUT Location", "Dist from Site (m)", "Marked By", "ERP Aligned Site", "Site Match", "Corrected"
             )
             fun toRow(a: Attendance): List<String> {
                 val w = workerById[a.workerId]
@@ -86,13 +86,14 @@ object ReportEngine {
                     a.siteMismatch -> "⚠ DEVIATION"
                     else -> "Match"
                 }
+                val correctedLabel = if (a.corrected) "⚠ Manually corrected by ${a.correctedBy ?: "?"}" else ""
                 return listOf(
                     a.date, a.siteCode, a.siteName, a.workerId, w?.name ?: "", w?.designation ?: "",
                     w?.site ?: "", w?.company?.ifBlank { null } ?: "KTC", a.shift ?: "",
                     DateUtils.formatTimeHm(a.checkIn), DateUtils.formatTimeHm(a.out), hoursLabel(a),
                     a.inGps?.let { "${it.lat}, ${it.lng}" } ?: "",
                     a.outGps?.let { "${it.lat}, ${it.lng}" } ?: "",
-                    a.inDist?.toString() ?: "", a.markedBy, a.alignedSite ?: "", siteMatchLabel
+                    a.inDist?.toString() ?: "", a.markedBy, a.alignedSite ?: "", siteMatchLabel, correctedLabel
                 )
             }
 

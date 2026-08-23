@@ -60,14 +60,15 @@ object BackupRestoreEngine {
         }
     }
 
-    private val WORKER_HEADERS = listOf("SNo", "ID", "Name", "Designation", "Company", "Site", "Aligned Date", "Status", "Left Date")
+    private val WORKER_HEADERS = listOf("SNo", "ID", "Name", "Designation", "Company", "Site", "Aligned Date", "Status", "Left Date", "Annual Leave Days")
     private val SITE_HEADERS = listOf("Code", "Name", "Latitude", "Longitude", "Geofence Radius (m)", "WiFi SSID")
     private val ATTENDANCE_HEADERS = listOf(
         "Date", "Site Code", "Site Name", "Worker ID", "Shift", "Check IN", "Check OUT",
         "IN Lat", "IN Lng", "OUT Lat", "OUT Lng", "IN Dist (m)", "OUT Dist (m)", "Marked Via", "Marked By", "Last Action",
+        "Corrected", "Corrected By", "Corrected At",
     )
     private val LEAVE_HEADERS = listOf(
-        "Doc ID", "Worker ID", "Site", "From", "To", "Reason", "Status", "Marked By",
+        "Doc ID", "Worker ID", "Site", "Leave Type", "From", "To", "Reason", "Status", "Marked By",
         "Requested By", "Approved By", "Approved At", "Rejected By", "Rejected At", "Timestamp",
     )
     private val BLOCKED_HEADERS = listOf("Doc ID", "Date", "Time", "Worker ID", "Name", "Nearest Site", "Distance (m)", "Action", "GPS Lat", "GPS Lng", "GPS Accuracy (m)")
@@ -89,6 +90,7 @@ object BackupRestoreEngine {
             alignedDate = m["Aligned Date"]?.ifBlank { null },
             status = m["Status"]?.ifBlank { null } ?: "active",
             leftDate = m["Left Date"]?.ifBlank { null },
+            annualLeaveDays = m["Annual Leave Days"]?.toLongOrNull() ?: 30,
         )
     }
 
@@ -128,6 +130,9 @@ object BackupRestoreEngine {
             outGps = if (outLat != null && outLng != null) GpsPoint(outLat, outLng) else null,
             outDist = m["OUT Dist (m)"]?.toLongOrNull(),
             markedVia = m["Marked Via"]?.ifBlank { null } ?: "gps",
+            corrected = m["Corrected"]?.equals("Yes", ignoreCase = true) ?: false,
+            correctedBy = m["Corrected By"]?.ifBlank { null },
+            correctedAt = m["Corrected At"]?.ifBlank { null },
         )
     }
 
@@ -139,6 +144,7 @@ object BackupRestoreEngine {
             docId = m["Doc ID"].orEmpty(),
             workerId = workerId,
             site = m["Site"].orEmpty(),
+            leaveType = m["Leave Type"]?.ifBlank { null } ?: "Annual",
             fromDate = fromDate,
             toDate = m["To"]?.ifBlank { null } ?: fromDate,
             reason = m["Reason"]?.ifBlank { null },

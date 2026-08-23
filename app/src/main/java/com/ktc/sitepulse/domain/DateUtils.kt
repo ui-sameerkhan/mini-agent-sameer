@@ -92,6 +92,25 @@ object DateUtils {
         }
     }
 
+    /** Builds an ISO instant from a calendar date + a local HH:mm time — used by the admin's
+     * manual attendance correction dialog, where the picker only knows a clock time. */
+    fun isoFromLocalTime(dateStr: String, hour: Int, minute: Int, plusDays: Int = 0): String {
+        val date = LocalDate.parse(dateStr, ISO_DATE).plusDays(plusDays.toLong())
+        val local = LocalDateTime.of(date, LocalTime.of(hour, minute))
+        return local.atZone(ZoneId.systemDefault()).toInstant().toString()
+    }
+
+    /** The inverse of [isoFromLocalTime] — local hour/minute to pre-fill an edit dialog, or null if unparseable. */
+    fun localHourMinute(iso: String?): Pair<Int, Int>? {
+        if (iso.isNullOrBlank()) return null
+        return try {
+            val local = LocalDateTime.ofInstant(Instant.parse(iso), ZoneId.systemDefault())
+            local.hour to local.minute
+        } catch (e: DateTimeParseException) {
+            null
+        }
+    }
+
     fun isWithin(dateStr: String, fromDate: String, toDate: String): Boolean {
         val d = LocalDate.parse(dateStr, ISO_DATE)
         val from = LocalDate.parse(fromDate, ISO_DATE)

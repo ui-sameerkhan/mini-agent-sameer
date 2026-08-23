@@ -1,8 +1,11 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
+const { v1: firestoreV1 } = require("@google-cloud/firestore");
 
 admin.initializeApp();
+const firestoreAdminClient = new firestoreV1.FirestoreAdminClient();
 
 // Browser origins allowed to call this over CORS — the Android/iOS app doesn't need CORS
 // (it's a server-to-server style request, not a browser fetch), only the web app does.
@@ -62,3 +65,38 @@ exports.sendPush = onRequest({ region: "us-central1", cors: false }, async (req,
     res.status(500).json({ ok: false, error: e.message, code: e.code });
   }
 });
+
+/**
+ * Weekly automated backup — replaces the old Netlify weekly-backup.js, which sat on the same
+ * dead Netlify site as the confirmed-404 send-push.js and is very likely dead too. Uses
+ * Firestore's own native "managed export" to write a full snapshot of every collection to
+ * Cloud Storage, on a schedule, with zero admin action needed — separate from, and in addition
+ * to, the in-app "Download Full Backup" Excel export, which stays manual/on-demand for a
+ * human-readable copy.
+ *
+ * One-time setup required before this works (see functions/README.md):
+ *  1. A Cloud Storage bucket named "<project-id>-backups" must exist to receive the export.
+ *  2. The Cloud Functions runtime service account needs the "Cloud Datastore Import Export
+ *     Admin" IAM role, granted in Google Cloud Console → IAM.
+ */
+exports.weeklyBackup = onSchedule(
+  { schedule: "every sunday 02:00", timeZone: "Asia/Dubai", region: "us-central1" },
+  async (event) => {
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || process.env.PROJECT_ID;
+    const bucket = `gs://${projectId}-backups`;
+    const timestamp = new Date().toISOString().slice(0, 10);
+    try {
+      const [operation] = await firestoreAdminClient.exportDocuments({
+        name: firestoreAdminClient.databasePath(projectId, "(default)"),
+        outputUriPrefix: `${bucket}/scheduled/${timestamp}`,
+        collectionIds: [], // empty = every collection
+      });
+      logger.info("weeklyBackup export started", { operation: operation.name, bucket, timestamp });
+    } catch (e) {
+      // Most common cause: the bucket above doesn't exist yet, or the service account is
+      // missing the Import/Export Admin role — both one-time setup steps, see README.
+      logger.error("weeklyBackup failed", { message: e.message, code: e.code });
+      throw e;
+    }
+  }
+);
