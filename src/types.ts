@@ -22,8 +22,12 @@ export interface Signal {
   confidence: number;
   reasons: string[];
   rsi: number | null;
-  smaShort: number | null;
-  smaLong: number | null;
+  emaShort: number | null;
+  emaLong: number | null;
+  macd: number | null;
+  macdSignal: number | null;
+  bollingerUpper: number | null;
+  bollingerLower: number | null;
 }
 
 export interface Trade {
