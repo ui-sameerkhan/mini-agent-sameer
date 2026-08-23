@@ -1,22 +1,26 @@
-# mini-agent-sameer
-A simple and responsive AI chat UI built using React and TailwindCSS. The chat simulates a Mini-Agent behavior with memory, basic calculation, and typing delay using a mock backend function. Perfect demonstration of state management, UI components, and async logic handling.
+# TradeSense — Real-Time Market Tracker
 
-# Mini-Agent Chat UI
-
-This project is a simple, responsive chat interface built using **React** and **TailwindCSS**, designed to simulate the experience of interacting with a lightweight AI agent. It includes message history, typing indication, and a mock backend function that handles basic logic like remembering user input and performing simple calculations.
+A React + TypeScript + TailwindCSS trading assistant that tracks live crypto
+prices, generates buy/sell/hold signals from technical indicators, and lets
+you paper-trade to practice profit/loss management — with no real money and
+no exchange account required.
 
 ---
 
 ## 🚀 Features
 
-- **Clean, responsive chat UI**
-- **User and Agent message bubbles** with left/right alignment
-- **Typing indicator** while the agent is "thinking"
-- **Mock backend** to simulate agent responses
-- **Short-term memory** (e.g., “Remember my cat's name is Fluffy”)
-- **Simple calculator ability** (e.g., “What is 10 + 5?”)
-- **Custom color theme** using TailwindCSS
-- **Agent profile avatar** in header
+- **Real-time price tracking** for BTC, ETH, SOL, XRP, DOGE, ADA (polled every 30s from CoinGecko, no API key needed)
+- **Buy / Sell / Hold signals** computed from:
+  - RSI(14) — flags oversold (<30) and overbought (>70) conditions
+  - SMA(7) vs SMA(21) crossover — flags short-term trend direction
+  - Each recommendation lists the reasons and a confidence score
+- **Live price chart** of the last 7 days plus new ticks as they arrive
+- **Paper-trading portfolio** — starts with $10,000 virtual cash
+  - Buy/sell at the live market price
+  - Tracks holdings, average cost, realized cash, and trade history
+  - Shows **unrealized P&L** per holding and **total P&L** for the portfolio
+  - Persists in the browser (`localStorage`) between sessions
+- **Educational disclaimer** on every signal — this is a learning tool, not financial advice
 
 ---
 
@@ -24,25 +28,54 @@ This project is a simple, responsive chat interface built using **React** and **
 
 | Tool / Library | Purpose |
 |----------------|---------|
-| React          | UI and component structure |
-| TailwindCSS (CDN) | Styling with utility classes |
-| TypeScript     | Type safety (optional use) |
-| Vite           | Fast development server and build |
+| React + TypeScript | UI and component structure |
+| Vite | Dev server and build |
+| TailwindCSS | Styling |
+| Recharts | Price chart |
+| CoinGecko public API | Live prices and historical data |
 
 ---
 
-## 🧠 Mock Backend Logic
+## Getting started
 
-The function `mockAgentResponse(prompt)` simulates how a backend agent might respond.  
-It includes:
+```bash
+npm install
+npm run dev
+```
 
-- 1-second artificial delay (`setTimeout`) to mimic thinking
-- Basic **calculator** tool
-- **Memory save & recall**
-- Simple conversational responses ("hello", "help")
+Open the printed local URL in your browser. No API key or account setup is
+required — the app talks directly to CoinGecko's public API from the browser.
 
-Example:
-```js
-if (prompt.includes("Remember my cat's name is Fluffy")) {
-  memory["cat's name"] = "Fluffy";
-}
+```bash
+npm run build    # type-check + production build
+npm run preview  # preview the production build
+```
+
+---
+
+## How the signal works
+
+For the selected coin's recent price history:
+
+1. **RSI(14)** below 30 → oversold (bullish tilt); above 70 → overbought (bearish tilt)
+2. **SMA(7) vs SMA(21)** — short average above long average → uptrend (bullish tilt); below → downtrend (bearish tilt)
+3. The tilts are combined into a `BUY`, `SELL`, or `HOLD` recommendation with a confidence score and plain-language reasons
+
+This is a simple, transparent rule-based strategy meant for learning how
+indicators and signals work — not a guarantee of profit. Always do your own
+research before trading with real money.
+
+---
+
+## Project structure
+
+```
+src/
+  api/coingecko.ts       CoinGecko API client + watchlist
+  lib/indicators.ts      SMA / RSI calculations
+  lib/signals.ts         Buy/Sell/Hold decision logic
+  hooks/useMarketData.ts Live price polling + history
+  hooks/usePortfolio.ts  Paper-trading state (localStorage)
+  components/            Dashboard UI (price card, chart, signal, trade panel, portfolio, history)
+  App.tsx                Wires everything together
+```
