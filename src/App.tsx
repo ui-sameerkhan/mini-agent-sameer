@@ -1,5 +1,6 @@
 import { ControlBar } from './components/ControlBar'
 import { CrossingCard } from './components/CrossingCard'
+import { CrossingMap } from './components/CrossingMap'
 import { SummaryStrip } from './components/SummaryStrip'
 import { useLiveRailData } from './hooks/useLiveRailData'
 
@@ -10,9 +11,10 @@ function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Rail Gate Tracker</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Barabanki Rail Gate Tracker</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Live open/closed status for level crossing gates, predicted from train schedules and running delays.
+            Live open/closed status for level crossing gates in Barabanki city, predicted from train schedules and
+            running delays.
           </p>
         </header>
 
@@ -34,6 +36,8 @@ function App() {
           />
 
           <SummaryStrip statuses={statuses} />
+
+          <CrossingMap statuses={statuses} nowMinutes={simMinutes} />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {statuses.map((status) => (

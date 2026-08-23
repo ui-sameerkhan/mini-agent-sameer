@@ -1,94 +1,83 @@
 import type { Train } from '../types'
 
 /**
- * SAMPLE DATA. Six illustrative services spread through the morning on the
- * NDLS → AGC stretch, chosen so a couple of them overlap at a shared
- * crossing (a good test of the gate-merging logic). Numbers/names are
+ * SAMPLE DATA. Six illustrative services through Barabanki Junction,
+ * spread through the morning across its three lines (towards Lucknow,
+ * towards Rudauli/Ayodhya, towards Safdarganj/Burhwal). A couple of pairs
+ * are timed close together on purpose, to demonstrate the gate-merging
+ * logic when two trains cross close together. Numbers/names are
  * fictional; do not treat as a real timetable.
  */
 export const trains: Train[] = [
   {
-    number: '10001',
-    name: 'Yamuna Superfast',
+    number: '15001',
+    name: 'Saryu Express',
     kind: 'Superfast',
-    avgSpeedKmh: 110,
+    avgSpeedKmh: 90,
     lengthM: 450,
     schedule: [
-      { stationCode: 'NDLS', departs: '09:05' },
-      { stationCode: 'FDB', departs: '09:18' },
-      { stationCode: 'PWL', departs: '09:32' },
-      { stationCode: 'MTJ', departs: '10:17' },
-      { stationCode: 'AGC', departs: '10:28' },
+      { stationCode: 'LKO', departs: '09:05' },
+      { stationCode: 'BBK', departs: '09:35' },
+      { stationCode: 'RDL', departs: '10:20' },
     ],
   },
   {
-    number: '10002',
-    name: 'Braj Passenger',
+    number: '15002',
+    name: 'Awadh Passenger',
     kind: 'Passenger',
-    avgSpeedKmh: 55,
+    avgSpeedKmh: 45,
     lengthM: 400,
     schedule: [
-      { stationCode: 'NDLS', departs: '09:20' },
-      { stationCode: 'FDB', departs: '09:46' },
-      { stationCode: 'PWL', departs: '10:15' },
-      { stationCode: 'MTJ', departs: '11:44' },
-      { stationCode: 'AGC', departs: '12:45' },
+      { stationCode: 'LKO', departs: '09:15' },
+      { stationCode: 'BBK', departs: '10:00' },
+      { stationCode: 'RDL', departs: '11:10' },
     ],
   },
   {
-    number: '10003',
-    name: 'Taj Superfast Express',
-    kind: 'Superfast',
-    avgSpeedKmh: 95,
-    lengthM: 480,
-    schedule: [
-      { stationCode: 'NDLS', departs: '09:50' },
-      { stationCode: 'FDB', departs: '10:05' },
-      { stationCode: 'PWL', departs: '10:22' },
-      { stationCode: 'MTJ', departs: '11:13' },
-      { stationCode: 'AGC', departs: '11:49' },
-    ],
-  },
-  {
-    number: '20004',
-    name: 'Mathura Freight',
-    kind: 'Freight',
-    avgSpeedKmh: 45,
-    lengthM: 650,
-    schedule: [
-      { stationCode: 'NDLS', departs: '10:10' },
-      { stationCode: 'FDB', departs: '10:42' },
-      { stationCode: 'PWL', departs: '11:17' },
-      { stationCode: 'MTJ', departs: '13:06' },
-      { stationCode: 'AGC', departs: '14:21' },
-    ],
-  },
-  {
-    number: '10005',
-    name: 'Agra Express',
+    number: '15003',
+    name: 'Bahraich Intercity',
     kind: 'Express',
-    avgSpeedKmh: 80,
+    avgSpeedKmh: 75,
     lengthM: 460,
     schedule: [
-      { stationCode: 'NDLS', departs: '10:40' },
-      { stationCode: 'FDB', departs: '10:58' },
-      { stationCode: 'PWL', departs: '11:18' },
-      { stationCode: 'MTJ', departs: '12:19' },
-      { stationCode: 'AGC', departs: '13:01' },
+      { stationCode: 'LKO', departs: '09:40' },
+      { stationCode: 'BBK', departs: '10:10' },
+      { stationCode: 'SFG', departs: '10:35' },
     ],
   },
   {
-    number: '10006',
-    name: 'Shauryapath Superfast',
-    kind: 'Superfast',
-    avgSpeedKmh: 100,
-    lengthM: 420,
+    number: '25004',
+    name: 'Barabanki Freight',
+    kind: 'Freight',
+    avgSpeedKmh: 40,
+    lengthM: 650,
     schedule: [
-      { stationCode: 'NDLS', departs: '11:15' },
-      { stationCode: 'FDB', departs: '11:29' },
-      { stationCode: 'PWL', departs: '11:45' },
-      { stationCode: 'MTJ', departs: '12:34' },
-      { stationCode: 'AGC', departs: '13:08' },
+      { stationCode: 'LKO', departs: '10:00' },
+      { stationCode: 'BBK', departs: '10:45' },
+      { stationCode: 'SFG', departs: '11:20' },
+    ],
+  },
+  {
+    number: '15005',
+    name: 'Ghaghra Express',
+    kind: 'Superfast',
+    avgSpeedKmh: 95,
+    lengthM: 470,
+    schedule: [
+      { stationCode: 'LKO', departs: '09:50' },
+      { stationCode: 'BBK', departs: '10:03' },
+      { stationCode: 'RDL', departs: '10:45' },
+    ],
+  },
+  {
+    number: '15006',
+    name: 'Barabanki–Burhwal Shuttle',
+    kind: 'Passenger',
+    avgSpeedKmh: 50,
+    lengthM: 350,
+    schedule: [
+      { stationCode: 'BBK', departs: '10:50' },
+      { stationCode: 'SFG', departs: '11:15' },
     ],
   },
 ]

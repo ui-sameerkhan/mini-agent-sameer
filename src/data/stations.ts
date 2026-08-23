@@ -1,16 +1,17 @@
 import type { Station } from '../types'
 
 /**
- * SAMPLE DATA. A short stretch of the New Delhi – Agra corridor (via Mathura),
- * used to demonstrate the gate-status logic. Distances are approximate and
- * for illustration only — see the in-app disclaimer.
+ * SAMPLE DATA. Stations around Barabanki Junction (Northern Railway,
+ * Lucknow division, Uttar Pradesh) and the three lines radiating from it —
+ * used to demonstrate the gate-status logic for crossings inside Barabanki
+ * city. Distances are approximate and for illustration only — see the
+ * in-app disclaimer.
  */
 export const stations: Station[] = [
-  { code: 'NDLS', name: 'New Delhi', km: 0 },
-  { code: 'FDB', name: 'Faridabad', km: 24 },
-  { code: 'PWL', name: 'Palwal', km: 50 },
-  { code: 'MTJ', name: 'Mathura Junction', km: 132 },
-  { code: 'AGC', name: 'Agra Cantt', km: 188 },
+  { code: 'LKO', name: 'Lucknow NER', km: 0 },
+  { code: 'BBK', name: 'Barabanki Junction', km: 28 },
+  { code: 'SFG', name: 'Safdarganj', km: 42 }, // BBK -> Burhwal/Bahraich line
+  { code: 'RDL', name: 'Rudauli', km: 58 }, // BBK -> Ayodhya line
 ]
 
 export const stationByCode = Object.fromEntries(stations.map((s) => [s.code, s]))

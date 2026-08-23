@@ -1,8 +1,9 @@
-# Rail Gate Tracker
+# Barabanki Rail Gate Tracker
 
-A live dashboard that predicts the open/closed status of Indian Railway
-level crossing (LC) gates, computed from train timetables and running
-delays — React + TypeScript + Tailwind, built with Vite.
+A live dashboard, with a map, that predicts the open/closed status of
+level crossing (LC) gates in Barabanki city (Uttar Pradesh), computed from
+train timetables and running delays — React + TypeScript + Tailwind +
+Leaflet, built with Vite.
 
 ## Why "predicted", not "live sensor data"
 
@@ -14,11 +15,12 @@ gatekeeper does: works out when a train is due, and derives gate state from
 that.
 
 **Everything you see here — stations, trains, schedules, gate numbers,
-coordinates, and live delays — is illustrative sample data for one short,
-fictionalised stretch of the New Delhi–Agra corridor.** It is not sourced
-from an official IR timetable or feed, and must not be used for real
-travel, safety, or operational decisions. See `src/data/*.ts` for the
-disclaimers next to each dataset.
+coordinates, and live delays — is illustrative sample data for Barabanki
+Junction and the three lines radiating from it (towards Lucknow, towards
+Rudauli/Ayodhya, towards Safdarganj/Burhwal).** It is not sourced from an
+official IR timetable or feed, and must not be used for real travel,
+safety, or operational decisions. See `src/data/*.ts` for the disclaimers
+next to each dataset.
 
 ## How gate status is computed
 
@@ -57,6 +59,16 @@ wall-clock time), with playback controls (pause, and 1×/60×/300×/900×
 speed) so you can watch a full day's worth of gate cycles in seconds. A
 real deployment would replace this with the actual current time.
 
+## Map
+
+`src/components/CrossingMap.tsx` renders an interactive Leaflet map
+(OpenStreetMap tiles — free, no API key) centered on Barabanki city. Every
+crossing is a marker colour-coded by its live state (green/amber/red,
+matching the cards below it) with a popup showing the gate, road, and
+current countdown; Barabanki Junction itself is marked for orientation.
+The map re-renders from the same `CrossingStatus[]` the cards use, so both
+views always agree.
+
 ## Project structure
 
 ```
@@ -69,7 +81,7 @@ src/
     gateLogic.ts            ETA, occupancy, interval-merging, OPEN/CLOSING_SOON/CLOSED derivation
     gateLogic.test.ts       Unit tests for the logic above
   hooks/useLiveRailData.ts  Owns the simulated clock + ticks the provider + recomputes statuses
-  components/               ControlBar, SummaryStrip, CrossingCard, StatusBadge, GateIcon
+  components/               ControlBar, SummaryStrip, CrossingCard, CrossingMap, StatusBadge, GateIcon
   App.tsx
 ```
 

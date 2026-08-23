@@ -1,74 +1,68 @@
 import type { LevelCrossing } from '../types'
 
 /**
- * SAMPLE DATA. Illustrative level crossings placed along the modelled
- * section. Gate numbers, road names and coordinates are fictionalised for
- * this demo and do not correspond to real Indian Railways LC gate records.
+ * SAMPLE DATA. Illustrative level crossings inside Barabanki city, on the
+ * three lines radiating from Barabanki Junction. Gate numbers, road names
+ * and coordinates are fictionalised for this demo and do not correspond to
+ * real Indian Railways LC gate records.
  */
 export const crossings: LevelCrossing[] = [
   {
-    id: 'lc-mathura-road',
-    gateNumber: 'LC-05',
-    name: 'Mathura Road Crossing',
-    road: 'NH19 Service Road',
-    fromStation: 'NDLS',
-    toStation: 'FDB',
-    km: 12,
+    id: 'lc-lucknow-road',
+    gateNumber: 'LC-07',
+    name: 'Lucknow Road Crossing',
+    road: 'Lucknow Road (NH27)',
+    fromStation: 'LKO',
+    toStation: 'BBK',
+    km: 24,
     closeBeforeMin: 5,
     clearanceBufferSec: 45,
-    lat: 28.4595,
-    lng: 77.2926,
+    lat: 26.943,
+    lng: 81.178,
   },
   {
-    id: 'lc-ballabhgarh',
-    gateNumber: 'LC-12',
-    name: 'Ballabhgarh Link Road Crossing',
-    road: 'Ballabhgarh–Sohna Road',
-    fromStation: 'FDB',
-    toStation: 'PWL',
-    km: 15,
+    id: 'lc-ayodhya-road',
+    gateNumber: 'LC-14',
+    name: 'Ayodhya Road Crossing',
+    road: 'Ayodhya Road',
+    fromStation: 'BBK',
+    toStation: 'RDL',
+    km: 4,
     closeBeforeMin: 5,
     clearanceBufferSec: 45,
-    lat: 28.3389,
-    lng: 77.3212,
+    lat: 26.931,
+    lng: 81.205,
   },
   {
-    id: 'lc-hodal-road',
-    gateNumber: 'LC-34',
-    name: 'Hodal Road Crossing',
-    road: 'Hodal–Palwal Road',
-    fromStation: 'PWL',
-    toStation: 'MTJ',
-    km: 10,
+    id: 'lc-fatehpur-road',
+    gateNumber: 'LC-21',
+    name: 'Fatehpur Road Crossing',
+    road: 'Fatehpur Road',
+    fromStation: 'BBK',
+    toStation: 'SFG',
+    km: 3,
+    closeBeforeMin: 5,
+    clearanceBufferSec: 45,
+    lat: 26.925,
+    lng: 81.185,
+  },
+  {
+    id: 'lc-ram-sanehi-ghat-road',
+    gateNumber: 'LC-26',
+    name: 'Ram Sanehi Ghat Road Crossing',
+    road: 'Ram Sanehi Ghat Road',
+    fromStation: 'BBK',
+    toStation: 'SFG',
+    km: 9,
     closeBeforeMin: 6,
     clearanceBufferSec: 60,
-    lat: 28.0967,
-    lng: 77.3639,
-  },
-  {
-    id: 'lc-chhata-road',
-    gateNumber: 'LC-41',
-    name: 'Chhata Road Crossing',
-    road: 'Chhata–Kosi Kalan Road',
-    fromStation: 'PWL',
-    toStation: 'MTJ',
-    km: 60,
-    closeBeforeMin: 6,
-    clearanceBufferSec: 60,
-    lat: 27.7167,
-    lng: 77.4667,
-  },
-  {
-    id: 'lc-vrindavan-road',
-    gateNumber: 'LC-58',
-    name: 'Vrindavan Road Crossing',
-    road: 'Mathura–Vrindavan Road',
-    fromStation: 'MTJ',
-    toStation: 'AGC',
-    km: 20,
-    closeBeforeMin: 5,
-    clearanceBufferSec: 45,
-    lat: 27.5200,
-    lng: 77.6800,
+    lat: 26.915,
+    lng: 81.195,
   },
 ]
+
+/** Barabanki Junction itself — shown on the map for orientation. */
+export const barabankiJunction = { name: 'Barabanki Junction', lat: 26.9385, lng: 81.192 }
+
+/** Map center/zoom for the city view. */
+export const cityView = { center: [26.9339, 81.1836] as [number, number], zoom: 13 }

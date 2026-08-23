@@ -2,25 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { computeCrossingEvents, computeTrainPass, deriveStatus } from './gateLogic'
 import type { LevelCrossing, Train } from '../types'
 
-// Fixture section: station A (km 0) -- 20km -- station B (km 20).
-// Both fixture stations exist in ../data/stations as codes reused for
-// convenience isn't required by gateLogic, but computeTrainPass looks
-// stations up by code via ../data/stations, so we reuse real codes here.
+// Fixture section: reuses real station codes from ../data/stations, since
+// computeTrainPass looks stations up by code from there. LKO is km 0, BBK
+// is km 28, so a crossing at km 12 sits a little past the midpoint.
 const crossing: LevelCrossing = {
   id: 'test-lc',
   gateNumber: 'LC-TEST',
   name: 'Test Crossing',
   road: 'Test Road',
-  fromStation: 'NDLS',
-  toStation: 'FDB', // NDLS km 0, FDB km 24 in the real fixture data
-  km: 12, // midpoint
+  fromStation: 'LKO',
+  toStation: 'BBK', // LKO km 0, BBK km 28 in the real fixture data
+  km: 14, // midpoint
   closeBeforeMin: 5,
   clearanceBufferSec: 30,
   lat: 0,
   lng: 0,
 }
 
-function makeTrain(number: string, depNDLS: string, depFDB: string): Train {
+function makeTrain(number: string, depLKO: string, depBBK: string): Train {
   return {
     number,
     name: `Train ${number}`,
@@ -28,8 +27,8 @@ function makeTrain(number: string, depNDLS: string, depFDB: string): Train {
     avgSpeedKmh: 60,
     lengthM: 500,
     schedule: [
-      { stationCode: 'NDLS', departs: depNDLS },
-      { stationCode: 'FDB', departs: depFDB },
+      { stationCode: 'LKO', departs: depLKO },
+      { stationCode: 'BBK', departs: depBBK },
     ],
   }
 }
