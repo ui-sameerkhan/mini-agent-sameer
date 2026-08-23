@@ -59,6 +59,23 @@ export const crossings: LevelCrossing[] = [
     lat: 26.915,
     lng: 81.195,
   },
+  {
+    // Coordinates from a location shared by the user (a Google Maps pin,
+    // no place name attached). Placed on the LKO-BBK line since that's the
+    // section it geographically sits nearest to; road name is a
+    // placeholder — rename it once you know the actual crossing/road name.
+    id: 'lc-user-pinned',
+    gateNumber: 'LC-33',
+    name: 'Pinned Crossing (near Barabanki town)',
+    road: 'Unnamed local road — rename once confirmed',
+    fromStation: 'LKO',
+    toStation: 'BBK',
+    km: 26,
+    closeBeforeMin: 5,
+    clearanceBufferSec: 45,
+    lat: 26.9323419,
+    lng: 81.175884,
+  },
 ]
 
 /** Barabanki Junction itself — shown on the map for orientation. */
