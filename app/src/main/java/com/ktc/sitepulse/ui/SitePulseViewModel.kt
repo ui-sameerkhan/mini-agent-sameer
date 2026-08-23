@@ -147,6 +147,24 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /** One-tap seed of the UAE MOHRE 2026-2027 calendar — see UaeHolidaysMohre for sourcing
+     * notes. Merge-based, so re-running it after correcting an "(unconfirmed)" date to the real
+     * one (via Delete + Add Holiday) won't recreate the old entry. */
+    fun seedUaeMohreHolidays() {
+        viewModelScope.launch {
+            try {
+                val now = DateUtils.nowIso()
+                val holidayDocs = com.ktc.sitepulse.domain.UaeHolidaysMohre.ENTRIES_2026_2027.map { e ->
+                    Holiday(date = e.date, name = e.name, addedBy = session.value.email, addedAt = now)
+                }
+                container.holidayRepository.bulkAdd(holidayDocs)
+                setStatus("holidayStatus", "✅ Loaded ${holidayDocs.size} UAE MOHRE holiday dates (2026-2027). Entries marked \"unconfirmed\" depend on moon sighting — verify against the current MOHRE circular closer to each date.")
+            } catch (e: Throwable) {
+                setStatus("holidayStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
     private val liveAnnouncement: StateFlow<Announcement?> = session.map { it.isLoggedIn }.distinctUntilChanged()
         .flatMapLatest { loggedIn -> if (loggedIn) container.announcementRepository.latest().catch { emit(null) } else flowOf(null) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

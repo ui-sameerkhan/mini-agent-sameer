@@ -467,6 +467,13 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                 "A worker with no attendance on one of these dates shows as HOLIDAY instead of ABSENT on the Absent Report.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
             )
+            OutlinedButton(onClick = { viewModel.seedUaeMohreHolidays() }, modifier = Modifier.fillMaxWidth()) {
+                Text("📅 Load UAE MOHRE Holidays (2026–2027)")
+            }
+            Text(
+                "Loads the official UAE public-holiday calendar in one tap. Eid Al Fitr, Eid Al Adha, Hijri New Year, and Mawlid dates depend on the moon sighting — entries marked \"unconfirmed\" should be checked against the current MOHRE circular closer to the date, and corrected below if needed.",
+                color = SpAmberMid, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
+            )
             OutlinedTextField(holidayDate, { holidayDate = it }, label = { Text("Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(holidayName, { holidayName = it }, label = { Text("Holiday Name") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             Button(
