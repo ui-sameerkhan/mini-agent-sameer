@@ -7,11 +7,13 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -46,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.MarkDirection
@@ -92,6 +96,13 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
 
     LaunchedEffect(query, workers) {
         selected = WorkerSearch.findExact(workers, query)
+    }
+
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let {
+            query = it.trim()
+            viewModel.clearMarkResult()
+        }
     }
 
     // Best-effort, informational only — the real check happens inside mark() when tapped.
@@ -170,6 +181,19 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
                         "🔒 This account is permanently linked to Worker ID $myLinkedWorkerId",
                         color = SpBlue, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
                     )
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            scanLauncher.launch(
+                                ScanOptions()
+                                    .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                    .setPrompt("Scan employee ID badge")
+                                    .setBeepEnabled(true)
+                                    .setOrientationLocked(false)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) { Text("📷 Scan QR / Barcode") }
                 }
 
                 if (suggestions.isNotEmpty() && !isIdLocked) {

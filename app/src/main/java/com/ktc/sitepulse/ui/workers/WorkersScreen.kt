@@ -1,12 +1,15 @@
 package com.ktc.sitepulse.ui.workers
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -28,12 +31,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.domain.QrCodeUtil
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.components.DesignationField
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
@@ -63,6 +70,7 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
     var editing by remember { mutableStateOf<Worker?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var siteDropdownExpanded by remember { mutableStateOf(false) }
+    var showingQr by remember { mutableStateOf<Worker?>(null) }
 
     val excelPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.startImport(ImportKind.WORKERS, it, it.displayName(context)) }
@@ -150,6 +158,7 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
                     }
                     Row(Modifier.padding(top = 8.dp)) {
                         OutlinedButton(onClick = { editing = w }) { Text("Edit") }
+                        OutlinedButton(onClick = { showingQr = w }, modifier = Modifier.padding(start = 8.dp)) { Text("📷 QR") }
                         OutlinedButton(onClick = { viewModel.requestDeleteWorker(w.id, w.name) }, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }
                     }
                 }
@@ -181,6 +190,40 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
     pendingDelete?.takeIf { it.kind == "worker" || it.kind == "allWorkers" }?.let { pending ->
         TypedDeleteConfirmDialog(pending, onConfirm = { typed -> viewModel.confirmPendingDelete(typed) }, onDismiss = viewModel::cancelPendingDelete)
     }
+    showingQr?.let { w ->
+        WorkerQrDialog(worker = w, onDismiss = { showingQr = null })
+    }
+}
+
+@Composable
+private fun WorkerQrDialog(worker: Worker, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap = remember(worker.id) { QrCodeUtil.generate(worker.id) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ID Badge QR — ${worker.name}") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Image(bitmap = bitmap.asImageBitmap(), contentDescription = "QR code for worker ${worker.id}", modifier = Modifier.size(220.dp))
+                Text("Worker ID: ${worker.id}", modifier = Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Scan this at check-in instead of typing the ID.", modifier = Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val file = QrCodeUtil.saveToCache(context, bitmap, worker.id)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "image/png"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "Share ID badge QR"))
+            }) { Text("Share") }
+        },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable

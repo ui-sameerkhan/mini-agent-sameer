@@ -42,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.Leave
@@ -92,6 +94,10 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
 
     val existing = WorkerSearch.findExact(workers, workerId)
 
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { workerId = it.trim() }
+    }
+
     NotificationsCard(
         viewModel, "Get a push notification for admin announcements — even when the app is closed.",
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -114,6 +120,18 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
                 workerId, { workerId = it }, label = { Text("Worker ID") },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp), singleLine = true,
             )
+            OutlinedButton(
+                onClick = {
+                    scanLauncher.launch(
+                        ScanOptions()
+                            .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                            .setPrompt("Scan employee ID badge")
+                            .setBeepEnabled(true)
+                            .setOrientationLocked(false)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            ) { Text("📷 Scan QR / Barcode") }
             val verifyText = when {
                 workerId.isBlank() -> ""
                 existing != null -> "✅ ${existing.name} — ${existing.designation} (currently: ${existing.site ?: "unassigned"})"
