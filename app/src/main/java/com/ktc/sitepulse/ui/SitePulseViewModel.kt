@@ -832,6 +832,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /** Generates one printable PDF of QR ID badges (3x4 grid per A4 page) for the given workers. */
+    suspend fun generateWorkerQrBadgesPdf(workersToPrint: List<com.ktc.sitepulse.data.model.Worker>): File {
+        val ctx = getApplication<Application>()
+        return withContext(Dispatchers.IO) {
+            com.ktc.sitepulse.domain.QrCodeUtil.generateBulkPdf(ctx, workersToPrint)
+        }
+    }
+
     /** Admin-only: every collection, all time, as one .xlsx — an offline snapshot independent of Firestore itself. */
     suspend fun generateFullBackup(): File {
         val attendanceAll = container.attendanceRepository.getAll()

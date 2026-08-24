@@ -71,6 +71,8 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
     var showAdd by remember { mutableStateOf(false) }
     var siteDropdownExpanded by remember { mutableStateOf(false) }
     var showingQr by remember { mutableStateOf<Worker?>(null) }
+    var generatingQrPdf by remember { mutableStateOf(false) }
+    var qrPdfStatus by remember { mutableStateOf<String?>(null) }
 
     val excelPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.startImport(ImportKind.WORKERS, it, it.displayName(context)) }
@@ -137,6 +139,37 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
             colors = ButtonDefaults.buttonColors(containerColor = SpAmberMid),
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
         ) { Text("Add Employee", fontWeight = FontWeight.Bold) }
+
+        OutlinedButton(
+            onClick = {
+                generatingQrPdf = true
+                qrPdfStatus = "Generating…"
+                scope.launch {
+                    try {
+                        val file = viewModel.generateWorkerQrBadgesPdf(filtered)
+                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Share / print QR ID badges"))
+                        qrPdfStatus = "✅ ${filtered.size} badge(s) ready: ${file.name}"
+                    } catch (e: Exception) {
+                        qrPdfStatus = "❌ ${e.message ?: e.toString()}"
+                    } finally {
+                        generatingQrPdf = false
+                    }
+                }
+            },
+            enabled = !generatingQrPdf && filtered.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        ) { Text(if (generatingQrPdf) "Generating…" else "🖨️ Bulk Generate QR Badges (${filtered.size})") }
+        Text(
+            "Generates one printable PDF with every employee matching the current search/site filter above — use All Sites + clear search to include everyone.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+        )
+        qrPdfStatus?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
 
         Text(
             "Showing ${pageItems.size} of ${filtered.size} • Page $page/$totalPages",
