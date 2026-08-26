@@ -83,6 +83,7 @@ export default function BookingSlotPicker({
         <input
           type="date"
           value={date}
+          min={new Date().toISOString().slice(0, 10)}
           onChange={(e) => onDateChange(e.target.value)}
           className={inputClass}
         />

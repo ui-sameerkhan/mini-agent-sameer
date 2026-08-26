@@ -9,6 +9,7 @@ export interface ContactDetails {
 
 interface Props {
   disabled: boolean;
+  disabledReason?: string;
   onSubmit: (details: ContactDetails) => void;
 }
 
@@ -19,7 +20,7 @@ const EMPTY_DETAILS: ContactDetails = {
   notes: "",
 };
 
-export default function BookingForm({ disabled, onSubmit }: Props) {
+export default function BookingForm({ disabled, disabledReason, onSubmit }: Props) {
   const [details, setDetails] = useState<ContactDetails>(EMPTY_DETAILS);
 
   function update<K extends keyof ContactDetails>(key: K, value: ContactDetails[K]) {
@@ -59,6 +60,8 @@ export default function BookingForm({ disabled, onSubmit }: Props) {
           type="tel"
           placeholder="Phone number"
           value={details.phone}
+          pattern="[6-9]\d{9}"
+          title="Enter a 10-digit Indian mobile number"
           onChange={(e) => update("phone", e.target.value)}
           className={`${inputClass} sm:col-span-2`}
         />
@@ -70,6 +73,9 @@ export default function BookingForm({ disabled, onSubmit }: Props) {
         rows={2}
         className={inputClass}
       />
+      {disabled && disabledReason && (
+        <p className="text-xs text-amber-600">{disabledReason}</p>
+      )}
       <button
         type="submit"
         disabled={disabled}

@@ -150,7 +150,17 @@ export default function BookingPage() {
         />
         <div className="space-y-4">
           <BookingCart cart={cart} priceMultiplier={priceMultiplier} onRemove={removeFromCart} />
-          <BookingForm disabled={cart.length === 0 || !state || !district} onSubmit={handleSubmit} />
+          <BookingForm
+            disabled={cart.length === 0 || !state || !district}
+            disabledReason={
+              !state || !district
+                ? "Select your state and district above to see accurate pricing."
+                : cart.length === 0
+                  ? "Pick at least one service to continue."
+                  : undefined
+            }
+            onSubmit={handleSubmit}
+          />
         </div>
       </div>
 

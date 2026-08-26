@@ -27,7 +27,8 @@ export default function BookingCart({ cart, priceMultiplier, onRemove }: Props) 
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="mb-1 text-sm font-semibold text-slate-800">Selected Services</h3>
       <p className="mb-3 text-xs text-slate-500">
-        This is today's price. It may drop further if more people book the same date after you.
+        This is the price for your selected date. It may drop further if more people book the
+        same date after you.
       </p>
       <ul className="space-y-2">
         {cart.map((item) => (
