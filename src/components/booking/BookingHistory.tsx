@@ -6,7 +6,7 @@ import { formatINR } from "../../lib/currency";
 function liveTotalFor(booking: Booking): number {
   return booking.items.reduce((sum, item) => {
     const groupSize = getGroupSize(item.service.id, booking.customer.date);
-    const livePrice = groupMemberPrice(item.service.price, groupSize, item.joinOrder);
+    const livePrice = groupMemberPrice(item.baseUnitPrice, groupSize, item.joinOrder);
     return sum + livePrice * item.quantity;
   }, 0);
 }
@@ -29,9 +29,9 @@ export default function BookingHistory({ bookings }: { bookings: Booking[] }) {
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-slate-800">
                   {booking.customer.name}
-                  {booking.customer.state && (
+                  {booking.customer.district && (
                     <span className="ml-2 text-xs font-normal text-slate-400">
-                      {booking.customer.state}
+                      {booking.customer.district}, {booking.customer.state}
                     </span>
                   )}
                 </span>

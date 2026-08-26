@@ -3,11 +3,13 @@ import { formatINR } from "../../lib/currency";
 
 interface Props {
   cart: CartItem[];
+  priceMultiplier: number;
   onRemove: (serviceId: string) => void;
 }
 
-export default function BookingCart({ cart, onRemove }: Props) {
-  const totalPrice = cart.reduce((sum, item) => sum + item.service.price * item.quantity, 0);
+export default function BookingCart({ cart, priceMultiplier, onRemove }: Props) {
+  const adjustedPrice = (item: CartItem) => Math.round(item.service.price * priceMultiplier);
+  const totalPrice = cart.reduce((sum, item) => sum + adjustedPrice(item) * item.quantity, 0);
   const totalDuration = cart.reduce(
     (sum, item) => sum + item.service.durationMinutes * item.quantity,
     0,
@@ -34,7 +36,7 @@ export default function BookingCart({ cart, onRemove }: Props) {
               {item.service.name} <span className="text-slate-400">× {item.quantity}</span>
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-slate-600">{formatINR(item.service.price * item.quantity)}</span>
+              <span className="text-slate-600">{formatINR(adjustedPrice(item) * item.quantity)}</span>
               <button
                 type="button"
                 onClick={() => onRemove(item.service.id)}

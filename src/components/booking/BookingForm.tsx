@@ -1,11 +1,9 @@
 import { FormEvent, useState } from "react";
-import { INDIAN_STATES, INDIAN_UNION_TERRITORIES } from "../../lib/indianStates";
 
 export interface ContactDetails {
   name: string;
   email: string;
   phone: string;
-  state: string;
   notes: string;
 }
 
@@ -18,7 +16,6 @@ const EMPTY_DETAILS: ContactDetails = {
   name: "",
   email: "",
   phone: "",
-  state: "",
   notes: "",
 };
 
@@ -63,32 +60,8 @@ export default function BookingForm({ disabled, onSubmit }: Props) {
           placeholder="Phone number"
           value={details.phone}
           onChange={(e) => update("phone", e.target.value)}
-          className={inputClass}
+          className={`${inputClass} sm:col-span-2`}
         />
-        <select
-          required
-          value={details.state}
-          onChange={(e) => update("state", e.target.value)}
-          className={inputClass}
-        >
-          <option value="" disabled>
-            Select state
-          </option>
-          <optgroup label="States">
-            {INDIAN_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Union Territories">
-            {INDIAN_UNION_TERRITORIES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </optgroup>
-        </select>
       </div>
       <textarea
         placeholder="Notes (optional)"

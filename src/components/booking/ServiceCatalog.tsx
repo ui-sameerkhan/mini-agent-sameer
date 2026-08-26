@@ -7,16 +7,26 @@ import { CartItem, Service } from "../../types/booking";
 interface Props {
   cart: CartItem[];
   date: string;
+  priceMultiplier: number;
   onToggle: (serviceId: string) => void;
   onQuantityChange: (serviceId: string, quantity: number) => void;
 }
 
-function GroupDealNote({ service, date }: { service: Service; date: string }) {
+function GroupDealNote({
+  service,
+  date,
+  priceMultiplier,
+}: {
+  service: Service;
+  date: string;
+  priceMultiplier: number;
+}) {
   if (!date) return null;
   const groupSize = getGroupSize(service.id, date);
   if (groupSize === 0) return null;
 
-  const earliestPrice = groupMemberPrice(service.price, groupSize, 1);
+  const adjustedPrice = Math.round(service.price * priceMultiplier);
+  const earliestPrice = groupMemberPrice(adjustedPrice, groupSize, 1);
   return (
     <p className="mt-1 text-xs font-medium text-emerald-600">
       {groupSize} {groupSize === 1 ? "person has" : "people have"} already booked this date —
@@ -25,7 +35,13 @@ function GroupDealNote({ service, date }: { service: Service; date: string }) {
   );
 }
 
-export default function ServiceCatalog({ cart, date, onToggle, onQuantityChange }: Props) {
+export default function ServiceCatalog({
+  cart,
+  date,
+  priceMultiplier,
+  onToggle,
+  onQuantityChange,
+}: Props) {
   const quantityFor = (serviceId: string) =>
     cart.find((item) => item.service.id === serviceId)?.quantity ?? 0;
 
@@ -40,6 +56,7 @@ export default function ServiceCatalog({ cart, date, onToggle, onQuantityChange 
             {SERVICES.filter((service) => service.category === category).map((service) => {
               const quantity = quantityFor(service.id);
               const selected = quantity > 0;
+              const adjustedPrice = Math.round(service.price * priceMultiplier);
               return (
                 <div
                   key={service.id}
@@ -57,9 +74,14 @@ export default function ServiceCatalog({ cart, date, onToggle, onQuantityChange 
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-800">{service.name}</p>
                       <p className="text-xs text-slate-500">
-                        {formatINR(service.price)} · {service.durationMinutes} min
+                        {priceMultiplier !== 1 && (
+                          <span className="mr-1 text-slate-400 line-through">
+                            {formatINR(service.price)}
+                          </span>
+                        )}
+                        {formatINR(adjustedPrice)} · {service.durationMinutes} min
                       </p>
-                      <GroupDealNote service={service} date={date} />
+                      <GroupDealNote service={service} date={date} priceMultiplier={priceMultiplier} />
                     </div>
                   </label>
                   {selected && (

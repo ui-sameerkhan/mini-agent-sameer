@@ -7,6 +7,8 @@ import BookingSlotPicker from "../components/booking/BookingSlotPicker";
 import { SERVICES } from "../lib/services";
 import { loadBookings, saveBooking } from "../lib/bookings";
 import { addGroupJoin } from "../lib/groupJoins";
+import { groupMemberPrice } from "../lib/groupPricing";
+import { applyDistrictPricing, getDistrictTier, TIER_MULTIPLIER } from "../lib/districts";
 import { formatINR } from "../lib/currency";
 import { Booking, BookingItem, CartItem } from "../types/booking";
 
@@ -17,9 +19,14 @@ function todayISODate(): string {
 export default function BookingPage() {
   const [date, setDate] = useState(todayISODate());
   const [time, setTime] = useState("10:00");
+  const [state, setState] = useState("");
+  const [district, setDistrict] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [confirmation, setConfirmation] = useState<Booking | null>(null);
+
+  const priceMultiplier =
+    state && district ? TIER_MULTIPLIER[getDistrictTier(state, district)] : 1;
 
   useEffect(() => {
     setBookings(loadBookings());
@@ -46,14 +53,17 @@ export default function BookingPage() {
 
   function handleSubmit(contact: ContactDetails) {
     const bookingId = crypto.randomUUID();
+    const tier = state && district ? getDistrictTier(state, district) : 2;
 
     const items: BookingItem[] = cart.map((cartItem) => {
       const join = addGroupJoin(cartItem.service.id, date, bookingId);
+      const baseUnitPrice = applyDistrictPricing(cartItem.service.price, tier);
       return {
         service: cartItem.service,
         quantity: cartItem.quantity,
         joinOrder: join.joinOrder,
-        pricePaidAtBooking: cartItem.service.price,
+        baseUnitPrice,
+        pricePaidAtBooking: groupMemberPrice(baseUnitPrice, join.joinOrder, join.joinOrder),
       };
     });
 
@@ -73,7 +83,8 @@ export default function BookingPage() {
         name: contact.name,
         email: contact.email,
         phone: contact.phone,
-        state: contact.state,
+        state,
+        district,
         date,
         time,
         notes: contact.notes,
@@ -98,7 +109,16 @@ export default function BookingPage() {
         </p>
       </div>
 
-      <BookingSlotPicker date={date} time={time} onDateChange={setDate} onTimeChange={setTime} />
+      <BookingSlotPicker
+        date={date}
+        time={time}
+        state={state}
+        district={district}
+        onDateChange={setDate}
+        onTimeChange={setTime}
+        onStateChange={setState}
+        onDistrictChange={setDistrict}
+      />
 
       {confirmation && (
         <div className="mb-6 flex items-start justify-between rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
@@ -121,10 +141,16 @@ export default function BookingPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <ServiceCatalog cart={cart} date={date} onToggle={toggleService} onQuantityChange={updateQuantity} />
+        <ServiceCatalog
+          cart={cart}
+          date={date}
+          priceMultiplier={priceMultiplier}
+          onToggle={toggleService}
+          onQuantityChange={updateQuantity}
+        />
         <div className="space-y-4">
-          <BookingCart cart={cart} onRemove={removeFromCart} />
-          <BookingForm disabled={cart.length === 0} onSubmit={handleSubmit} />
+          <BookingCart cart={cart} priceMultiplier={priceMultiplier} onRemove={removeFromCart} />
+          <BookingForm disabled={cart.length === 0 || !state || !district} onSubmit={handleSubmit} />
         </div>
       </div>
 

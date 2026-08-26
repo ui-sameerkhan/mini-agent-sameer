@@ -16,6 +16,7 @@ export interface CustomerDetails {
   email: string;
   phone: string;
   state: string;
+  district: string;
   date: string;
   time: string;
   notes: string;
@@ -34,6 +35,8 @@ export interface BookingItem {
   quantity: number;
   /** This item's position in the service+date group deal at the time it was booked. */
   joinOrder: number;
+  /** Service price after the district multiplier, before the group-deal discount. */
+  baseUnitPrice: number;
   /** Per-unit price locked in at the moment of booking. */
   pricePaidAtBooking: number;
 }
