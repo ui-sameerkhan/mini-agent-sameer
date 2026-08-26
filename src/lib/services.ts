@@ -17,11 +17,11 @@ export const SERVICES: Service[] = [
   { id: "yoga", name: "Personal Yoga Session", category: "Wellness", price: 400, durationMinutes: 60 },
   { id: "massage", name: "Full Body Massage", category: "Wellness", price: 1500, durationMinutes: 75 },
 
-  { id: "mistri-labour", name: "Mistri (Labour)", category: "Labour & Domestic Help", price: 600, durationMinutes: 480 },
-  { id: "mistri-carpenter", name: "Mistri (Carpenter)", category: "Labour & Domestic Help", price: 800, durationMinutes: 480 },
-  { id: "kaamwali", name: "Kaamwali (Domestic Help)", category: "Labour & Domestic Help", price: 300, durationMinutes: 120 },
-  { id: "cook", name: "Cook", category: "Labour & Domestic Help", price: 400, durationMinutes: 180 },
-  { id: "helper", name: "Helper", category: "Labour & Domestic Help", price: 350, durationMinutes: 480 },
+  { id: "mistri-labour", name: "Mistri (Labour)", category: "Home Needs", price: 600, durationMinutes: 480 },
+  { id: "mistri-carpenter", name: "Mistri (Carpenter)", category: "Home Needs", price: 800, durationMinutes: 480 },
+  { id: "kaamwali", name: "Kaamwali (Domestic Help)", category: "Home Needs", price: 300, durationMinutes: 120 },
+  { id: "cook", name: "Cook", category: "Home Needs", price: 400, durationMinutes: 180 },
+  { id: "helper", name: "Helper", category: "Home Needs", price: 350, durationMinutes: 480 },
 ];
 
 export const SERVICE_CATEGORIES = Array.from(
