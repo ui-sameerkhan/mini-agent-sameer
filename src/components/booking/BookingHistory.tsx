@@ -1,6 +1,7 @@
 import { Booking } from "../../types/booking";
 import { getGroupSize } from "../../lib/groupJoins";
 import { groupMemberPrice } from "../../lib/groupPricing";
+import { formatINR } from "../../lib/currency";
 
 function liveTotalFor(booking: Booking): number {
   return booking.items.reduce((sum, item) => {
@@ -21,7 +22,7 @@ export default function BookingHistory({ bookings }: { bookings: Booking[] }) {
       <div className="space-y-3">
         {bookings.map((booking) => {
           const liveTotal = liveTotalFor(booking);
-          const saved = Math.round((booking.totalPrice - liveTotal) * 100) / 100;
+          const saved = Math.round(booking.totalPrice - liveTotal);
 
           return (
             <div key={booking.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -37,14 +38,20 @@ export default function BookingHistory({ bookings }: { bookings: Booking[] }) {
               <div className="mt-1 flex items-center gap-2">
                 {saved > 0 ? (
                   <>
-                    <span className="text-sm text-slate-400 line-through">${booking.totalPrice}</span>
-                    <span className="text-sm font-semibold text-emerald-600">${liveTotal} now</span>
+                    <span className="text-sm text-slate-400 line-through">
+                      {formatINR(booking.totalPrice)}
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-600">
+                      {formatINR(liveTotal)} now
+                    </span>
                     <span className="text-xs text-emerald-600">
-                      (saved ${saved} as more people joined!)
+                      (saved {formatINR(saved)} as more people joined!)
                     </span>
                   </>
                 ) : (
-                  <span className="text-sm font-semibold text-slate-700">${booking.totalPrice}</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {formatINR(booking.totalPrice)}
+                  </span>
                 )}
                 <span className="text-sm text-slate-400">· {booking.totalDurationMinutes} min</span>
               </div>

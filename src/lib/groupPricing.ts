@@ -15,5 +15,5 @@ export function groupMemberPrice(
   const laterJoiners = Math.max(0, groupSize - joinOrder);
   const rawPrice = basePrice - basePrice * GROUP_STEP_PERCENT * laterJoiners;
   const floor = basePrice * (1 - GROUP_MAX_DISCOUNT_PERCENT);
-  return Math.round(Math.max(rawPrice, floor) * 100) / 100;
+  return Math.round(Math.max(rawPrice, floor));
 }

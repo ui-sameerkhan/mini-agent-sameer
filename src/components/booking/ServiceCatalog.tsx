@@ -1,6 +1,7 @@
 import { SERVICES, SERVICE_CATEGORIES } from "../../lib/services";
 import { getGroupSize } from "../../lib/groupJoins";
 import { groupMemberPrice } from "../../lib/groupPricing";
+import { formatINR } from "../../lib/currency";
 import { CartItem, Service } from "../../types/booking";
 
 interface Props {
@@ -19,7 +20,7 @@ function GroupDealNote({ service, date }: { service: Service; date: string }) {
   return (
     <p className="mt-1 text-xs font-medium text-emerald-600">
       {groupSize} {groupSize === 1 ? "person has" : "people have"} already booked this date —
-      earliest booker is now paying ${earliestPrice}
+      earliest booker is now paying {formatINR(earliestPrice)}
     </p>
   );
 }
@@ -56,7 +57,7 @@ export default function ServiceCatalog({ cart, date, onToggle, onQuantityChange 
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-800">{service.name}</p>
                       <p className="text-xs text-slate-500">
-                        ${service.price} · {service.durationMinutes} min
+                        {formatINR(service.price)} · {service.durationMinutes} min
                       </p>
                       <GroupDealNote service={service} date={date} />
                     </div>

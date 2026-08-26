@@ -1,4 +1,5 @@
 import { CartItem } from "../../types/booking";
+import { formatINR } from "../../lib/currency";
 
 interface Props {
   cart: CartItem[];
@@ -33,7 +34,7 @@ export default function BookingCart({ cart, onRemove }: Props) {
               {item.service.name} <span className="text-slate-400">× {item.quantity}</span>
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-slate-600">${item.service.price * item.quantity}</span>
+              <span className="text-slate-600">{formatINR(item.service.price * item.quantity)}</span>
               <button
                 type="button"
                 onClick={() => onRemove(item.service.id)}
@@ -52,7 +53,7 @@ export default function BookingCart({ cart, onRemove }: Props) {
         </div>
         <div className="flex justify-between text-base font-semibold text-slate-800">
           <span>Total</span>
-          <span>${totalPrice}</span>
+          <span>{formatINR(totalPrice)}</span>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import BookingSlotPicker from "../components/booking/BookingSlotPicker";
 import { SERVICES } from "../lib/services";
 import { loadBookings, saveBooking } from "../lib/bookings";
 import { addGroupJoin } from "../lib/groupJoins";
+import { formatINR } from "../lib/currency";
 import { Booking, BookingItem, CartItem } from "../types/booking";
 
 function todayISODate(): string {
@@ -97,7 +98,7 @@ export default function BookingPage() {
             <p className="font-semibold">Booking confirmed!</p>
             <p>
               {confirmation.items.length} service(s) booked for {confirmation.customer.date} at{" "}
-              {confirmation.customer.time}. Total: ${confirmation.totalPrice}. Check Booking
+              {confirmation.customer.time}. Total: {formatINR(confirmation.totalPrice)}. Check Booking
               History below — your price may drop further as more people join this date.
             </p>
           </div>
