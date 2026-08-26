@@ -20,11 +20,28 @@ export interface CustomerDetails {
   notes: string;
 }
 
+/** One person/booking's place in a service+date group deal. */
+export interface GroupJoin {
+  bookingId: string;
+  serviceId: string;
+  date: string;
+  joinOrder: number;
+}
+
+export interface BookingItem {
+  service: Service;
+  quantity: number;
+  /** This item's position in the service+date group deal at the time it was booked. */
+  joinOrder: number;
+  /** Per-unit price locked in at the moment of booking. */
+  pricePaidAtBooking: number;
+}
+
 export interface Booking {
   id: string;
   createdAt: string;
   customer: CustomerDetails;
-  items: CartItem[];
+  items: BookingItem[];
   totalPrice: number;
   totalDurationMinutes: number;
 }

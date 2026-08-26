@@ -1,13 +1,30 @@
 import { SERVICES, SERVICE_CATEGORIES } from "../../lib/services";
-import { CartItem } from "../../types/booking";
+import { getGroupSize } from "../../lib/groupJoins";
+import { groupMemberPrice } from "../../lib/groupPricing";
+import { CartItem, Service } from "../../types/booking";
 
 interface Props {
   cart: CartItem[];
+  date: string;
   onToggle: (serviceId: string) => void;
   onQuantityChange: (serviceId: string, quantity: number) => void;
 }
 
-export default function ServiceCatalog({ cart, onToggle, onQuantityChange }: Props) {
+function GroupDealNote({ service, date }: { service: Service; date: string }) {
+  if (!date) return null;
+  const groupSize = getGroupSize(service.id, date);
+  if (groupSize === 0) return null;
+
+  const earliestPrice = groupMemberPrice(service.price, groupSize, 1);
+  return (
+    <p className="mt-1 text-xs font-medium text-emerald-600">
+      {groupSize} {groupSize === 1 ? "person has" : "people have"} already booked this date —
+      earliest booker is now paying ${earliestPrice}
+    </p>
+  );
+}
+
+export default function ServiceCatalog({ cart, date, onToggle, onQuantityChange }: Props) {
   const quantityFor = (serviceId: string) =>
     cart.find((item) => item.service.id === serviceId)?.quantity ?? 0;
 
@@ -41,6 +58,7 @@ export default function ServiceCatalog({ cart, onToggle, onQuantityChange }: Pro
                       <p className="text-xs text-slate-500">
                         ${service.price} · {service.durationMinutes} min
                       </p>
+                      <GroupDealNote service={service} date={date} />
                     </div>
                   </label>
                   {selected && (

@@ -1,24 +1,28 @@
 import { FormEvent, useState } from "react";
-import { CustomerDetails } from "../../types/booking";
+
+export interface ContactDetails {
+  name: string;
+  email: string;
+  phone: string;
+  notes: string;
+}
 
 interface Props {
   disabled: boolean;
-  onSubmit: (details: CustomerDetails) => void;
+  onSubmit: (details: ContactDetails) => void;
 }
 
-const EMPTY_DETAILS: CustomerDetails = {
+const EMPTY_DETAILS: ContactDetails = {
   name: "",
   email: "",
   phone: "",
-  date: "",
-  time: "",
   notes: "",
 };
 
 export default function BookingForm({ disabled, onSubmit }: Props) {
-  const [details, setDetails] = useState<CustomerDetails>(EMPTY_DETAILS);
+  const [details, setDetails] = useState<ContactDetails>(EMPTY_DETAILS);
 
-  function update<K extends keyof CustomerDetails>(key: K, value: CustomerDetails[K]) {
+  function update<K extends keyof ContactDetails>(key: K, value: ContactDetails[K]) {
     setDetails((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -33,7 +37,7 @@ export default function BookingForm({ disabled, onSubmit }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-800">Your Details</h3>
+      <h3 className="text-sm font-semibold text-slate-800">2. Your Details</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <input
           required
@@ -56,24 +60,8 @@ export default function BookingForm({ disabled, onSubmit }: Props) {
           placeholder="Phone number"
           value={details.phone}
           onChange={(e) => update("phone", e.target.value)}
-          className={inputClass}
+          className={`${inputClass} sm:col-span-2`}
         />
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            required
-            type="date"
-            value={details.date}
-            onChange={(e) => update("date", e.target.value)}
-            className={inputClass}
-          />
-          <input
-            required
-            type="time"
-            value={details.time}
-            onChange={(e) => update("time", e.target.value)}
-            className={inputClass}
-          />
-        </div>
       </div>
       <textarea
         placeholder="Notes (optional)"
