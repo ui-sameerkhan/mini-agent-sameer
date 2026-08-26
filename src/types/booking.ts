@@ -15,6 +15,7 @@ export interface CustomerDetails {
   name: string;
   email: string;
   phone: string;
+  state: string;
   date: string;
   time: string;
   notes: string;

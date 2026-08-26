@@ -27,7 +27,14 @@ export default function BookingHistory({ bookings }: { bookings: Booking[] }) {
           return (
             <div key={booking.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-800">{booking.customer.name}</span>
+                <span className="font-medium text-slate-800">
+                  {booking.customer.name}
+                  {booking.customer.state && (
+                    <span className="ml-2 text-xs font-normal text-slate-400">
+                      {booking.customer.state}
+                    </span>
+                  )}
+                </span>
                 <span className="text-slate-500">
                   {booking.customer.date} at {booking.customer.time}
                 </span>

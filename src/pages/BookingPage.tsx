@@ -69,7 +69,15 @@ export default function BookingPage() {
     const booking: Booking = {
       id: bookingId,
       createdAt: new Date().toISOString(),
-      customer: { name: contact.name, email: contact.email, phone: contact.phone, date, time, notes: contact.notes },
+      customer: {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        state: contact.state,
+        date,
+        time,
+        notes: contact.notes,
+      },
       items,
       totalPrice,
       totalDurationMinutes,
