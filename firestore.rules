@@ -17,6 +17,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email.lower() in adminEmails();
     }
 
+    // Timekeepers are a Firestore-managed role (not a hardcoded list like admin) — admin
+    // adds/removes accounts from the Manage Timekeepers screen, doc ID is the lowercased
+    // login email. Kept as its own collection rather than a field on the user, so this
+    // check works via a cheap exists() lookup without needing a custom-claims setup.
+    function isTimekeeper() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/timekeepers/$(request.auth.token.email.lower()));
+    }
+
     // workers/{workerId} — also doubles as the roster.
     // Read: any signed-in staff (check-in search, roster lookups).
     // Write: admin only — supervisors add people via arrivalRequests instead.
@@ -59,8 +68,10 @@ service cloud.firestore {
     // leaves/{autoId} — admin marks leave directly (status "approved", no requestedBy);
     // office staff self-apply instead, which creates a "pending" doc the admin must
     // approve/reject. Office staff can also read back their own submitted requests.
+    // Timekeepers can read every leave record too — needed for the leave-aware Absent
+    // Report they generate, same reason admin can.
     match /leaves/{docId} {
-      allow read: if isAdmin() ||
+      allow read: if isAdmin() || isTimekeeper() ||
         (isSignedIn() && resource.data.requestedBy != null &&
          resource.data.requestedBy.lower() == request.auth.token.email.lower());
       allow create: if isAdmin() ||
@@ -112,6 +123,15 @@ service cloud.firestore {
     // holidays/{date} — doc id is the "YYYY-MM-DD" date itself. Read by anyone signed in
     // (low-sensitivity reference data, same pattern as sites); only admin manages the list.
     match /holidays/{date} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // timekeepers/{email} — doc ID is the lowercased login email of a Timekeeper account.
+    // Presence of the doc IS the grant (see isTimekeeper() above) — admin adds/removes
+    // entries from the Manage Timekeepers screen. Read is open to any signed-in user only
+    // so a Timekeeper can confirm their own role on login; only admin manages the list.
+    match /timekeepers/{email} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }

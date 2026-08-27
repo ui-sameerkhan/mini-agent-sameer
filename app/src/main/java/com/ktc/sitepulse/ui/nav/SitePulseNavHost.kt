@@ -61,6 +61,7 @@ private const val ROUTE_LOGIN = "login"
 fun SitePulseRoot() {
     val viewModel: SitePulseViewModel = viewModel()
     val session by viewModel.session.collectAsState()
+    val isTimekeeper by viewModel.isTimekeeper.collectAsState()
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -90,10 +91,18 @@ fun SitePulseRoot() {
         )
     }
 
-    LaunchedEffect(session.isLoggedIn) {
+    // isTimekeeper resolves asynchronously (a Firestore doc-existence check, unlike the
+    // synchronous email-pattern checks the other roles use) — it's false for an instant right
+    // after login, so the first pass below always lands a timekeeper on Check-In like anyone
+    // else; the second pass, once it resolves true, catches that and redirects to Attendance,
+    // their actual landing screen (no Check-In access — see showTabBar/CheckInScreen gating).
+    LaunchedEffect(session.isLoggedIn, isTimekeeper) {
         if (session.isLoggedIn) {
-            if (currentRoute == ROUTE_WELCOME || currentRoute == ROUTE_LOGIN || currentRoute == null) {
-                navController.navigate(SpTab.CHECKIN.route) {
+            val target = if (isTimekeeper) SpTab.ATTENDANCE.route else SpTab.CHECKIN.route
+            val needsRedirect = currentRoute == ROUTE_WELCOME || currentRoute == ROUTE_LOGIN || currentRoute == null ||
+                (isTimekeeper && currentRoute == SpTab.CHECKIN.route)
+            if (needsRedirect) {
+                navController.navigate(target) {
                     popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                     launchSingleTop = true
                 }
@@ -111,6 +120,7 @@ fun SitePulseRoot() {
     val statusLabel = when {
         !session.isLoggedIn -> "Login required"
         session.isAdmin -> "🛡️ Admin: ${session.email}"
+        isTimekeeper -> "🧾 Timekeeper: ${session.email}"
         session.isOfficeStaff -> "🏢 Office Staff: ${session.email}"
         else -> "🧑‍💼 Supervisor: ${session.email}"
     }

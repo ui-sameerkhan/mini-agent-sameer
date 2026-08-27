@@ -54,6 +54,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AttendanceScreen(viewModel: SitePulseViewModel) {
     val session by viewModel.session.collectAsState()
+    val isTimekeeper by viewModel.isTimekeeper.collectAsState()
+    val canCorrect = session.isAdmin || isTimekeeper
     val sites by viewModel.sites.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val statusMessages by viewModel.statusMessages.collectAsState()
@@ -84,7 +86,7 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
             }, y, m - 1, d).show()
         }, modifier = Modifier.fillMaxWidth()) { Text("📅 Date: $selectedDate") }
 
-        if (session.isAdmin) {
+        if (canCorrect) {
             OutlinedButton(onClick = { addingNew = true }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 Text("+ Add Manual Attendance Record")
             }
@@ -191,7 +193,7 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
                                 Text(DateUtils.formatTimeHm(a.checkIn))
                                 Text(" / ")
                                 Text(DateUtils.formatTimeHm(a.out))
-                                if (session.isAdmin) {
+                                if (canCorrect) {
                                     OutlinedButton(onClick = { editingRecord = a }, modifier = Modifier.padding(start = 8.dp)) { Text("Edit") }
                                 }
                             }

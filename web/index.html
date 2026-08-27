@@ -249,6 +249,14 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
       <button class="b-save" id="dl-btn" onclick="downloadAtt()">Download Excel Report</button>
       <div id="dl-status" class="muted" style="margin-top:6px"></div>
     </div>
+
+    <div class="card">
+      <h4 class="cardh">Manual Attendance Correction</h4>
+      <div class="muted" style="margin-bottom:8px">Correct a missed or backdated attendance record. Every correction is tagged with who made it and when.</div>
+      <button class="b-save" onclick="openCorrectionModal()">+ Add / Edit Attendance Record</button>
+      <button class="sbtn" style="width:100%;padding:11px;margin-top:8px;background:var(--blue-soft);color:var(--blue);font-weight:700" onclick="openBulkCorrectionModal()">📋 Bulk Mark Attendance (Multiple Employees)</button>
+    </div>
+
     <div id="att-list"><div class="muted">No records.</div></div>
   </div>
 
@@ -371,10 +379,14 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
       </div>
 
       <div class="card" style="margin-top:12px">
-        <h4 class="cardh">Manual Attendance Correction</h4>
-        <div class="muted" style="margin-bottom:8px">Correct a missed or backdated attendance record. Every correction is tagged with who made it and when.</div>
-        <button class="b-save" onclick="openCorrectionModal()">+ Add / Edit Attendance Record</button>
-        <button class="sbtn" style="width:100%;padding:11px;margin-top:8px;background:var(--blue-soft);color:var(--blue);font-weight:700" onclick="openBulkCorrectionModal()">📋 Bulk Mark Attendance (Multiple Employees)</button>
+        <h4 class="cardh">Manage Timekeepers</h4>
+        <div class="muted" style="margin-bottom:8px">Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no roster, worker, or site management.</div>
+        <div class="mrow">
+          <input class="inp" id="tk-email" type="email" placeholder="email@example.com" style="flex:1">
+        </div>
+        <button class="b-save" onclick="addTimekeeper()">Add Timekeeper</button>
+        <div id="tk-status" class="muted" style="margin-top:6px"></div>
+        <div id="timekeeper-list" style="margin-top:10px"></div>
       </div>
 
       <div class="card" style="margin-top:12px">
@@ -660,8 +672,8 @@ const fmtTime = iso => { try { return new Date(iso).toLocaleTimeString([], {hour
 const initials = n => (n||"?").split(" ").slice(0,2).map(x=>x[0]).join("").toUpperCase();
 const PAGE = 50;
 
-let workers = FALLBACK, sites = [], attendance = [], blocked = [], pendingArrivals = [], leaves = [], holidays = [];
-let adminOn = false, officeStaffOn = false, myLinkedWorkerId = null;
+let workers = FALLBACK, sites = [], attendance = [], blocked = [], pendingArrivals = [], leaves = [], holidays = [], timekeepers = [];
+let adminOn = false, officeStaffOn = false, timekeeperOn = false, myLinkedWorkerId = null;
 window.wpage = 1;
 
 $("datestr").textContent = new Date().toLocaleDateString([], {weekday:'short', day:'numeric', month:'short'});
@@ -694,7 +706,7 @@ window.go = function(pg, btn){
   $("pg-"+pg).classList.add("on");
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
   if(btn) btn.classList.add("on");
-  if(pg==="roster" && adminOn){ renderRosterList(); renderPendingArrivals(); renderPendingLeaveRequests(); renderSiteDeviations(); renderHolidayList(); }
+  if(pg==="roster" && adminOn){ renderRosterList(); renderPendingArrivals(); renderPendingLeaveRequests(); renderSiteDeviations(); renderHolidayList(); renderTimekeeperList(); }
   if(pg==="office") { renderMyLeaves(); renderMyAttendance(); }
   window.scrollTo(0,0);
 };
@@ -722,12 +734,21 @@ window.sendReset = async function(){
   m.textContent = "✅ If "+em+" has an account, a password reset link has been sent to it.";
 };
 
-onAuthStateChanged(auth, (user)=>{
+onAuthStateChanged(auth, async (user)=>{
   const email = (user && user.email ? user.email : "").toLowerCase();
-  const isOffice = !!user && !ADMIN_EMAILS.includes(email) && email.endsWith("@"+OFFICE_STAFF_EMAIL_DOMAIN);
-  if(user && ADMIN_EMAILS.includes(email)){
+  const isAdminEmail = !!user && ADMIN_EMAILS.includes(email);
+  // Timekeeper is a Firestore-managed role (admin adds/removes accounts from the Manage
+  // Timekeepers screen), checked before Office Staff so an explicit grant always wins over
+  // the domain-based office-staff match, same precedence admin already gets.
+  let isTimekeeperUser = false;
+  if(user && !isAdminEmail){
+    try { isTimekeeperUser = (await getDoc(doc(db,"timekeepers",email))).exists(); } catch(e){ /* offline — fall through as non-timekeeper */ }
+  }
+  const isOffice = !!user && !isAdminEmail && !isTimekeeperUser && email.endsWith("@"+OFFICE_STAFF_EMAIL_DOMAIN);
+  timekeeperOn = isTimekeeperUser;
+  if(isAdminEmail){
     // ADMIN — full access
-    adminOn = true; officeStaffOn = false;
+    adminOn = true; officeStaffOn = false; timekeeperOn = false;
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.add("show");
     $("lg-msg").textContent = "";
@@ -735,8 +756,20 @@ onAuthStateChanged(auth, (user)=>{
     $("roster-admin").style.display = "block";
     $("roster-supervisor").style.display = "none";
     $("office-btn").style.display = "none";
-    startData(true);
+    startData(true, false);
     go("checkin", document.querySelector(".tab"));
+  } else if(isTimekeeperUser){
+    // TIMEKEEPER — reports + manual attendance correction only, no field/roster/admin access
+    adminOn = false; officeStaffOn = false;
+    $("adminbtn").style.display = "inline-block";
+    $("tabbar").classList.remove("show");
+    $("lg-msg").textContent = "";
+    $("notice").innerHTML = '<div class="notice ok">🧾 Timekeeper: '+email+' — attendance reports and corrections.</div>';
+    $("roster-admin").style.display = "none";
+    $("roster-supervisor").style.display = "none";
+    $("office-btn").style.display = "none";
+    startData(false, true);
+    go("att");
   } else if(isOffice){
     // OFFICE STAFF — self-service leave + own attendance history, same check-in flow as a supervisor
     adminOn = false; officeStaffOn = true;
@@ -747,7 +780,7 @@ onAuthStateChanged(auth, (user)=>{
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
     $("office-btn").style.display = "block";
-    startData(false);
+    startData(false, false);
     loadMyLinkedWorkerId(email);
     go("checkin");
   } else if(user){
@@ -760,10 +793,10 @@ onAuthStateChanged(auth, (user)=>{
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
     $("office-btn").style.display = "none";
-    startData(false);
+    startData(false, false);
     go("checkin");
   } else {
-    adminOn = false; officeStaffOn = false; myLinkedWorkerId = null;
+    adminOn = false; officeStaffOn = false; timekeeperOn = false; myLinkedWorkerId = null;
     $("adminbtn").style.display = "none";
     $("tabbar").classList.remove("show");
     $("notice").innerHTML = "";
@@ -779,7 +812,7 @@ function setStatus(isLive){
 
 // ---------- SUBSCRIPTIONS ----------
 let dataStarted = false;
-function startData(isAdminUser){
+function startData(isAdminUser, isTimekeeperUser){
   if(dataStarted) return;
   dataStarted = true;
 
@@ -827,8 +860,17 @@ function startData(isAdminUser){
       if($("pg-roster").classList.contains("on")) renderPendingArrivals();
     }, ()=>{});
 
-    // Leave records — small volume, kept live for admin's absence calculations
-    // and the Pending Leave Requests review panel.
+    // Timekeeper accounts — small list, admin-managed from the Manage Timekeepers card.
+    onSnapshot(collection(db,"timekeepers"), snap => {
+      timekeepers = snap.docs.map(d=>({_id:d.id, ...d.data()})).sort((a,b)=>a._id.localeCompare(b._id));
+      if($("pg-roster").classList.contains("on")) renderTimekeeperList();
+    }, ()=>{});
+  }
+
+  if(isAdminUser || isTimekeeperUser){
+    // Leave records — small volume, kept live for absence calculations (both admin's
+    // Pending Leave Requests panel and either role's Absent Report) — firestore.rules
+    // grants timekeepers the same full read access to this collection as admin.
     onSnapshot(collection(db,"leaves"), snap => {
       leaves = snap.docs.map(d=>({_id:d.id, ...d.data()}));
       if($("pg-roster").classList.contains("on")) renderPendingLeaveRequests();
@@ -2011,6 +2053,30 @@ window.seedHolidays = async function(){
     await batch.commit();
     $("hol-status").textContent = "✅ UAE MOHRE holidays loaded.";
   } catch(e){ $("hol-status").textContent = "❌ "+e.message; }
+};
+
+// ---------- MANAGE TIMEKEEPERS (admin) ----------
+// Doc ID is the lowercased login email — presence of the doc IS the grant (see
+// isTimekeeper() in firestore.rules). No separate "role" field needed.
+function renderTimekeeperList(){
+  const el = $("timekeeper-list");
+  if(!el) return;
+  if(!timekeepers.length){ el.innerHTML = '<div class="muted">No timekeeper accounts yet.</div>'; return; }
+  el.innerHTML = timekeepers.map(t=>
+    '<div class="att-row" style="justify-content:space-between"><div><b>'+t._id+'</b><div class="muted">Added by '+(t.addedBy||"—")+'</div></div>'
+    +'<button class="sbtn b-del" onclick="deleteTimekeeper(\''+t._id+'\')">Remove</button></div>'
+  ).join("");
+}
+window.addTimekeeper = async function(){
+  const email = $("tk-email").value.trim().toLowerCase();
+  if(!email || !email.includes("@")){ $("tk-status").textContent = "❌ Enter a valid email address."; return; }
+  try {
+    await setDoc(doc(db,"timekeepers",email), { email, addedBy:(auth.currentUser&&auth.currentUser.email)||"admin", addedAt:new Date().toISOString() });
+    $("tk-email").value = ""; $("tk-status").textContent = "✅ Timekeeper added.";
+  } catch(e){ $("tk-status").textContent = "❌ "+e.message; }
+};
+window.deleteTimekeeper = async function(email){
+  try { await deleteDoc(doc(db,"timekeepers",email)); } catch(e){ $("tk-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- SITE DEVIATIONS (admin) ----------

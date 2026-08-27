@@ -165,6 +165,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val workers by viewModel.workers.collectAsState()
     val sites by viewModel.sites.collectAsState()
     val holidays by viewModel.holidays.collectAsState()
+    val timekeepers by viewModel.timekeepers.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -189,6 +190,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var bulkLeaveOpen by remember { mutableStateOf(false) }
     var holidayDate by remember { mutableStateOf("") }
     var holidayName by remember { mutableStateOf("") }
+    var timekeeperEmail by remember { mutableStateOf("") }
     var rosterSearch by remember { mutableStateOf("") }
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
@@ -508,6 +510,31 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
                             Text(h.date, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         OutlinedButton(onClick = { viewModel.deleteHoliday(h.date) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed)) { Text("Delete") }
+                    }
+                }
+            }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("MANAGE TIMEKEEPERS", fontWeight = FontWeight.Bold)
+            Text(
+                "Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no worker, site, or roster management.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
+            )
+            OutlinedTextField(timekeeperEmail, { timekeeperEmail = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
+            Button(
+                onClick = { viewModel.addTimekeeper(timekeeperEmail); timekeeperEmail = "" },
+                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            ) { Text("Add Timekeeper") }
+            statusMessages["timekeeperStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
+            if (timekeepers.isNotEmpty()) {
+                timekeepers.forEach { t ->
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.email, modifier = Modifier.weight(1f))
+                        OutlinedButton(onClick = { viewModel.removeTimekeeper(t.email) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed)) { Text("Remove") }
                     }
                 }
             }

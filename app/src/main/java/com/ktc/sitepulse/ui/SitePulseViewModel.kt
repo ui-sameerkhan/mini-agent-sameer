@@ -11,6 +11,7 @@ import com.ktc.sitepulse.data.model.Announcement
 import com.ktc.sitepulse.data.model.AppVersionGate
 import com.ktc.sitepulse.data.model.ArrivalRequest
 import com.ktc.sitepulse.data.model.Holiday
+import com.ktc.sitepulse.data.model.Timekeeper
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.data.model.Leave
@@ -38,6 +39,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -161,6 +163,42 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 setStatus("holidayStatus", "✅ Loaded ${holidayDocs.size} UAE MOHRE holiday dates (2026-2027). Entries marked \"unconfirmed\" depend on moon sighting — verify against the current MOHRE circular closer to each date.")
             } catch (e: Throwable) {
                 setStatus("holidayStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /** Resolved once per login via a cheap doc-existence check — Timekeeper is a Firestore-managed
+     * role (admin adds/removes accounts from Roster), not an email-pattern check like isAdmin/
+     * isOfficeStaff, so it can't live on SessionState itself without making that whole type async. */
+    val isTimekeeper: StateFlow<Boolean> = session.map { it.email }.distinctUntilChanged()
+        .flatMapLatest { email -> flow { emit(if (email.isBlank()) false else container.timekeeperRepository.isTimekeeper(email)) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    /** Admin-only list backing the Manage Timekeepers panel in Roster. */
+    val timekeepers: StateFlow<List<Timekeeper>> = session.map { it.isAdmin }.distinctUntilChanged()
+        .flatMapLatest { isAdmin -> if (isAdmin) container.timekeeperRepository.live().recoverToEmpty("Timekeepers") else flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addTimekeeper(email: String) {
+        val trimmed = email.trim()
+        if (trimmed.isBlank() || !trimmed.contains("@")) { setStatus("timekeeperStatus", "❌ Enter a valid email address."); return }
+        viewModelScope.launch {
+            try {
+                container.timekeeperRepository.add(trimmed, session.value.email, DateUtils.nowIso())
+                setStatus("timekeeperStatus", "✅ Timekeeper added.")
+            } catch (e: Throwable) {
+                setStatus("timekeeperStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun removeTimekeeper(email: String) {
+        viewModelScope.launch {
+            try {
+                container.timekeeperRepository.delete(email)
+                setStatus("timekeeperStatus", "🗑 Timekeeper removed.")
+            } catch (e: Throwable) {
+                setStatus("timekeeperStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
         }
     }
