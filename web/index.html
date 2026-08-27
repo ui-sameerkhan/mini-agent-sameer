@@ -213,6 +213,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
     <div id="seedbar" class="seedbar" style="display:none">
       <p><b>⚠ One-time:</b> Workers database empty. Upload all 999:</p>
       <button class="b-seed" id="seedbtn" onclick="runSeed()">Upload Master Worker List</button>
+      <div id="seed-status" style="color:#CBE2D6;font-size:12px;margin-top:8px"></div>
     </div>
     <div class="card">
       <h4 class="cardh">Worker Locator</h4>
@@ -246,6 +247,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
         <select class="inp" id="dl-range" style="margin-bottom:0;flex:1"><option value="day">Selected Date</option><option value="month">Full Month</option></select>
       </div>
       <button class="b-save" id="dl-btn" onclick="downloadAtt()">Download Excel Report</button>
+      <div id="dl-status" class="muted" style="margin-top:6px"></div>
     </div>
     <div id="att-list"><div class="muted">No records.</div></div>
   </div>
@@ -363,6 +365,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
         </div>
         <button class="b-save" onclick="addHoliday()">Add Holiday</button>
         <button class="sbtn" style="width:100%;padding:11px;margin-top:8px;background:var(--amber-soft);color:#6B4A10;font-weight:700" onclick="seedHolidays()">📅 Load UAE MOHRE Holidays (2026–2027)</button>
+        <div id="hol-status" class="muted" style="margin-top:6px"></div>
         <div class="muted" style="margin-top:6px">⚠ Islamic-calendar dates are moon-sighting dependent and marked "(unconfirmed)" until MOHRE officially gazettes them.</div>
         <div id="holiday-list" style="margin-top:10px"></div>
       </div>
@@ -471,6 +474,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
       <div style="flex:1"><label>Day Starts (0-23)</label><input class="inp" id="s-day" inputmode="numeric" placeholder="5"></div>
     </div>
     <div class="muted" style="margin-bottom:10px">Optional — leave blank to use the company default (Night 18:00, Day 05:00). Only set these for a site that genuinely runs a different shift pattern.</div>
+    <div id="s-status" class="muted" style="margin-bottom:8px"></div>
     <div class="mrow"><button class="b-cancel" onclick="closeM('s-modal')">Cancel</button><button class="b-save" style="flex:2" onclick="saveSite()">Save Site</button></div>
   </div>
 </div>
@@ -495,6 +499,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
     <input class="inp" id="m-leavedays" inputmode="numeric" value="30">
     <label>Assigned Project Site</label>
     <select class="inp" id="m-site"><option value="">— Not assigned —</option></select>
+    <div id="m-status" class="muted" style="margin-bottom:8px"></div>
     <div class="mrow"><button class="b-cancel" onclick="closeM('w-modal')">Cancel</button><button class="b-save" style="flex:2" onclick="saveWorkerForm()">Save</button></div>
   </div>
 </div>
@@ -512,6 +517,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
       <div style="flex:1"><label>Check Out</label><input type="time" class="inp" id="c-outtime"></div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;letter-spacing:normal;font-size:13px;margin-bottom:10px"><input type="checkbox" id="c-nextday" style="width:auto;margin:0"> Check-out is on the next calendar day (night shift)</label>
+    <div id="c-status" class="muted" style="margin-bottom:8px"></div>
     <div class="mrow"><button class="b-cancel" onclick="closeM('c-modal')">Cancel</button><button class="b-save" style="flex:2" onclick="saveCorrection()">Save</button></div>
   </div>
 </div>
@@ -530,6 +536,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
     <label>Search Employees</label><input class="search" id="bc-search" placeholder="Filter by name/ID…" oninput="renderBulkCorrectionList()">
     <div id="bc-checklist" style="max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;padding:8px;margin-bottom:8px"></div>
     <div class="muted" id="bc-count" style="margin-bottom:10px">0 selected</div>
+    <div id="bc-status" class="muted" style="margin-bottom:8px"></div>
     <div class="mrow"><button class="b-cancel" onclick="closeM('bc-modal')">Cancel</button><button class="b-save" style="flex:2" onclick="saveBulkCorrection()">Mark Selected</button></div>
   </div>
 </div>
@@ -548,6 +555,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
     <label>Search Employees</label><input class="search" id="bl-search" placeholder="Filter by name/ID…" oninput="renderBulkLeaveList()">
     <div id="bl-checklist" style="max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;padding:8px;margin-bottom:8px"></div>
     <div class="muted" id="bl-count" style="margin-bottom:10px">0 selected</div>
+    <div id="bl-status" class="muted" style="margin-bottom:8px"></div>
     <div class="mrow"><button class="b-cancel" onclick="closeM('bl-modal')">Cancel</button><button class="b-save" style="flex:2" onclick="saveBulkLeave()">Mark Selected On Leave</button></div>
   </div>
 </div>
@@ -561,6 +569,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
     </div>
     <canvas id="qr-canvas" style="display:none"></canvas>
     <div class="muted" style="margin-top:8px">Point the camera at an employee ID badge.</div>
+    <div id="qr-scan-status" class="muted" style="margin-top:6px;color:var(--red)"></div>
     <div class="mrow" style="margin-top:12px"><button class="b-cancel" style="flex:1" onclick="closeQrScan()">Cancel</button></div>
   </div>
 </div>
@@ -845,7 +854,7 @@ window.runSeed = async function(){
       btn.textContent = "Uploaded "+Math.min(i+450,FALLBACK.length)+"/"+FALLBACK.length;
     }
     btn.textContent = "✅ Done!";
-  } catch(e){ btn.disabled=false; btn.textContent="Upload Master Worker List"; alert(e.message); }
+  } catch(e){ btn.disabled=false; btn.textContent="Upload Master Worker List"; $("seed-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- LABOUR CHECK-IN with GEOFENCE ----------
@@ -1057,33 +1066,35 @@ window.openSiteModal = function(sid){
   $("s-lat").value = s?s.lat:""; $("s-lng").value = s?s.lng:""; $("s-rad").value = s?s.radius:300;
   $("s-night").value = (s && s.nightStartHour!=null) ? s.nightStartHour : "";
   $("s-day").value = (s && s.dayStartHour!=null) ? s.dayStartHour : "";
+  $("s-status").textContent = "";
   $("s-modal").style.display="flex";
 };
 window.captureSiteGPS = async function(){
+  $("s-status").textContent = "📡 Getting location…";
   try {
     const g = await getGPS();
     $("s-lat").value = g.lat.toFixed(6); $("s-lng").value = g.lng.toFixed(6);
-    alert("📍 Location captured! (±"+g.acc+"m accuracy)");
-  } catch(e){ alert("GPS failed: "+e); }
+    $("s-status").textContent = "📍 Location captured! (±"+g.acc+"m accuracy)";
+  } catch(e){ $("s-status").textContent = "❌ GPS failed: "+e; }
 };
 window.saveSite = async function(){
   const code=$("s-code").value.trim().toUpperCase(), name=$("s-name").value.trim();
   const lat=parseFloat($("s-lat").value), lng=parseFloat($("s-lng").value), radius=parseInt($("s-rad").value)||500;
-  if(!code||!name||isNaN(lat)||isNaN(lng)){ alert("Project code, site name and location are required."); return; }
+  if(!code||!name||isNaN(lat)||isNaN(lng)){ $("s-status").textContent = "❌ Project code, site name and location are required."; return; }
   const nightRaw = $("s-night").value.trim(), dayRaw = $("s-day").value.trim();
   const nightStartHour = nightRaw==="" ? null : Math.min(23, Math.max(0, parseInt(nightRaw,10)));
   const dayStartHour = dayRaw==="" ? null : Math.min(23, Math.max(0, parseInt(dayRaw,10)));
   try {
     await setDoc(doc(db,"sites",code), {code,name,lat,lng,radius,nightStartHour,dayStartHour}, {merge:true});
     closeM("s-modal");
-  } catch(e){ alert(e.message); }
+  } catch(e){ $("s-status").textContent = "❌ "+e.message; }
 };
 window.delSite = async function(sid){
   const s = sites.find(x=>x._id===sid);
   const label = s ? (s.name+" ("+s.code+")") : "this site";
   const typed = prompt("⚠ Delete "+label+" permanently?\n\nWorkers currently aligned to this project code will keep the old code on their record until reassigned. Attendance history will NOT be deleted.\n\nType DELETE to confirm:");
   if(typed !== "DELETE"){ return; }
-  try { await deleteDoc(doc(db,"sites",sid)); } catch(e){ alert(e.message); }
+  try { await deleteDoc(doc(db,"sites",sid)); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Could not delete site: '+e.message+'</div>'; }
 };
 function renderSites(){
   $("k-sites").textContent = sites.length;
@@ -1322,8 +1333,10 @@ window.downloadAtt = async function(){
   const siteSel = $("dl-site").value;        // ALL | code
   const m = d.slice(0,7);
   const btn = $("dl-btn");
+  const status = $("dl-status");
+  status.textContent = "";
   btn.disabled = true; const origTxt = btn.textContent; btn.textContent = "Loading…";
-  try { await ensureXLSX(); } catch(e){ alert(e.message); btn.disabled=false; btn.textContent=origTxt; return; }
+  try { await ensureXLSX(); } catch(e){ status.textContent = "❌ "+e.message; btn.disabled=false; btn.textContent=origTxt; return; }
 
   let rows;
   try {
@@ -1340,14 +1353,14 @@ window.downloadAtt = async function(){
       const snap = await getDocs(query(collection(db,"attendance"), where("date",">=",m+"-01"), where("date","<",nextMonthStart)));
       rows = snap.docs.map(x=>x.data());
     }
-  } catch(e){ alert("Failed to load records: "+e.message); btn.disabled=false; btn.textContent=origTxt; return; }
+  } catch(e){ status.textContent = "❌ Failed to load records: "+e.message; btn.disabled=false; btn.textContent=origTxt; return; }
 
   if(siteSel!=="ALL") rows = rows.filter(a=>a.siteCode===siteSel);
 
   // roster = workers aligned to a project code (site field), scoped to the selection
   const expected = workers.filter(w=>w.site && w.status!=="left" && (siteSel==="ALL" || w.site===siteSel));
 
-  if(!rows.length && !expected.length){ alert("No attendance records or aligned workers found for this selection."); btn.disabled=false; btn.textContent=origTxt; return; }
+  if(!rows.length && !expected.length){ status.textContent = "⚠ No attendance records or aligned workers found for this selection."; btn.disabled=false; btn.textContent=origTxt; return; }
 
   rows.sort((a,b)=> (a.siteCode||"").localeCompare(b.siteCode||"") || (a.date||"").localeCompare(b.date||"") || String(a.workerId).localeCompare(String(b.workerId)));
 
@@ -1461,6 +1474,7 @@ window.downloadAtt = async function(){
   }
   const fname = "SitePulse_"+(siteSel==="ALL"?"AllProjects":siteSel)+"_"+(range==="day"?d:m)+".xlsx";
   XLSX.writeFile(wb, fname);
+  status.textContent = "✅ "+fname+" downloaded.";
   btn.disabled = false; btn.textContent = origTxt;
 };
 
@@ -1473,23 +1487,24 @@ window.openWorkerModal = function(id){
   $("m-company").value = w?(w.company||""):"";
   $("m-leavedays").value = (w && w.annualLeaveDays!=null) ? w.annualLeaveDays : 30;
   $("m-site").innerHTML = '<option value="">— Not assigned —</option>'+sites.map(st=>'<option value="'+st.code+'"'+((w&&w.site)===st.code?' selected':'')+'>'+st.code+' — '+st.name+'</option>').join("");
+  $("m-status").textContent = "";
   $("w-modal").style.display="flex";
 };
 window.saveWorkerForm = async function(){
   const id=$("m-id").value.trim(), name=$("m-name").value.trim(), desig=$("m-desig").value.trim(), company=$("m-company").value.trim();
-  if(!id||!name||!desig){ alert("Employee ID, name, and designation are required."); return; }
+  if(!id||!name||!desig){ $("m-status").textContent = "❌ Employee ID, name, and designation are required."; return; }
   const ex = findWorker(id);
   const annualLeaveDays = parseInt($("m-leavedays").value,10) || 30;
   try {
     await setDoc(doc(db,"workers",id), {sno: ex?ex.sno:Math.max(0,...workers.map(w=>w.sno||0))+1, id, name, designation:desig, company: company||null, site:$("m-site").value||null, status:"active", annualLeaveDays}, {merge:true});
     closeM("w-modal");
-  } catch(e){ alert(e.message); }
+  } catch(e){ $("m-status").textContent = "❌ "+e.message; }
 };
 window.deleteAllWorkers = async function(){
   const n = workers.length;
-  if(!n){ alert("No workers to delete."); return; }
+  if(!n){ $("notice").innerHTML = '<div class="notice warn">No workers to delete.</div>'; return; }
   const typed = prompt("⚠ This will permanently delete ALL "+n+" workers from the database.\n\nAttendance records will NOT be deleted.\n\nType DELETE (capital letters) to confirm:");
-  if(typed !== "DELETE"){ alert("Cancelled. Nothing was deleted."); return; }
+  if(typed !== "DELETE"){ return; }
   $("notice").innerHTML = '<div class="notice warn">🗑 Deleting '+n+' workers…</div>';
   try {
     const ids = workers.map(w=>String(w.id));
@@ -1500,14 +1515,14 @@ window.deleteAllWorkers = async function(){
       $("notice").innerHTML = '<div class="notice warn">🗑 Deleted '+Math.min(i+450,ids.length)+' / '+ids.length+'…</div>';
     }
     $("notice").innerHTML = '<div class="notice ok">✅ All workers deleted. Upload a fresh Excel to start again.</div>';
-  } catch(e){ alert("Delete failed: "+e.message); }
+  } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Delete failed: '+e.message+'</div>'; }
 };
 
 window.delWorker = async function(id){
   const w=findWorker(id); if(!w) return;
   const typed = prompt("⚠ Delete "+w.name+" (ID "+id+") permanently?\n\nTheir attendance history will NOT be deleted, but they will be removed from the roster/worker list.\n\nType DELETE to confirm:");
   if(typed !== "DELETE"){ return; }
-  try { await deleteDoc(doc(db,"workers",String(id))); } catch(e){ alert(e.message); }
+  try { await deleteDoc(doc(db,"workers",String(id))); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Could not delete worker: '+e.message+'</div>'; }
 };
 
 window.uploadExcel = async function(input){
@@ -1706,7 +1721,7 @@ window.toggleWorkerStatus = async function(id){
   if(goingLeft && !confirm(w.name+" ko project chhod chuke worker ke roop me mark karein?\n\nWo ab Absent Report me nahi ginege.")) return;
   try {
     await setDoc(doc(db,"workers",String(id)), { status: goingLeft?"left":"active", leftDate: goingLeft?todayStr():null }, {merge:true});
-  } catch(e){ alert(e.message); }
+  } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; }
 };
 
 // ---------- PENDING ARRIVAL REQUESTS (admin approval) ----------
@@ -1734,13 +1749,13 @@ window.approveArrival = async function(reqId){
       site: req.site, alignedDate: req.requestedDate, status: "active",
     }, {merge:true});
     await setDoc(doc(db,"arrivalRequests",reqId), { status:"approved", approvedAt:new Date().toISOString(), approvedBy:(auth.currentUser&&auth.currentUser.email)||"admin" }, {merge:true});
-  } catch(e){ alert("Approval failed: "+e.message); }
+  } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Approval failed: '+e.message+'</div>'; }
 };
 
 window.rejectArrival = async function(reqId){
   if(!confirm("Reject this arrival request?")) return;
   try { await setDoc(doc(db,"arrivalRequests",reqId), { status:"rejected", rejectedAt:new Date().toISOString(), rejectedBy:(auth.currentUser&&auth.currentUser.email)||"admin" }, {merge:true}); }
-  catch(e){ alert("Rejection failed: "+e.message); }
+  catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Rejection failed: '+e.message+'</div>'; }
 };
 
 // ---------- LEAVE MANAGEMENT (admin) ----------
@@ -1916,20 +1931,20 @@ async function renderMyAttendance(){
 
 // ---------- LEAVE APPROVAL (admin) ----------
 window.approveLeaveRequest = async function(id){
-  if(!id){ alert("This request has no ID — can't be approved."); return; }
+  if(!id){ $("notice").innerHTML = '<div class="notice warn">❌ This request has no ID — can\'t be approved.</div>'; return; }
   try { await setDoc(doc(db,"leaves",id), { status:"approved", approvedBy:(auth.currentUser&&auth.currentUser.email)||"admin", approvedAt:new Date().toISOString() }, {merge:true}); }
-  catch(e){ alert("Approve failed: "+e.message); }
+  catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Approve failed: '+e.message+'</div>'; }
 };
 window.rejectLeaveRequest = async function(id){
-  if(!id){ alert("This request has no ID — can't be rejected."); return; }
+  if(!id){ $("notice").innerHTML = '<div class="notice warn">❌ This request has no ID — can\'t be rejected.</div>'; return; }
   try { await setDoc(doc(db,"leaves",id), { status:"rejected", rejectedBy:(auth.currentUser&&auth.currentUser.email)||"admin", rejectedAt:new Date().toISOString() }, {merge:true}); }
-  catch(e){ alert("Reject failed: "+e.message); }
+  catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Reject failed: '+e.message+'</div>'; }
 };
 window.deleteLeaveRequest = async function(id){
-  if(!id){ alert("This request has no ID — can't be deleted here. Remove it in the Firebase Console."); return; }
+  if(!id){ $("notice").innerHTML = '<div class="notice warn">❌ This request has no ID — can\'t be deleted here. Remove it in the Firebase Console.</div>'; return; }
   if(!confirm("Delete this leave request?")) return;
   try { await deleteDoc(doc(db,"leaves",id)); }
-  catch(e){ alert("Delete failed: "+e.message); }
+  catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Delete failed: '+e.message+'</div>'; }
 };
 
 function renderPendingLeaveRequests(){
@@ -1957,14 +1972,14 @@ function renderHolidayList(){
 }
 window.addHoliday = async function(){
   const date = $("hol-date").value, name = $("hol-name").value.trim();
-  if(!date || !name){ alert("Enter both a date and a name."); return; }
+  if(!date || !name){ $("hol-status").textContent = "❌ Enter both a date and a name."; return; }
   try {
     await setDoc(doc(db,"holidays",date), { date, name, addedBy:(auth.currentUser&&auth.currentUser.email)||"admin", addedAt:new Date().toISOString() });
-    $("hol-date").value=""; $("hol-name").value="";
-  } catch(e){ alert(e.message); }
+    $("hol-date").value=""; $("hol-name").value=""; $("hol-status").textContent = "✅ Holiday added.";
+  } catch(e){ $("hol-status").textContent = "❌ "+e.message; }
 };
 window.deleteHoliday = async function(date){
-  try { await deleteDoc(doc(db,"holidays",date)); } catch(e){ alert(e.message); }
+  try { await deleteDoc(doc(db,"holidays",date)); } catch(e){ $("hol-status").textContent = "❌ "+e.message; }
 };
 // Official / estimated UAE MOHRE public holidays, 2026-2027 — matches the Android app's
 // UaeHolidaysMohre.kt. Islamic-calendar dates are moon-sighting dependent and tagged
@@ -1994,14 +2009,14 @@ window.seedHolidays = async function(){
       batch.set(doc(db,"holidays",date), { date, name, addedBy:email, addedAt:new Date().toISOString() }, {merge:true});
     });
     await batch.commit();
-    alert("UAE MOHRE holidays loaded.");
-  } catch(e){ alert(e.message); }
+    $("hol-status").textContent = "✅ UAE MOHRE holidays loaded.";
+  } catch(e){ $("hol-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- SITE DEVIATIONS (admin) ----------
 window.acknowledgeSiteDeviation = async function(id){
   try { await setDoc(doc(db,"attendance",id), { deviationReviewed:true, deviationReviewedBy:(auth.currentUser&&auth.currentUser.email)||"admin", deviationReviewedAt:new Date().toISOString() }, {merge:true}); }
-  catch(e){ alert("Failed: "+e.message); }
+  catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ Failed: '+e.message+'</div>'; }
 };
 
 // ---------- FULL DATA BACKUP (admin) ----------
@@ -2415,6 +2430,7 @@ window.openCorrectionModal = async function(){
   $("c-workerid").value = ""; $("c-date").value = todayStr();
   $("c-site").innerHTML = siteOptionsHtml(sites[0]&&sites[0].code);
   $("c-shift").value = "Day"; $("c-intime").value = ""; $("c-outtime").value = ""; $("c-nextday").checked = false;
+  $("c-status").textContent = "";
   $("c-modal").style.display="flex";
 };
 // If a record already exists for the typed Worker ID + Date, load it so admin edits the
@@ -2441,7 +2457,7 @@ window.saveCorrection = async function(){
   const siteCode = $("c-site").value;
   const site = sites.find(s=>s.code===siteCode);
   const w = findWorker(workerId);
-  if(!workerId || !date || !site){ alert("Worker ID, date, and site are required."); return; }
+  if(!workerId || !date || !site){ $("c-status").textContent = "❌ Worker ID, date, and site are required."; return; }
   const email = (auth.currentUser&&auth.currentUser.email)||"admin";
   const alignedSite = (w&&w.site)||null;
   const siteMismatch = !!alignedSite && alignedSite.toUpperCase()!==site.code.toUpperCase();
@@ -2456,7 +2472,7 @@ window.saveCorrection = async function(){
   try {
     await setDoc(doc(db,"attendance",date+"_"+workerId), payload, {merge:true});
     closeM("c-modal");
-  } catch(e){ alert(e.message); }
+  } catch(e){ $("c-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- BULK ATTENDANCE CORRECTION (admin) ----------
@@ -2468,6 +2484,7 @@ window.openBulkCorrectionModal = function(){
   $("bc-shift").value = "Day";
   $("bc-intime").value = "08:00"; $("bc-outtime").value = "17:00";
   $("bc-search").value = "";
+  $("bc-status").textContent = "";
   renderBulkCorrectionList();
   $("bc-modal").style.display="flex";
 };
@@ -2486,11 +2503,11 @@ window.renderBulkCorrectionList = function(){
   $("bc-count").textContent = bcSelected.size+" selected";
 };
 window.saveBulkCorrection = async function(){
-  if(!bcSelected.size){ alert("Select at least one employee."); return; }
+  if(!bcSelected.size){ $("bc-status").textContent = "❌ Select at least one employee."; return; }
   const date = $("bc-date").value;
   const siteCode = $("bc-site").value;
   const site = sites.find(s=>s.code===siteCode);
-  if(!date || !site){ alert("Date and site are required."); return; }
+  if(!date || !site){ $("bc-status").textContent = "❌ Date and site are required."; return; }
   const email = (auth.currentUser&&auth.currentUser.email)||"admin";
   const commonFields = {
     siteCode: site.code, siteName: site.name, shift: $("bc-shift").value,
@@ -2511,8 +2528,8 @@ window.saveBulkCorrection = async function(){
       await batch.commit();
     }
     closeM("bc-modal");
-    alert(ids.length+" record(s) marked.");
-  } catch(e){ alert(e.message); }
+    $("notice").innerHTML = '<div class="notice ok">✅ '+ids.length+' record(s) marked.</div>';
+  } catch(e){ $("bc-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- BULK LEAVE (admin) ----------
@@ -2522,6 +2539,7 @@ window.openBulkLeaveModal = function(){
   $("bl-from").value = todayStr(); $("bl-to").value = todayStr();
   $("bl-type").value = "Annual"; $("bl-reason").value = "";
   $("bl-search").value = "";
+  $("bl-status").textContent = "";
   renderBulkLeaveList();
   $("bl-modal").style.display="flex";
 };
@@ -2540,9 +2558,9 @@ window.renderBulkLeaveList = function(){
   $("bl-count").textContent = blSelected.size+" selected";
 };
 window.saveBulkLeave = async function(){
-  if(!blSelected.size){ alert("Select at least one employee."); return; }
+  if(!blSelected.size){ $("bl-status").textContent = "❌ Select at least one employee."; return; }
   const fromDate = $("bl-from").value, toDate = $("bl-to").value || fromDate;
-  if(!fromDate){ alert("From date is required."); return; }
+  if(!fromDate){ $("bl-status").textContent = "❌ From date is required."; return; }
   const leaveType = $("bl-type").value, reason = $("bl-reason").value.trim() || null;
   const email = (auth.currentUser&&auth.currentUser.email)||"admin";
   try {
@@ -2561,8 +2579,8 @@ window.saveBulkLeave = async function(){
       await batch.commit();
     }
     closeM("bl-modal");
-    alert(ids.length+" worker(s) marked on leave.");
-  } catch(e){ alert(e.message); }
+    $("notice").innerHTML = '<div class="notice ok">✅ '+ids.length+' worker(s) marked on leave.</div>';
+  } catch(e){ $("bl-status").textContent = "❌ "+e.message; }
 };
 
 // ---------- QR CODES ----------
@@ -2605,13 +2623,14 @@ function ensureJsPDF(){
 let qrScanStream = null, qrScanRaf = null, qrScanCallback = null, qrScanTargetId = null;
 window.openQrScan = async function(targetId, afterFn){
   qrScanTargetId = targetId; qrScanCallback = afterFn;
-  try { await ensureQRLibs(); } catch(e){ alert(e.message); return; }
+  try { await ensureQRLibs(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
+  $("qr-scan-status").textContent = "";
   $("qr-scan-modal").style.display="flex";
   const video = $("qr-video"), canvas = $("qr-canvas");
   const ctx = canvas.getContext("2d");
   try {
     qrScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-  } catch(e){ alert("Camera access failed: "+e.message); closeQrScan(); return; }
+  } catch(e){ $("qr-scan-status").textContent = "❌ Camera access failed: "+e.message; return; }
   video.srcObject = qrScanStream; video.play();
   const tick = () => {
     if(!qrScanStream) return;
@@ -2642,7 +2661,7 @@ window.closeQrScan = function(){
 window.showWorkerQr = async function(id){
   const w = findWorker(id);
   if(!w) return;
-  try { await ensureQRLibs(); } catch(e){ alert(e.message); return; }
+  try { await ensureQRLibs(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
   try {
     const dataUrl = await QRCode.toDataURL(String(w.id), { width: 300, margin: 1 });
     $("qr-show-title").textContent = "ID Badge QR — "+w.name;
@@ -2650,13 +2669,14 @@ window.showWorkerQr = async function(id){
     $("qr-show-id").textContent = "Worker ID: "+w.id;
     $("qr-show-dl").href = dataUrl; $("qr-show-dl").download = "worker_"+w.id+"_qr.png";
     $("qr-show-modal").style.display = "flex";
-  } catch(e){ alert(e.message); }
+  } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; }
 };
 
 window.bulkGenerateQr = async function(){
-  if(!workers.length){ alert("No workers to generate badges for."); return; }
+  if(!workers.length){ $("notice").innerHTML = '<div class="notice warn">No workers to generate badges for.</div>'; return; }
   if(!confirm("Generate a printable PDF of QR badges for all "+workers.length+" employee(s)?")) return;
-  try { await Promise.all([ensureQRLibs(), ensureJsPDF()]); } catch(e){ alert(e.message); return; }
+  $("notice").innerHTML = '<div class="notice warn">⏳ Generating '+workers.length+' QR badge(s)…</div>';
+  try { await Promise.all([ensureQRLibs(), ensureJsPDF()]); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit:"pt", format:"a4" });
   const pageW=595, pageH=842, margin=24, cols=3, rows=4;
@@ -2680,6 +2700,7 @@ window.bulkGenerateQr = async function(){
     pdf.setTextColor(0,0,0);
   }
   pdf.save("worker_qr_badges_"+Date.now()+".pdf");
+  $("notice").innerHTML = '<div class="notice ok">✅ '+list.length+' badge(s) ready.</div>';
 };
 
 renderWorkers();
