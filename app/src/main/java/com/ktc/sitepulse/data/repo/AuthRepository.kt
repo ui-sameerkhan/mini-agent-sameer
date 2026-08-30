@@ -1,6 +1,9 @@
 package com.ktc.sitepulse.data.repo
 
+import android.content.Context
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.ktc.sitepulse.Constants
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -51,4 +54,25 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     }
 
     fun logout() = auth.signOut()
+
+    /**
+     * Creates a brand-new Firebase Auth login — used by admin to create a Timekeeper's actual
+     * email/password from inside the app, no Firebase Console needed. createUserWithEmailAndPassword()
+     * signs in as the new account on whichever Auth instance it's called on, so this routes
+     * through a secondary, throwaway FirebaseApp instance rather than the shared default one —
+     * otherwise it would sign the admin out of their own session to become the new user.
+     */
+    suspend fun createUserAccount(context: Context, email: String, password: String): Result<Unit> = runCatching {
+        val secondaryApp = FirebaseApp.initializeApp(context, FirebaseApp.getInstance().options, "tk-create-${System.currentTimeMillis()}")
+            ?: error("Could not start a secondary Firebase instance.")
+        val secondaryAuth = FirebaseAuth.getInstance(secondaryApp)
+        try {
+            secondaryAuth.createUserWithEmailAndPassword(email.trim(), password).await()
+        } catch (e: FirebaseAuthUserCollisionException) {
+            // Account already exists under this email — fine, the caller just grants the role.
+        } finally {
+            secondaryAuth.signOut()
+            secondaryApp.delete()
+        }
+    }
 }

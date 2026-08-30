@@ -380,11 +380,14 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
 
       <div class="card" style="margin-top:12px">
         <h4 class="cardh">Manage Timekeepers</h4>
-        <div class="muted" style="margin-bottom:8px">Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no roster, worker, or site management.</div>
+        <div class="muted" style="margin-bottom:8px">Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no roster, worker, or site management. Setting a password here creates the login itself — no Firebase Console needed.</div>
+        <input class="inp" id="tk-email" type="email" placeholder="email@example.com">
         <div class="mrow">
-          <input class="inp" id="tk-email" type="email" placeholder="email@example.com" style="flex:1">
+          <input class="inp" id="tk-password" type="text" placeholder="Password (min 6 characters)" style="flex:1;margin-bottom:0">
+          <button type="button" class="sbtn" style="background:var(--blue-soft);color:var(--blue);padding:0 12px" onclick="generateTkPassword()">Generate</button>
         </div>
-        <button class="b-save" onclick="addTimekeeper()">Add Timekeeper</button>
+        <div class="muted" style="margin:6px 0 8px">Leave the password blank to just grant Timekeeper access to an email that already has a login.</div>
+        <button class="b-save" onclick="addTimekeeper()">Create / Add Timekeeper</button>
         <div id="tk-status" class="muted" style="margin-top:6px"></div>
         <div id="timekeeper-list" style="margin-top:10px"></div>
       </div>
@@ -601,9 +604,9 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, doc, setDoc, addDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, writeBatch, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getMessaging, getToken as getFcmToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const firebaseConfig = {
@@ -2067,12 +2070,39 @@ function renderTimekeeperList(){
     +'<button class="sbtn b-del" onclick="deleteTimekeeper(\''+t._id+'\')">Remove</button></div>'
   ).join("");
 }
+window.generateTkPassword = function(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let pw = "";
+  for(let i=0;i<10;i++) pw += chars[Math.floor(Math.random()*chars.length)];
+  $("tk-password").value = pw;
+};
 window.addTimekeeper = async function(){
   const email = $("tk-email").value.trim().toLowerCase();
+  const password = $("tk-password").value;
   if(!email || !email.includes("@")){ $("tk-status").textContent = "❌ Enter a valid email address."; return; }
+  if(password && password.length < 6){ $("tk-status").textContent = "❌ Password must be at least 6 characters."; return; }
+  $("tk-status").textContent = password ? "⏳ Creating account…" : "⏳ Saving…";
   try {
+    if(password){
+      // createUserWithEmailAndPassword signs in as the new account on whichever Auth
+      // instance it's called on — a secondary, throwaway Firebase App instance keeps
+      // this from signing the admin out of their own session while creating it.
+      const secondaryApp = initializeApp(firebaseConfig, "tk-create-"+Date.now());
+      const secondaryAuth = getAuth(secondaryApp);
+      try {
+        await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      } catch(e){
+        if(e.code !== "auth/email-already-in-use") { await deleteApp(secondaryApp); throw e; }
+        // Account already exists under this email — fine, just grant the role below.
+      }
+      try { await signOut(secondaryAuth); } catch(e){}
+      await deleteApp(secondaryApp);
+    }
     await setDoc(doc(db,"timekeepers",email), { email, addedBy:(auth.currentUser&&auth.currentUser.email)||"admin", addedAt:new Date().toISOString() });
-    $("tk-email").value = ""; $("tk-status").textContent = "✅ Timekeeper added.";
+    $("tk-email").value = ""; $("tk-password").value = "";
+    $("tk-status").textContent = password
+      ? "✅ Account created — share this email and password with them directly (it won't be shown again)."
+      : "✅ Timekeeper access granted.";
   } catch(e){ $("tk-status").textContent = "❌ "+e.message; }
 };
 window.deleteTimekeeper = async function(email){

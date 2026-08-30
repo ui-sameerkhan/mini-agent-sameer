@@ -191,6 +191,7 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     var holidayDate by remember { mutableStateOf("") }
     var holidayName by remember { mutableStateOf("") }
     var timekeeperEmail by remember { mutableStateOf("") }
+    var timekeeperPassword by remember { mutableStateOf("") }
     var rosterSearch by remember { mutableStateOf("") }
     var backupInProgress by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf("") }
@@ -520,15 +521,29 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
         Column(Modifier.padding(16.dp)) {
             Text("MANAGE TIMEKEEPERS", fontWeight = FontWeight.Bold)
             Text(
-                "Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no worker, site, or roster management.",
+                "Timekeeper accounts get their own login with access to attendance reports and manual corrections only — no worker, site, or roster management. Setting a password here creates the login itself — no Firebase Console needed.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp),
             )
             OutlinedTextField(timekeeperEmail, { timekeeperEmail = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    timekeeperPassword, { timekeeperPassword = it }, label = { Text("Password (min 6 characters)") },
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(
+                    onClick = { timekeeperPassword = randomPassword() },
+                    modifier = Modifier.padding(start = 8.dp),
+                ) { Text("Generate") }
+            }
+            Text(
+                "Leave the password blank to just grant Timekeeper access to an email that already has a login.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+            )
             Button(
-                onClick = { viewModel.addTimekeeper(timekeeperEmail); timekeeperEmail = "" },
+                onClick = { viewModel.addTimekeeper(timekeeperEmail, timekeeperPassword); timekeeperEmail = ""; timekeeperPassword = "" },
                 colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            ) { Text("Add Timekeeper") }
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            ) { Text("Create / Add Timekeeper") }
             statusMessages["timekeeperStatus"]?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
             if (timekeepers.isNotEmpty()) {
                 timekeepers.forEach { t ->
@@ -699,4 +714,9 @@ private fun RosterWorkerRow(w: Worker, onToggle: () -> Unit) {
             Text(if (w.isLeft) "Reactivate" else "Mark Left")
         }
     }
+}
+
+private fun randomPassword(length: Int = 10): String {
+    val chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    return (1..length).map { chars.random() }.joinToString("")
 }

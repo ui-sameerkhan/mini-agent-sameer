@@ -179,13 +179,25 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         .flatMapLatest { isAdmin -> if (isAdmin) container.timekeeperRepository.live().recoverToEmpty("Timekeepers") else flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addTimekeeper(email: String) {
+    /** [password] blank = just grant Timekeeper access to an email that already has a login;
+     * non-blank = actually create that login too (via AuthRepository.createUserAccount), so
+     * admin never needs Firebase Console to hand someone a working account. */
+    fun addTimekeeper(email: String, password: String = "") {
         val trimmed = email.trim()
         if (trimmed.isBlank() || !trimmed.contains("@")) { setStatus("timekeeperStatus", "❌ Enter a valid email address."); return }
+        if (password.isNotEmpty() && password.length < 6) { setStatus("timekeeperStatus", "❌ Password must be at least 6 characters."); return }
         viewModelScope.launch {
             try {
+                if (password.isNotEmpty()) {
+                    setStatus("timekeeperStatus", "⏳ Creating account…")
+                    container.authRepository.createUserAccount(getApplication(), trimmed, password).getOrThrow()
+                }
                 container.timekeeperRepository.add(trimmed, session.value.email, DateUtils.nowIso())
-                setStatus("timekeeperStatus", "✅ Timekeeper added.")
+                setStatus(
+                    "timekeeperStatus",
+                    if (password.isNotEmpty()) "✅ Account created — share this email and password with them directly (it won't be shown again)."
+                    else "✅ Timekeeper access granted."
+                )
             } catch (e: Throwable) {
                 setStatus("timekeeperStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
