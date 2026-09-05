@@ -1,7 +1,6 @@
 package com.ktc.sitepulse
 
 import android.Manifest
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,14 +18,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val permissions = mutableListOf(
+        // Notification permission is deliberately NOT requested here — it's asked for
+        // contextually by NotificationsCard's "Enable Notifications" button instead, so the
+        // OS prompt actually appears when the admin taps it rather than silently having
+        // already been decided at launch.
+        permissionLauncher.launch(arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        permissionLauncher.launch(permissions.toTypedArray())
+        ))
 
         setContent {
             SitePulseTheme {
