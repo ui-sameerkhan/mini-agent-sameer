@@ -201,6 +201,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
       <div class="vname" id="vname"></div>
       <button class="b-in" id="b-in" onclick="mark('IN')" disabled>CHECK IN</button>
       <button class="b-out" id="b-out" onclick="mark('OUT')" disabled>CHECK OUT</button>
+      <button class="sbtn" id="gps-refresh-btn" style="width:100%;padding:9px;margin-top:10px;background:var(--green-soft);color:var(--green)" onclick="refreshGpsStatus()">🔄 Refresh GPS</button>
       <div class="gpsline" id="gpsline"></div>
       <div class="result" id="result"></div>
     </div>
@@ -974,6 +975,45 @@ function nearestSite(gps){
   });
   return best;
 }
+
+// getGPS() above deliberately accepts a fix up to 3 minutes old (fast, back-to-back check-ins
+// for a whole crew) — but that means someone who just walked into range can get told they're
+// still outside, off a stale cached fix. This forces a real, uncached read (maximumAge:0) and
+// shows the result — distance to nearest site included — without attempting an actual check-in
+// or logging a blocked attempt, so a worker can see "am I in range yet" and retry freely.
+function getFreshGPS(){
+  return new Promise((res,rej)=>{
+    if(!navigator.geolocation){ rej("GPS not supported"); return; }
+    navigator.geolocation.getCurrentPosition(
+      p=>res({lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy)}),
+      e=>rej(e.message||"GPS denied"),
+      {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+    );
+  });
+}
+window.refreshGpsStatus = async function(){
+  const btn = $("gps-refresh-btn");
+  const line = $("gpsline");
+  btn.disabled = true;
+  line.textContent = "📡 Getting fresh location…";
+  try {
+    const gps = await getFreshGPS();
+    let msg = "📍 "+gps.lat.toFixed(5)+", "+gps.lng.toFixed(5)+" (±"+gps.acc+"m)";
+    if(sites.length){
+      const near = nearestSite(gps);
+      const inside = near.d <= Number(near.site.radius||500);
+      const distLabel = near.d>=1000 ? (near.d/1000).toFixed(1)+"km" : near.d+"m";
+      msg += inside
+        ? " · ✅ Inside "+near.site.name+" ("+near.site.code+")"
+        : " · 🚫 "+distLabel+" from "+near.site.name+" ("+near.site.code+")";
+    }
+    line.textContent = msg;
+  } catch(e){
+    line.textContent = "❌ GPS failed: "+e;
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 window.mark = async function(dir){
   const id = $("ci-id").value.trim();

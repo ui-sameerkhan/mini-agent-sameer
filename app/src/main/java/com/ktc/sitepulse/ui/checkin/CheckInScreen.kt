@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,8 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ktc.sitepulse.AppContainer
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.data.repo.toLatLng
+import com.ktc.sitepulse.domain.Geo
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
 import com.ktc.sitepulse.domain.WorkerSearch
@@ -66,6 +69,7 @@ import com.ktc.sitepulse.ui.theme.SpGreenSoft
 import com.ktc.sitepulse.ui.theme.SpRed
 import com.ktc.sitepulse.ui.theme.SpRedSoft
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, onOpenOfficeStaff: () -> Unit) {
@@ -76,8 +80,11 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
     val markResult by viewModel.markResult.collectAsState()
     val myLinkedWorkerId by viewModel.myLinkedWorkerId.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var query by remember { mutableStateOf("") }
+    var gpsStatus by remember { mutableStateOf<String?>(null) }
+    var gpsRefreshing by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Worker?>(null) }
     var wifiSiteName by remember { mutableStateOf<String?>(null) }
     // Android hides the real WiFi SSID (returns null/"<unknown ssid>") unless the app holds
@@ -239,6 +246,37 @@ fun CheckInScreen(viewModel: SitePulseViewModel, onReportArrival: () -> Unit, on
                     colors = ButtonDefaults.buttonColors(containerColor = SpRed),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 ) { Text("CHECK OUT") }
+
+                // A worker who just walked into range can otherwise get stuck on the GPS chip's
+                // last cached fix (getCurrentFix() accepts one up to 3 minutes old for fast
+                // back-to-back check-ins) with no way to force a real recheck before retrying.
+                OutlinedButton(
+                    onClick = {
+                        gpsRefreshing = true
+                        gpsStatus = null
+                        scope.launch {
+                            try {
+                                val fix = AppContainer.get(context).locationProvider.getFreshFix()
+                                val base = "📍 ${"%.5f".format(fix.lat)}, ${"%.5f".format(fix.lng)} (±${fix.accuracyM.toInt()}m)"
+                                gpsStatus = if (sites.isNotEmpty()) {
+                                    val near = Geo.nearestSite(fix.toLatLng(), sites)!!
+                                    val distLabel = Geo.formatDistance(near.distanceM)
+                                    if (near.insideGeofence) "$base · ✅ Inside ${near.site.name} (${near.site.code})"
+                                    else "$base · 🚫 $distLabel from ${near.site.name} (${near.site.code})"
+                                } else base
+                            } catch (e: Exception) {
+                                gpsStatus = "❌ GPS failed: ${e.message}"
+                            } finally {
+                                gpsRefreshing = false
+                            }
+                        }
+                    },
+                    enabled = !gpsRefreshing,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                ) { Text(if (gpsRefreshing) "📡 Getting fresh location…" else "🔄 Refresh GPS") }
+                gpsStatus?.let {
+                    Text(it, fontSize = 11.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
 
                 if (markInFlight) {
                     Column(Modifier.padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {

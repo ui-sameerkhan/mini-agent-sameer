@@ -51,6 +51,24 @@ class LocationProvider(context: Context) {
         }
     }
 
+    /** Forces a truly current fix (maxAgeMs = 0, never reuses the cached lastLocation) — backs
+     * the Check-In screen's manual "Refresh GPS" action, so a worker who just walked into range
+     * isn't stuck on a stale cached "outside geofence" reading with no way to force a recheck. */
+    @SuppressLint("MissingPermission")
+    suspend fun getFreshFix(): GpsFix {
+        try {
+            return attempt(Priority.PRIORITY_HIGH_ACCURACY, timeoutMs = 15_000, maxAgeMs = 0)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: MockLocationException) {
+            throw e
+        } catch (e: TimeoutCancellationException) {
+            throw GpsException("Location request timed out")
+        } catch (e: SecurityException) {
+            throw GpsException("GPS denied")
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private suspend fun attempt(priority: Int, timeoutMs: Long, maxAgeMs: Long): GpsFix {
         // A recent cached fix satisfies the "maximumAge" allowance the web app uses.
