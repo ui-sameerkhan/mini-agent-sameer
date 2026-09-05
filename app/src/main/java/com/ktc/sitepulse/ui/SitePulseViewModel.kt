@@ -171,7 +171,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
      * role (admin adds/removes accounts from Roster), not an email-pattern check like isAdmin/
      * isOfficeStaff, so it can't live on SessionState itself without making that whole type async. */
     val isTimekeeper: StateFlow<Boolean> = session.map { it.email }.distinctUntilChanged()
-        .flatMapLatest { email -> flow { emit(if (email.isBlank()) false else container.timekeeperRepository.isTimekeeper(email)) } }
+        .flatMapLatest { email -> flow { emit(if (email.isBlank()) false else container.timekeeperRepository.isTimekeeper(email)) }.catch { emit(false) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /** Admin-only list backing the Manage Timekeepers panel in Roster. */
