@@ -381,26 +381,6 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError
 
-    private val _passwordResetStatus = MutableStateFlow<String?>(null)
-    val passwordResetStatus: StateFlow<String?> = _passwordResetStatus
-
-    /**
-     * Always shows the same message regardless of whether the email has an account — Firebase's
-     * own error for "no such user" would otherwise let anyone probe which emails are registered.
-     */
-    fun sendPasswordReset(email: String) {
-        if (email.isBlank()) {
-            _passwordResetStatus.value = "❌ Enter your email first, then tap Forgot Password."
-            return
-        }
-        viewModelScope.launch {
-            container.authRepository.sendPasswordReset(email)
-            _passwordResetStatus.value = "✅ If $email has an account, a password reset link has been sent to it."
-        }
-    }
-
-    fun dismissPasswordResetStatus() { _passwordResetStatus.value = null }
-
     private val _markResult = MutableStateFlow<MarkResult?>(null)
     val markResult: StateFlow<MarkResult?> = _markResult
 

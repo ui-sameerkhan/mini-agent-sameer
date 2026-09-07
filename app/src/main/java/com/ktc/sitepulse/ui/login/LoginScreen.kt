@@ -37,7 +37,6 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val error by viewModel.loginError.collectAsState()
-    val resetStatus by viewModel.passwordResetStatus.collectAsState()
 
     Column(
         modifier = Modifier
@@ -85,16 +84,8 @@ fun LoginScreen(viewModel: SitePulseViewModel) {
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
                 ) { Text("Sign In") }
 
-                TextButton(
-                    onClick = { viewModel.sendPasswordReset(email) },
-                    modifier = Modifier.padding(top = 4.dp),
-                ) { Text("Forgot Password?") }
-
                 error?.let {
                     Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp))
-                }
-                resetStatus?.let {
-                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }

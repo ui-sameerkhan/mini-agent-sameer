@@ -183,9 +183,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
         <input class="inp" id="lg-pass" type="password" placeholder="Password">
       </div>
       <button class="b-save" onclick="doLogin()">Sign In</button>
-      <button class="sbtn" style="background:none;color:var(--mut);width:100%;padding:8px;margin-top:2px" onclick="sendReset()">Forgot Password?</button>
       <div class="vname" id="lg-msg"></div>
-      <div class="muted" id="lg-reset-msg" style="margin-top:4px"></div>
     </div>
     <div style="text-align:center;color:#9ca3af;font-size:11px;margin-top:14px">Developed by <b style="color:#6b7280">Sameer Khan</b></div>
   </div>
@@ -607,7 +605,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
 <script type="module">
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, doc, setDoc, addDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, writeBatch, getDoc, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getMessaging, getToken as getFcmToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const firebaseConfig = {
@@ -725,18 +723,6 @@ window.doLogin = async function(){
   catch(e){ msg.className="vname bad"; msg.textContent="❌ Wrong email or password."; }
 };
 window.doLogout = async function(){ await signOut(auth); };
-
-// Always shows the same message whether or not the email has an account —
-// Firebase's own "no such user" error would otherwise let anyone probe which
-// addresses are registered.
-window.sendReset = async function(){
-  const em = $("lg-email").value.trim();
-  const m = $("lg-reset-msg");
-  if(!em){ m.textContent = "❌ Enter your email above first, then tap Forgot Password."; return; }
-  m.textContent = "⏳ Sending…";
-  try { await sendPasswordResetEmail(auth, em); } catch(e){ /* deliberately ignored, see note above */ }
-  m.textContent = "✅ If "+em+" has an account, a password reset link has been sent to it.";
-};
 
 onAuthStateChanged(auth, async (user)=>{
   const email = (user && user.email ? user.email : "").toLowerCase();

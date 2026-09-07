@@ -48,11 +48,6 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
         Unit
     }
 
-    suspend fun sendPasswordReset(email: String): Result<Unit> = runCatching {
-        auth.sendPasswordResetEmail(email.trim()).await()
-        Unit
-    }
-
     fun logout() = auth.signOut()
 
     /**
