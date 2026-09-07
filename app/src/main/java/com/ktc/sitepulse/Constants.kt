@@ -13,6 +13,11 @@ object Constants {
 
     const val DEFAULT_GEOFENCE_RADIUS_M = 500
 
+    /** Company-wide fallback for "what counts as a late arrival" — a day-shift check-in at or
+     * after this local hour. A site running different hours overrides it via Site.lateAfterHour;
+     * existing site docs have no such field, so they simply fall back to this. */
+    const val DEFAULT_LATE_AFTER_HOUR = 8
+
     // Netlify site hosting send-email.js / weekly-backup.js from the original PWA repo —
     // reused as-is; email delivery hasn't shown the same silent-failure symptoms push had.
     const val NETLIFY_BASE_URL = "https://ktc-manpower.netlify.app"

@@ -21,6 +21,8 @@ import com.ktc.sitepulse.data.repo.PushResult
 import com.ktc.sitepulse.data.repo.SessionState
 import com.ktc.sitepulse.domain.BackupRestoreResult
 import com.ktc.sitepulse.domain.DateUtils
+import com.ktc.sitepulse.domain.Manpower
+import com.ktc.sitepulse.domain.ManpowerSummary
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
 import com.ktc.sitepulse.domain.ParsedImport
@@ -214,6 +216,35 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
+    /**
+     * Leave that is still running as of today, for the dashboard's live "On Leave" headcount.
+     * Firestore only lets admin and timekeepers read the whole `leaves` collection, so anyone
+     * else gets an empty list rather than a permission error — the dashboard renders the same,
+     * just without a leave figure it was never allowed to see.
+     */
+    private val activeLeaves: StateFlow<List<Leave>> =
+        combine(session.map { it.isAdmin }.distinctUntilChanged(), isTimekeeper) { isAdmin, isTk -> isAdmin || isTk }
+            .distinctUntilChanged()
+            .flatMapLatest { canReadLeaves ->
+                if (canReadLeaves) {
+                    container.leaveRepository.liveActiveFrom(DateUtils.todayStrUtc()).recoverToEmpty("Leave records")
+                } else {
+                    flowOf(emptyList())
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * The whole dashboard in one value — every KPI card and all three breakdown tables read from
+     * this, so the worker/attendance/leave lists are walked once per change instead of once per
+     * widget. Recomputing only when one of its four inputs actually changes is what keeps the
+     * dashboard smooth on a roster of several thousand.
+     */
+    val manpowerSummary: StateFlow<ManpowerSummary> =
+        combine(workers, todayAttendance, activeLeaves, sites) { workers, attendance, leaves, sites ->
+            Manpower.compute(workers, attendance, leaves, sites, DateUtils.todayStrUtc())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ManpowerSummary.EMPTY)
 
     private val liveAnnouncement: StateFlow<Announcement?> = session.map { it.isLoggedIn }.distinctUntilChanged()
         .flatMapLatest { loggedIn -> if (loggedIn) container.announcementRepository.latest().catch { emit(null) } else flowOf(null) }

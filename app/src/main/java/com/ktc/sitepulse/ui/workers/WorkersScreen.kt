@@ -40,7 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.domain.FILTER_ALL
+import com.ktc.sitepulse.domain.FILTER_UNASSIGNED
 import com.ktc.sitepulse.domain.QrCodeUtil
+import com.ktc.sitepulse.domain.WorkerFilterState
+import com.ktc.sitepulse.domain.WorkerFilters
+import com.ktc.sitepulse.domain.WorkerSort
+import com.ktc.sitepulse.domain.WorkerStatusFilter
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.components.DesignationField
 import com.ktc.sitepulse.ui.components.ImportConfirmDialog
@@ -64,15 +70,21 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var query by remember { mutableStateOf("") }
-    var siteFilter by remember { mutableStateOf("ALL") }
+    var filter by remember { mutableStateOf(WorkerFilterState()) }
+    var showFilters by remember { mutableStateOf(false) }
     var page by remember { mutableStateOf(1) }
     var editing by remember { mutableStateOf<Worker?>(null) }
     var showAdd by remember { mutableStateOf(false) }
-    var siteDropdownExpanded by remember { mutableStateOf(false) }
     var showingQr by remember { mutableStateOf<Worker?>(null) }
     var generatingQrPdf by remember { mutableStateOf(false) }
     var qrPdfStatus by remember { mutableStateOf<String?>(null) }
+
+    // Any filter change resets to page 1 — otherwise a narrowed result set leaves you stranded
+    // on a page number that no longer exists, looking at an empty list.
+    fun updateFilter(next: WorkerFilterState) {
+        filter = next
+        page = 1
+    }
 
     val excelPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.startImport(ImportKind.WORKERS, it, it.displayName(context)) }
@@ -81,17 +93,13 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
         uri?.let { viewModel.startImport(ImportKind.OUTSOURCE, it, it.displayName(context)) }
     }
 
-    val filtered = workers.filter { w ->
-        val matchesQuery = query.isBlank() || w.name.contains(query, true) || w.id.contains(query) || w.designation.contains(query, true)
-        val matchesSite = when (siteFilter) {
-            "ALL" -> true
-            "NONE" -> w.site.isNullOrBlank()
-            else -> w.site == siteFilter
-        }
-        matchesQuery && matchesSite
-    }
+    // Recomputed only when the roster or the filter actually changes — not on every recomposition
+    // (a keystroke elsewhere, a dialog opening), which matters on a roster of several thousand.
+    val filtered = remember(workers, filter) { WorkerFilters.apply(workers, filter) }
+    val tradeOptions = remember(workers) { WorkerFilters.tradeOptions(workers) }
+    val supplierOptions = remember(workers) { WorkerFilters.supplierOptions(workers) }
     val totalPages = ((filtered.size - 1) / PAGE_SIZE + 1).coerceAtLeast(1)
-    val pageItems = filtered.drop((page - 1) * PAGE_SIZE).take(PAGE_SIZE)
+    val pageItems = remember(filtered, page) { filtered.drop((page - 1) * PAGE_SIZE).take(PAGE_SIZE) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         UploadZone(
@@ -115,23 +123,78 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
         statusMessages["deleteStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
 
         OutlinedTextField(
-            value = query, onValueChange = { query = it; page = 1 },
-            placeholder = { Text("🔍 Search name / ID / trade…") },
+            value = filter.query, onValueChange = { updateFilter(filter.copy(query = it)) },
+            placeholder = { Text("🔍 Search ID, name, trade, supplier or project…") },
+            trailingIcon = {
+                if (filter.query.isNotEmpty()) {
+                    androidx.compose.material3.TextButton(onClick = { updateFilter(filter.copy(query = "")) }) { Text("Clear") }
+                }
+            },
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true,
         )
 
-        ExposedDropdownMenuBox(expanded = siteDropdownExpanded, onExpandedChange = { siteDropdownExpanded = it }, modifier = Modifier.padding(top = 8.dp)) {
-            OutlinedTextField(
-                value = when (siteFilter) { "ALL" -> "All Sites"; "NONE" -> "Not Assigned"; else -> siteFilter },
-                onValueChange = {}, readOnly = true, label = { Text("Site Filter") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = siteDropdownExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
-            )
-            ExposedDropdownMenu(expanded = siteDropdownExpanded, onDismissRequest = { siteDropdownExpanded = false }) {
-                DropdownMenuItem(text = { Text("All Sites") }, onClick = { siteFilter = "ALL"; page = 1; siteDropdownExpanded = false })
-                DropdownMenuItem(text = { Text("Not Assigned") }, onClick = { siteFilter = "NONE"; page = 1; siteDropdownExpanded = false })
-                sites.forEach { s -> DropdownMenuItem(text = { Text(s.code) }, onClick = { siteFilter = s.code; page = 1; siteDropdownExpanded = false }) }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { showFilters = !showFilters }) {
+                Text(if (showFilters) "▲ Filters" else "▼ Filters" + if (!filter.isDefault) " (on)" else "")
             }
+            if (!filter.isDefault) {
+                OutlinedButton(
+                    onClick = { updateFilter(WorkerFilterState()) },
+                    modifier = Modifier.padding(start = 8.dp),
+                ) { Text("Reset") }
+            }
+        }
+
+        if (showFilters) {
+            FilterDropdown(
+                label = "Project",
+                selected = when (filter.site) {
+                    FILTER_ALL -> "All Projects"
+                    FILTER_UNASSIGNED -> "Not Assigned"
+                    else -> filter.site
+                },
+                options = buildList {
+                    add(FILTER_ALL to "All Projects")
+                    add(FILTER_UNASSIGNED to "Not Assigned")
+                    sites.forEach { add(it.code to "${it.name} (${it.code})") }
+                },
+                onSelect = { updateFilter(filter.copy(site = it)) },
+            )
+            FilterDropdown(
+                label = "Trade",
+                selected = if (filter.trade == FILTER_ALL) "All Trades" else filter.trade,
+                options = buildList {
+                    add(FILTER_ALL to "All Trades")
+                    tradeOptions.forEach { add(it to it) }
+                },
+                onSelect = { updateFilter(filter.copy(trade = it)) },
+            )
+            FilterDropdown(
+                label = "Supplier",
+                selected = when (filter.supplier) {
+                    FILTER_ALL -> "All Suppliers"
+                    "" -> "KTC (own manpower)"
+                    else -> filter.supplier
+                },
+                options = buildList {
+                    add(FILTER_ALL to "All Suppliers")
+                    add("" to "KTC (own manpower)")
+                    supplierOptions.forEach { add(it to it) }
+                },
+                onSelect = { updateFilter(filter.copy(supplier = it)) },
+            )
+            FilterDropdown(
+                label = "Status",
+                selected = filter.status.label,
+                options = WorkerStatusFilter.entries.map { it.name to it.label },
+                onSelect = { updateFilter(filter.copy(status = WorkerStatusFilter.valueOf(it))) },
+            )
+            FilterDropdown(
+                label = "Sort by",
+                selected = filter.sort.label,
+                options = WorkerSort.entries.map { it.name to it.label },
+                onSelect = { updateFilter(filter.copy(sort = WorkerSort.valueOf(it))) },
+            )
         }
 
         Button(
@@ -172,9 +235,39 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
         qrPdfStatus?.let { Text(it, modifier = Modifier.padding(top = 6.dp)) }
 
         Text(
-            "Showing ${pageItems.size} of ${filtered.size} • Page $page/$totalPages",
+            if (filtered.isEmpty()) "No employees match" else "Showing ${pageItems.size} of ${filtered.size} • Page $page/$totalPages",
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
         )
+
+        if (filtered.isEmpty()) {
+            Card(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("👷", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        if (workers.isEmpty()) "No employees on the roster yet."
+                        else "No employees match your search or filters.",
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Text(
+                        if (workers.isEmpty()) "Upload an Excel file above, or tap Add Employee to enter one manually."
+                        else "Try a different search term, or reset the filters.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    if (workers.isNotEmpty() && !filter.isDefault) {
+                        OutlinedButton(
+                            onClick = { updateFilter(WorkerFilterState()) },
+                            modifier = Modifier.padding(top = 12.dp),
+                        ) { Text("Reset filters") }
+                    }
+                }
+            }
+        }
 
         pageItems.forEach { w ->
             Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
@@ -208,12 +301,12 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
     }
 
     if (showAdd) {
-        WorkerEditDialog(existing = null, sites = sites, onDismiss = { showAdd = false }, onSave = { w ->
+        WorkerEditDialog(existing = null, sites = sites, allWorkers = workers, onDismiss = { showAdd = false }, onSave = { w ->
             scope.launch { viewModel.saveWorker(w); showAdd = false }
         })
     }
     editing?.let { w ->
-        WorkerEditDialog(existing = w, sites = sites, onDismiss = { editing = null }, onSave = { updated ->
+        WorkerEditDialog(existing = w, sites = sites, allWorkers = workers, onDismiss = { editing = null }, onSave = { updated ->
             scope.launch { viewModel.saveWorker(updated); editing = null }
         })
     }
@@ -259,6 +352,37 @@ private fun WorkerQrDialog(worker: Worker, onDismiss: () -> Unit) {
     )
 }
 
+/**
+ * One dropdown shape reused by every filter on this screen — options are (value, label) pairs so
+ * a filter can carry a sentinel like "ALL" or "" without that sentinel ever reaching the user.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterDropdown(
+    label: String,
+    selected: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.padding(top = 8.dp),
+    ) {
+        OutlinedTextField(
+            value = selected, onValueChange = {}, readOnly = true, label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (value, text) ->
+                DropdownMenuItem(text = { Text(text) }, onClick = { onSelect(value); expanded = false })
+            }
+        }
+    }
+}
+
 @Composable
 private fun UploadZone(emoji: String, title: String, hint: String, status: String?, onPick: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)) {
@@ -274,7 +398,13 @@ private fun UploadZone(emoji: String, title: String, hint: String, status: Strin
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.data.model.Site>, onDismiss: () -> Unit, onSave: (Worker) -> Unit) {
+private fun WorkerEditDialog(
+    existing: Worker?,
+    sites: List<com.ktc.sitepulse.data.model.Site>,
+    allWorkers: List<Worker>,
+    onDismiss: () -> Unit,
+    onSave: (Worker) -> Unit,
+) {
     var id by remember { mutableStateOf(existing?.id ?: "") }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var designation by remember { mutableStateOf(existing?.designation ?: "") }
@@ -283,12 +413,30 @@ private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.da
     var siteExpanded by remember { mutableStateOf(false) }
     var annualLeaveDays by remember { mutableStateOf((existing?.annualLeaveDays ?: 30L).toString()) }
 
+    // Only matters when adding: the Employee ID is the Firestore document ID, so reusing one
+    // would silently merge the new details into an existing person's record instead of failing.
+    val duplicateId = existing == null && WorkerFilters.isDuplicateId(allWorkers, id)
+    val canSave = id.isNotBlank() && name.isNotBlank() && designation.isNotBlank() && !duplicateId
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "Add Employee" else "Edit Employee") },
         text = {
             Column {
-                OutlinedTextField(id, { id = it }, label = { Text("Employee ID *") }, modifier = Modifier.fillMaxWidth(), enabled = existing == null)
+                OutlinedTextField(
+                    id, { id = it }, label = { Text("Employee ID *") },
+                    isError = duplicateId,
+                    supportingText = if (duplicateId) {
+                        {
+                            Text(
+                                "Employee ID \"${id.trim()}\" already belongs to " +
+                                    "${allWorkers.first { it.id.equals(id.trim(), true) }.name}. Use a different ID.",
+                                color = SpRed,
+                            )
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(), enabled = existing == null,
+                )
                 OutlinedTextField(name, { name = it }, label = { Text("Full Name *") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 DesignationField(designation, { designation = it }, modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(company, { company = it }, label = { Text("Company (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
@@ -311,8 +459,8 @@ private fun WorkerEditDialog(existing: Worker?, sites: List<com.ktc.sitepulse.da
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (id.isNotBlank() && name.isNotBlank() && designation.isNotBlank()) {
+            Button(enabled = canSave, onClick = {
+                if (canSave) {
                     onSave(
                         Worker(
                             sno = existing?.sno ?: 0, id = id.trim(), name = name.trim(), designation = designation.trim(),

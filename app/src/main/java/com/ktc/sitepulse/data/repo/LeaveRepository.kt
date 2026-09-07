@@ -45,6 +45,20 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
     suspend fun all(): List<Leave> =
         collection.get().await().documents.mapNotNull { it.toLeave() }
 
+    /**
+     * Live subscription to leave that hasn't ended yet (toDate on/after [fromDate]) — backs the
+     * dashboard's live "On Leave" headcount.
+     *
+     * Deliberately a single-field range query: it needs no composite index, and it stays bounded
+     * as `leaves` grows year over year instead of streaming the entire history to a phone on site.
+     * Every write path stores toDate (falling back to fromDate when the caller leaves it blank),
+     * so a one-day leave is still matched. Status is filtered by the caller — only "approved"
+     * leave actually excuses a worker, but a pending request is worth counting separately.
+     */
+    fun liveActiveFrom(fromDate: String): Flow<List<Leave>> =
+        collection.whereGreaterThanOrEqualTo("toDate", fromDate).asFlow()
+            .map { docs -> docs.mapNotNull { it.toLeave() } }
+
     /** Admin-only live subscription to self-submitted leave applications awaiting a decision. */
     fun livePendingRequests(): Flow<List<Leave>> =
         collection.whereEqualTo("status", "pending").asFlow()

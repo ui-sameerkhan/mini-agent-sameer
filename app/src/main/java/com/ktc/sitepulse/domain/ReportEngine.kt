@@ -27,6 +27,10 @@ private data class Rgb(val r: Int, val g: Int, val b: Int) {
     fun toBytes(): ByteArray = byteArrayOf(r.toByte(), g.toByte(), b.toByte())
 }
 
+/** One manpower breakdown row as the five Excel columns of the Daily Manpower Report. */
+private fun ManpowerRow.toReportRow(): List<String> =
+    listOf(label, total.toString(), present.toString(), absent.toString(), onLeave.toString())
+
 /**
  * Port of downloadAtt()/makeSheet() from the web app: multi-sheet Excel
  * attendance report with per-project sheets, a summary, a trade-wise summary,
@@ -161,6 +165,33 @@ object ReportEngine {
                         )
                     }
                 }
+            }
+
+            // Daily Manpower Report — total/present/absent/leave broken down three ways in one
+            // sheet. Reuses the same Manpower.compute() the dashboard renders from, so the
+            // printed report and the on-screen figures can never disagree. Only meaningful for a
+            // single day: a month-range export would be averaging across many different days.
+            if (params.range == "day") {
+                val scopedWorkers = if (params.siteScope == "ALL") workers else workers.filter { it.site == params.siteScope }
+                val summary = Manpower.compute(scopedWorkers, sorted, leaves, sites, params.dateOrMonth)
+                val manpowerRows = buildList {
+                    add(listOf("— BY TRADE —", "", "", "", ""))
+                    summary.byTrade.forEach { add(it.toReportRow()) }
+                    add(listOf("", "", "", "", ""))
+                    add(listOf("— BY PROJECT —", "", "", "", ""))
+                    summary.byProject.forEach { add(it.toReportRow()) }
+                    add(listOf("", "", "", "", ""))
+                    add(listOf("— BY SUPPLIER —", "", "", "", ""))
+                    summary.bySupplier.forEach { add(it.toReportRow()) }
+                    add(listOf("", "", "", "", ""))
+                    add(listOf("TOTAL", summary.totalEmployees.toString(), summary.present.toString(), summary.absent.toString(), summary.onLeave.toString()))
+                }
+                addSheet(
+                    wb, styles, "MANPOWER REPORT",
+                    title = "SITEPULSE — DAILY MANPOWER REPORT", meta = metaLines,
+                    headers = listOf("Category", "Total", "Present", "Absent", "On Leave"),
+                    rows = manpowerRows,
+                )
             }
 
             val absentRows = if (params.range == "day") {

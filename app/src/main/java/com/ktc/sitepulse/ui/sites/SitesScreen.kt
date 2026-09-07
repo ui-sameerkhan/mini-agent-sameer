@@ -2,6 +2,7 @@ package com.ktc.sitepulse.ui.sites
 
 import android.content.Intent
 import android.net.Uri
+import com.ktc.sitepulse.Constants
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,6 +121,7 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
     var wifiSsid by remember { mutableStateOf(existing?.wifiSsid ?: "") }
     var nightStartHour by remember { mutableStateOf(existing?.nightStartHour?.toString() ?: "") }
     var dayStartHour by remember { mutableStateOf(existing?.dayStartHour?.toString() ?: "") }
+    var lateAfterHour by remember { mutableStateOf(existing?.lateAfterHour?.toString() ?: "") }
     var gpsStatus by remember { mutableStateOf("") }
     var wifiStatus by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -190,6 +192,12 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                         label = { Text("Day Starts (0-23)") }, modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
                 }
+                OutlinedTextField(
+                    lateAfterHour, { lateAfterHour = it.filter { c -> c.isDigit() } },
+                    label = { Text("Late After (0-23)") },
+                    supportingText = { Text("A day-shift check-in at or after this hour counts as late on the dashboard. Blank = company default (${Constants.DEFAULT_LATE_AFTER_HOUR}:00).") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
             }
         },
         confirmButton = {
@@ -204,6 +212,7 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                             wifiSsid = wifiSsid.trim().ifBlank { null },
                             nightStartHour = nightStartHour.toLongOrNull()?.coerceIn(0, 23),
                             dayStartHour = dayStartHour.toLongOrNull()?.coerceIn(0, 23),
+                            lateAfterHour = lateAfterHour.toLongOrNull()?.coerceIn(0, 23),
                         )
                     )
                 }

@@ -22,4 +22,8 @@ data class Site(
      * site that genuinely runs different hours than the rest of the company. */
     val nightStartHour: Long? = null,
     val dayStartHour: Long? = null,
+    /** Local hour-of-day at or after which a day-shift check-in counts as a late arrival —
+     * null means "use the company default" (Constants.DEFAULT_LATE_AFTER_HOUR). Nullable so
+     * every existing site doc, which has no such field, keeps working untouched. */
+    val lateAfterHour: Long? = null,
 )
