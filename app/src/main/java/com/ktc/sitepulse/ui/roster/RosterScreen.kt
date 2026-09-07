@@ -49,6 +49,7 @@ import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
+import com.ktc.sitepulse.domain.Permissions
 import com.ktc.sitepulse.domain.WorkerSearch
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.components.DesignationField
@@ -64,11 +65,36 @@ import kotlinx.coroutines.launch
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun RosterScreen(viewModel: SitePulseViewModel, onBackToCheckIn: () -> Unit) {
+fun RosterScreen(
+    viewModel: SitePulseViewModel,
+    onBackToCheckIn: () -> Unit,
+    onOpenUserManagement: () -> Unit = {},
+) {
     val session by viewModel.session.collectAsState()
+    val sessionProfile by viewModel.sessionProfile.collectAsState()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         OutlinedButton(onClick = onBackToCheckIn) { Text("← Back to Check-In") }
+
+        if (Permissions.canManageUsers(sessionProfile)) {
+            Card(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("USER ACCOUNTS", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Create logins, set roles, and choose which sites each person can reach.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                    )
+                    Button(onClick = onOpenUserManagement, modifier = Modifier.fillMaxWidth()) {
+                        Text("👥 Manage Users & Site Access", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
 
         if (session.isAdmin) {
             RosterAdminPanel(viewModel)

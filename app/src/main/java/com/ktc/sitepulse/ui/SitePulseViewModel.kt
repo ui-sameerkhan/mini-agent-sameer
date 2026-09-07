@@ -11,7 +11,10 @@ import com.ktc.sitepulse.data.model.Announcement
 import com.ktc.sitepulse.data.model.AppVersionGate
 import com.ktc.sitepulse.data.model.ArrivalRequest
 import com.ktc.sitepulse.data.model.Holiday
+import com.ktc.sitepulse.data.model.ALL_SITES
+import com.ktc.sitepulse.data.model.Role
 import com.ktc.sitepulse.data.model.Timekeeper
+import com.ktc.sitepulse.data.model.UserProfile
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.data.model.Leave
@@ -26,6 +29,8 @@ import com.ktc.sitepulse.domain.ManpowerSummary
 import com.ktc.sitepulse.domain.MarkDirection
 import com.ktc.sitepulse.domain.MarkResult
 import com.ktc.sitepulse.domain.ParsedImport
+import com.ktc.sitepulse.domain.Permissions
+import com.ktc.sitepulse.domain.SessionProfile
 import com.ktc.sitepulse.domain.RawTable
 import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
@@ -209,6 +214,110 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // ---- User management (Super Admin) ----
+
+    /**
+     * Creates a login and its profile in one step. The Firebase Auth account is made through a
+     * throwaway secondary app instance so Super Admin isn't signed out and replaced by the
+     * account they just created (see AuthRepository.createUserAccount).
+     *
+     * The profile document is keyed by Firebase UID, which this client can't read back for an
+     * account it isn't signed in as — so the profile is keyed by the UID looked up from the
+     * users collection if a profile already exists, and otherwise recorded against the email for
+     * Super Admin to complete once that person signs in for the first time.
+     */
+    fun createUser(
+        email: String,
+        password: String,
+        name: String,
+        role: Role,
+        assignedSites: List<String>,
+        employeeId: String?,
+    ) {
+        val trimmedEmail = email.trim().lowercase()
+        when {
+            trimmedEmail.isBlank() || !trimmedEmail.contains("@") -> {
+                setStatus("userStatus", "❌ Enter a valid email address."); return
+            }
+            name.isBlank() -> { setStatus("userStatus", "❌ Enter the person's name."); return }
+            password.isNotEmpty() && password.length < 6 -> {
+                setStatus("userStatus", "❌ Password must be at least 6 characters."); return
+            }
+            role != Role.SUPER_ADMIN && role != Role.STAFF && assignedSites.isEmpty() -> {
+                setStatus("userStatus", "❌ Assign at least one site to a ${role.label}."); return
+            }
+        }
+        viewModelScope.launch {
+            try {
+                if (password.isNotEmpty()) {
+                    setStatus("userStatus", "⏳ Creating login…")
+                    container.authRepository.createUserAccount(getApplication(), trimmedEmail, password).getOrThrow()
+                }
+                setStatus("userStatus", "⏳ Saving profile…")
+                val now = DateUtils.nowIso()
+                val existing = container.userRepository.findByEmail(trimmedEmail)
+                val profile = UserProfile(
+                    uid = existing?.uid ?: trimmedEmail, // email-keyed until first sign-in resolves the UID
+                    name = name.trim(),
+                    email = trimmedEmail,
+                    role = role.id,
+                    assignedSites = if (role == Role.SUPER_ADMIN) listOf(ALL_SITES) else assignedSites,
+                    status = "active",
+                    employeeId = employeeId?.trim()?.ifBlank { null },
+                    createdAt = existing?.createdAt ?: now,
+                    updatedAt = now,
+                    createdBy = session.value.email,
+                )
+                container.userRepository.save(profile)
+                setStatus(
+                    "userStatus",
+                    if (password.isNotEmpty())
+                        "✅ ${role.label} created. Share the email and password directly — it won't be shown again."
+                    else "✅ Profile saved for $trimmedEmail.",
+                )
+            } catch (e: Throwable) {
+                setStatus("userStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun updateUserRole(uid: String, role: Role) {
+        viewModelScope.launch {
+            try {
+                container.userRepository.setRole(uid, role.id, DateUtils.nowIso())
+                setStatus("userStatus", "✅ Role changed to ${role.label}.")
+            } catch (e: Throwable) {
+                setStatus("userStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun updateUserSites(uid: String, sites: List<String>) {
+        viewModelScope.launch {
+            try {
+                container.userRepository.setAssignedSites(uid, sites, DateUtils.nowIso())
+                setStatus("userStatus", "✅ Site assignments updated (${sites.size}).")
+            } catch (e: Throwable) {
+                setStatus("userStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /**
+     * Disabling is deliberately not deletion — the Firebase Auth login and every attendance
+     * record they marked stay intact, so historical attributions remain readable.
+     */
+    fun setUserStatus(uid: String, active: Boolean) {
+        viewModelScope.launch {
+            try {
+                container.userRepository.setStatus(uid, if (active) "active" else "disabled", DateUtils.nowIso())
+                setStatus("userStatus", if (active) "✅ Account re-activated." else "🚫 Account disabled.")
+            } catch (e: Throwable) {
+                setStatus("userStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
     fun removeTimekeeper(email: String) {
         viewModelScope.launch {
             try {
@@ -237,6 +346,68 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // ---- Identity, role and site access ----
+
+    /**
+     * The signed-in user's stored profile, live so a role or site change made by Super Admin
+     * reaches them without signing out. Null when they have no users/{uid} document yet.
+     */
+    private val liveUserProfile: StateFlow<UserProfile?> = session.map { it.uid }.distinctUntilChanged()
+        .flatMapLatest { uid ->
+            if (uid.isNullOrBlank()) flowOf(null)
+            else container.userRepository.live(uid).catch { emit(null) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /**
+     * Who is signed in and what they may do — the single source every screen reads.
+     *
+     * An account with no stored profile is not locked out: it falls back to the access the app
+     * granted before this collection existed, so every login that worked yesterday still works.
+     * Super Admin gives them a real profile through User Management, and from that point the
+     * stored one takes over.
+     */
+    val sessionProfile: StateFlow<SessionProfile> =
+        combine(session, liveUserProfile, isTimekeeper) { session, profile, isTk ->
+            when {
+                !session.isLoggedIn -> SessionProfile.SIGNED_OUT
+                profile != null -> SessionProfile.fromProfile(session.uid, session.email, profile)
+                else -> SessionProfile.legacyFallback(
+                    uid = session.uid,
+                    email = session.email,
+                    isConfiguredAdmin = session.isAdmin,
+                    isTimekeeper = isTk,
+                    isOfficeStaffDomain = session.isOfficeStaff,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, SessionProfile.SIGNED_OUT)
+
+    /**
+     * Set when a signed-in account has been disabled, so the UI can show the message and sign
+     * them out rather than leaving them on a screen with no data and no explanation.
+     */
+    val accountDisabled: StateFlow<Boolean> = sessionProfile
+        .map { it.isLoggedIn && !it.isActive }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    /** The sites this user may work with — every site for Super Admin, their assignments otherwise. */
+    val authorizedSites: StateFlow<List<Site>> =
+        combine(sessionProfile, sites) { profile, allSites -> Permissions.authorizedSites(profile, allSites) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Workers this user may see, filtered by their site assignments. */
+    val visibleWorkers: StateFlow<List<Worker>> =
+        combine(sessionProfile, workers) { profile, allWorkers -> Permissions.visibleWorkers(profile, allWorkers) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Every user account — Super Admin only, backing User Management. */
+    val allUsers: StateFlow<List<UserProfile>> = sessionProfile.map { Permissions.canManageUsers(it) }
+        .distinctUntilChanged()
+        .flatMapLatest { canManage ->
+            if (canManage) container.userRepository.liveAll().recoverToEmpty("User accounts") else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ---- Dashboard scope (date + project) ----
 

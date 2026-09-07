@@ -3,8 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Update this list if you add more admin accounts later —
-    // must match Constants.ADMIN_EMAILS in the Android app / ADMIN_EMAILS in the web app.
+    // ---------------------------------------------------------------------------------------
+    // Identity
+    //
+    // Access is driven by users/{uid} — role plus assignedSites. Accounts that predate that
+    // collection keep working through the legacy fallbacks below, which reproduce exactly the
+    // access those logins already had. Nothing here grants a signed-in user blanket read/write.
+    // ---------------------------------------------------------------------------------------
+
+    // Bootstrap identity: the configured administrator email. This is the ONLY hard-coded
+    // identity, and the only account that can be Super Admin without a profile document —
+    // otherwise nobody could create the first profile.
     function adminEmails() {
       return ['admin@ktc-manpower.com'];
     }
@@ -13,127 +22,223 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function email() {
+      return request.auth.token.email.lower();
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return isSignedIn() && exists(profilePath());
+    }
+
+    function profile() {
+      return get(profilePath()).data;
+    }
+
+    // An account explicitly marked disabled loses everything, immediately.
+    function isDisabled() {
+      return hasProfile() && profile().get('status', 'active') != 'active';
+    }
+
+    function isActive() {
+      return isSignedIn() && !isDisabled();
+    }
+
+    function role() {
+      return hasProfile() ? profile().get('role', 'supervisor') : legacyRole();
+    }
+
+    // Pre-existing accounts, mapped to the access they already had:
+    //  - configured admin email        -> super_admin
+    //  - listed in `timekeepers`       -> timekeeper
+    //  - on the office-staff domain    -> staff
+    //  - anything else                 -> supervisor
+    function legacyRole() {
+      return email() in adminEmails() ? 'super_admin'
+        : (exists(/databases/$(database)/documents/timekeepers/$(email())) ? 'timekeeper'
+        : (email().matches('.*@ktcco[.]net') ? 'staff' : 'supervisor'));
+    }
+
+    function isSuperAdmin() {
+      return isActive() && role() == 'super_admin';
+    }
+
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email.lower() in adminEmails();
+      return isActive() && role() == 'admin';
     }
 
-    // Timekeepers are a Firestore-managed role (not a hardcoded list like admin) — admin
-    // adds/removes accounts from the Manage Timekeepers screen, doc ID is the lowercased
-    // login email. Kept as its own collection rather than a field on the user, so this
-    // check works via a cheap exists() lookup without needing a custom-claims setup.
     function isTimekeeper() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/timekeepers/$(request.auth.token.email.lower()));
+      return isActive() && role() == 'timekeeper';
     }
 
-    // workers/{workerId} — also doubles as the roster.
-    // Read: any signed-in staff (check-in search, roster lookups).
-    // Write: admin only — supervisors add people via arrivalRequests instead.
+    function isStaff() {
+      return isActive() && role() == 'staff';
+    }
+
+    // Every role that records attendance for other people.
+    function marksAttendance() {
+      return isActive() &&
+        role() in ['super_admin', 'admin', 'timekeeper', 'supervisor', 'foreman'];
+    }
+
+    // Roles that manage the workforce itself rather than only its attendance.
+    function managesWorkers() {
+      return isActive() && role() in ['super_admin', 'admin'];
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Site scoping
+    // ---------------------------------------------------------------------------------------
+
+    // Super admins hold everything. An account with no profile keeps the company-wide access it
+    // already had — narrowing it here would break working logins on upgrade, which is exactly
+    // what this change must not do. Once Super Admin gives them a profile, that profile governs.
+    function holdsAllSites() {
+      return isSuperAdmin() || !hasProfile() || ('ALL' in profile().get('assignedSites', []));
+    }
+
+    function hasSiteAccess(siteCode) {
+      return isActive() && (holdsAllSites() || (siteCode != null && siteCode in profile().get('assignedSites', [])));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // users/{uid} — roles and site assignments
+    //
+    // A user may read only their own profile; only Super Admin may read the whole list or write
+    // any of it. Self-service role escalation is therefore impossible: nobody can grant
+    // themselves a role or a site, because nobody can write their own profile.
+    // ---------------------------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isSuperAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // workers/{workerId} — the workforce, also serving as the roster.
+    // Site-scoped for reads; only worker managers may write.
+    // ---------------------------------------------------------------------------------------
     match /workers/{workerId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
+      allow write: if managesWorkers() &&
+        (holdsAllSites() || hasSiteAccess(request.resource.data.get('site', null)));
     }
 
-    // sites/{siteCode} — geofence definitions.
-    // Read: any signed-in staff (needed to check in/out at all).
-    // Write: admin only.
+    // sites/{siteCode} — geofence definitions. Readable by any active user (a site's coordinates
+    // are needed to check in at all, and the list is needed to pick one); only Super Admin
+    // configures them.
     match /sites/{siteCode} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isActive();
+      allow write: if isSuperAdmin();
     }
 
-    // attendance/{date_workerId} — check-in/out records.
-    // Both admin and supervisor accounts mark attendance.
+    // ---------------------------------------------------------------------------------------
+    // attendance/{date_workerId}
+    //
+    // Staff may read and write only their own record, and only as self-marked attendance.
+    // Everyone else is bound to the sites they hold.
+    // ---------------------------------------------------------------------------------------
     match /attendance/{recordId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isActive() && (
+        holdsAllSites() ||
+        hasSiteAccess(resource.data.get('siteCode', null)) ||
+        (isStaff() && hasProfile() && resource.data.workerId == profile().get('employeeId', null))
+      );
+
+      allow create: if isActive() && (
+        (marksAttendance() && hasSiteAccess(request.resource.data.get('siteCode', null))) ||
+        // Staff self check-in: only their own worker record, only at a site they hold.
+        (isStaff() && hasProfile() &&
+          request.resource.data.workerId == profile().get('employeeId', null) &&
+          hasSiteAccess(request.resource.data.get('siteCode', null)))
+      );
+
+      allow update: if isActive() && (
+        (marksAttendance() && hasSiteAccess(request.resource.data.get('siteCode', null))) ||
+        (isStaff() && hasProfile() &&
+          resource.data.workerId == profile().get('employeeId', null) &&
+          request.resource.data.workerId == resource.data.workerId)
+      );
+
+      // Attendance is never deleted — corrections are recorded as edits, so the audit trail
+      // survives. Only Super Admin can remove a record outright.
+      allow delete: if isSuperAdmin();
     }
 
-    // blocked/{autoId} — outside-geofence attempts, logged by whoever tried to mark.
-    // Only admin reviews them; anyone signed in can log one.
+    // blocked/{autoId} — refused (outside-geofence) attempts. Anyone who can mark attendance can
+    // log one; reviewing them is site-scoped.
     match /blocked/{docId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('siteCode', null)));
+      allow create: if isActive();
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
     // arrivalRequests/{autoId} — supervisor-submitted, admin-approved.
     match /arrivalRequests/{docId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
+      allow create: if isActive();
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
-    // leaves/{autoId} — admin marks leave directly (status "approved", no requestedBy);
-    // office staff self-apply instead, which creates a "pending" doc the admin must
-    // approve/reject. Office staff can also read back their own submitted requests.
-    // Timekeepers can read every leave record too — needed for the leave-aware Absent
-    // Report they generate, same reason admin can.
+    // ---------------------------------------------------------------------------------------
+    // leaves/{autoId} — admin marks leave directly; office staff self-apply as "pending".
+    // ---------------------------------------------------------------------------------------
     match /leaves/{docId} {
-      allow read: if isAdmin() || isTimekeeper() ||
-        (isSignedIn() && resource.data.requestedBy != null &&
-         resource.data.requestedBy.lower() == request.auth.token.email.lower());
-      allow create: if isAdmin() ||
-        (isSignedIn() && request.resource.data.requestedBy != null &&
-         request.resource.data.requestedBy.lower() == request.auth.token.email.lower() &&
+      allow read: if isActive() && (
+        holdsAllSites() || isTimekeeper() ||
+        hasSiteAccess(resource.data.get('site', null)) ||
+        (resource.data.get('requestedBy', null) != null && resource.data.requestedBy.lower() == email())
+      );
+      allow create: if isSuperAdmin() || isAdmin() ||
+        // A self-submitted application: must be in the applicant's own name and start pending.
+        (isActive() && request.resource.data.get('requestedBy', null) != null &&
+         request.resource.data.requestedBy.lower() == email() &&
          request.resource.data.status == 'pending');
-      allow update, delete: if isAdmin();
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
-    // staffWorkerLinks/{email} — permanently binds an office-staff login email (doc ID,
-    // always stored lowercased by the app) to the first Worker ID it checked in with.
-    // Owner can read/create their own link; only admin can change or remove one afterward
-    // (e.g. correcting a mistaken first check-in).
-    match /staffWorkerLinks/{email} {
-      allow read: if isAdmin() || (isSignedIn() && email == request.auth.token.email.lower());
-      allow create: if isSignedIn() && email == request.auth.token.email.lower() &&
-        request.resource.data.email == email;
-      allow update, delete: if isAdmin();
+    // staffWorkerLinks/{email} — binds an office-staff login to the worker ID it first used.
+    match /staffWorkerLinks/{linkEmail} {
+      allow read: if isSuperAdmin() || isAdmin() || (isActive() && linkEmail == email());
+      allow create: if isActive() && linkEmail == email() &&
+        request.resource.data.email == linkEmail;
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
-    // settings/adminPushToken — the push token itself is only ever written by
-    // an admin (Enable Notifications is admin-only), but it must be READABLE
-    // by supervisors too: submitting a new-arrival request reads this token
-    // to fire the push notification to the admin's device.
+    // settings/{docId} — app configuration and the admin push token. Readable by any active
+    // user (submitting an arrival request reads the token to notify admin); Super Admin writes.
     match /settings/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isActive();
+      allow write: if isSuperAdmin();
     }
 
-    // announcements/{autoId} — admin broadcast, one message per doc. Every signed-in
-    // user reads the latest one for the in-app banner; only admin can post one.
+    // announcements/{autoId} — broadcast banner, read by everyone, posted by admins.
     match /announcements/{docId} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow read: if isActive();
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
     }
 
-    // pushTokens/{email} — one FCM device token per signed-in account (doc ID is the
-    // lowercased login email), used to fan out admin announcements as real push
-    // notifications. Each user can only register their own device; only admin reads
-    // the full list, to actually send the broadcast.
-    match /pushTokens/{email} {
-      allow read: if isAdmin();
-      allow create, update: if isSignedIn() && email == request.auth.token.email.lower() &&
-        request.resource.data.email == email;
-      allow delete: if isAdmin();
+    // pushTokens/{email} — one device token per account. Each user registers only their own.
+    match /pushTokens/{tokenEmail} {
+      allow read: if isSuperAdmin() || isAdmin();
+      allow create, update: if isActive() && tokenEmail == email() &&
+        request.resource.data.email == tokenEmail;
+      allow delete: if isSuperAdmin() || isAdmin();
     }
 
-    // holidays/{date} — doc id is the "YYYY-MM-DD" date itself. Read by anyone signed in
-    // (low-sensitivity reference data, same pattern as sites); only admin manages the list.
+    // holidays/{date} — low-sensitivity reference data, read by any active user.
     match /holidays/{date} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isActive();
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
-    // timekeepers/{email} — doc ID is the lowercased login email of a Timekeeper account.
-    // Presence of the doc IS the grant (see isTimekeeper() above) — admin adds/removes
-    // entries from the Manage Timekeepers screen. Read is open to any signed-in user only
-    // so a Timekeeper can confirm their own role on login; only admin manages the list.
-    match /timekeepers/{email} {
+    // timekeepers/{email} — retained from the pre-profile role system, so existing timekeeper
+    // logins keep resolving while profiles are rolled out. Super Admin manages the list.
+    match /timekeepers/{tkEmail} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin();
     }
   }
 }

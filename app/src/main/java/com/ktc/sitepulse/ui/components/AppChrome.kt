@@ -105,11 +105,18 @@ enum class SpTab(val route: String, val label: String) {
     ROSTER("roster", "Roster"),
 }
 
+/**
+ * [visibleRoutes] comes from Permissions.visibleRoutes() — the same check that guards the data,
+ * so a tab is never shown for a screen the user's role can't load. Hiding it is for usability;
+ * the real boundary is the Firestore rules.
+ */
 @Composable
-fun SitePulseTabBar(current: SpTab, onSelect: (SpTab) -> Unit) {
+fun SitePulseTabBar(current: SpTab, visibleRoutes: Set<String>, onSelect: (SpTab) -> Unit) {
+    val tabs = SpTab.entries.filter { it.route in visibleRoutes }
+    if (tabs.isEmpty()) return
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 6.dp, vertical = 6.dp)) {
-            SpTab.entries.forEach { tab ->
+            tabs.forEach { tab ->
                 TabItem(tab = tab, selected = tab == current, onClick = { onSelect(tab) })
             }
         }
