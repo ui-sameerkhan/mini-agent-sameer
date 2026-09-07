@@ -50,6 +50,9 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** Dashboard project-scope sentinel meaning "every project", kept out of the site-code space. */
+const val DASHBOARD_ALL_PROJECTS = "ALL"
+
 enum class ImportKind { WORKERS, OUTSOURCE, ROSTER }
 
 data class PendingImport(
@@ -235,15 +238,96 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // ---- Dashboard scope (date + project) ----
+
+    private val _dashboardDate = MutableStateFlow(DateUtils.todayStrUtc())
+    /** Which day the dashboard is showing — defaults to today, changeable to any past date. */
+    val dashboardDate: StateFlow<String> = _dashboardDate
+
+    private val _dashboardProject = MutableStateFlow(DASHBOARD_ALL_PROJECTS)
+    /** [DASHBOARD_ALL_PROJECTS] or a single site code, scoping every figure on the dashboard. */
+    val dashboardProject: StateFlow<String> = _dashboardProject
+
+    fun setDashboardDate(date: String) { _dashboardDate.value = date }
+
+    fun setDashboardProject(code: String) { _dashboardProject.value = code }
+
+    fun resetDashboardScope() {
+        _dashboardDate.value = DateUtils.todayStrUtc()
+        _dashboardProject.value = DASHBOARD_ALL_PROJECTS
+    }
+
+    /** Attendance plus the date it belongs to, so a summary can never label itself with a date
+     * its rows didn't come from while a fetch for a newly-picked day is still in flight. */
+    private data class DatedAttendance(val date: String, val rows: List<Attendance>, val loading: Boolean)
+
+    /**
+     * Today streams live (the existing subscription, so check-ins still appear as they happen);
+     * any other date is fetched once on demand — a past day's records don't change while you're
+     * looking at them, so a second live listener would just cost reads.
+     */
+    private val dashboardAttendance: StateFlow<DatedAttendance> =
+        _dashboardDate.flatMapLatest { date ->
+            if (date == DateUtils.todayStrUtc()) {
+                todayAttendance.map { DatedAttendance(date, it, loading = false) }
+            } else {
+                flow {
+                    emit(DatedAttendance(date, emptyList(), loading = true))
+                    emit(DatedAttendance(date, container.attendanceRepository.getForDate(date), loading = false))
+                }.catch { e ->
+                    _dataError.value = "⚠ Attendance for $date failed to load: ${e.message}"
+                    emit(DatedAttendance(date, emptyList(), loading = false))
+                }
+            }
+        }.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            DatedAttendance(DateUtils.todayStrUtc(), emptyList(), loading = false),
+        )
+
+    /** Leave covering the selected dashboard date — live for today, one-shot for a past date. */
+    private val dashboardLeaves: StateFlow<List<Leave>> =
+        combine(
+            combine(session.map { it.isAdmin }.distinctUntilChanged(), isTimekeeper) { isAdmin, isTk -> isAdmin || isTk },
+            _dashboardDate,
+        ) { canRead, date -> canRead to date }
+            .distinctUntilChanged()
+            .flatMapLatest { (canRead, date) ->
+                when {
+                    !canRead -> flowOf(emptyList())
+                    date == DateUtils.todayStrUtc() -> activeLeaves
+                    else -> flow { emit(container.leaveRepository.getActiveOn(date)) }.catch { emit(emptyList()) }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** True while a past date's attendance is still being fetched. */
+    val dashboardLoading: StateFlow<Boolean> = dashboardAttendance
+        .map { it.loading }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     /**
      * The whole dashboard in one value — every KPI card and all three breakdown tables read from
      * this, so the worker/attendance/leave lists are walked once per change instead of once per
-     * widget. Recomputing only when one of its four inputs actually changes is what keeps the
+     * widget. Recomputing only when one of its inputs actually changes is what keeps the
      * dashboard smooth on a roster of several thousand.
+     *
+     * Scoping to a single project narrows the roster to workers assigned there and the
+     * attendance to marks recorded there, so every figure — including the trade and supplier
+     * breakdowns — describes that project alone.
      */
     val manpowerSummary: StateFlow<ManpowerSummary> =
-        combine(workers, todayAttendance, activeLeaves, sites) { workers, attendance, leaves, sites ->
-            Manpower.compute(workers, attendance, leaves, sites, DateUtils.todayStrUtc())
+        combine(workers, dashboardAttendance, dashboardLeaves, sites, _dashboardProject) { workers, dated, leaves, sites, project ->
+            if (project == DASHBOARD_ALL_PROJECTS) {
+                Manpower.compute(workers, dated.rows, leaves, sites, dated.date)
+            } else {
+                Manpower.compute(
+                    workers.filter { it.site == project },
+                    dated.rows.filter { it.siteCode == project },
+                    leaves,
+                    sites.filter { it.code == project },
+                    dated.date,
+                )
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ManpowerSummary.EMPTY)
 
     private val liveAnnouncement: StateFlow<Announcement?> = session.map { it.isLoggedIn }.distinctUntilChanged()

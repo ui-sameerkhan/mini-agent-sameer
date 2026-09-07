@@ -59,6 +59,16 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
         collection.whereGreaterThanOrEqualTo("toDate", fromDate).asFlow()
             .map { docs -> docs.mapNotNull { it.toLeave() } }
 
+    /**
+     * One-shot equivalent of [liveActiveFrom] for a date in the past — backs the dashboard's
+     * historical view, where a live subscription would be pointless (yesterday's leave records
+     * don't change while you look at them). Same index-free range query; the from-date end of
+     * the range is applied by the caller's isWithin check.
+     */
+    suspend fun getActiveOn(date: String): List<Leave> =
+        collection.whereGreaterThanOrEqualTo("toDate", date).get().await()
+            .documents.mapNotNull { it.toLeave() }
+
     /** Admin-only live subscription to self-submitted leave applications awaiting a decision. */
     fun livePendingRequests(): Flow<List<Leave>> =
         collection.whereEqualTo("status", "pending").asFlow()
