@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 
 /** Live-subscribes a query (onSnapshot equivalent), closing the listener when the flow collector stops. */
 fun Query.asFlow(): Flow<List<DocumentSnapshot>> = callbackFlow {
@@ -35,6 +37,25 @@ fun DocumentReference.asFlow(): Flow<DocumentSnapshot?> = callbackFlow {
     }
     awaitClose { registration.remove() }
 }
+
+/**
+ * Runs [query] once per authorised site and merges the results into one list.
+ *
+ * Firestore security rules are not filters: a query that isn't itself constrained to what the
+ * caller may read is rejected outright rather than returning a filtered subset. So a site-scoped
+ * user cannot ask for "all workers" and be given their own — they must ask per site.
+ *
+ * One query per site rather than a single `whereIn` deliberately: `whereIn` caps at 30 values and,
+ * combined with another equality clause, needs a composite index that has to be deployed by hand.
+ * Equality-only queries are served by Firestore's automatic indexes, and users hold a handful of
+ * sites, so the listener count stays small.
+ */
+fun <T> mergePerSite(siteCodes: List<String>, query: (String) -> Flow<List<T>>): Flow<List<T>> =
+    when {
+        siteCodes.isEmpty() -> flowOf(emptyList())
+        siteCodes.size == 1 -> query(siteCodes.first())
+        else -> combine(siteCodes.distinct().map(query)) { results -> results.toList().flatten() }
+    }
 
 class FirestoreOpException(cause: FirebaseFirestoreException) : Exception(cause)
 

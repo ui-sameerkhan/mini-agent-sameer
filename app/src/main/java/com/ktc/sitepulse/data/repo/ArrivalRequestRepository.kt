@@ -23,6 +23,13 @@ class ArrivalRequestRepository(private val db: FirebaseFirestore = FirebaseFires
         collection.whereEqualTo("status", "pending").asFlow()
             .map { docs -> docs.mapNotNull { it.toArrival() } }
 
+    /** Pending requests for the given sites only — see BlockedRepository.liveLast14DaysForSites. */
+    fun livePendingForSites(siteCodes: List<String>): Flow<List<ArrivalRequest>> =
+        mergePerSite(siteCodes) { code ->
+            collection.whereEqualTo("status", "pending").whereEqualTo("site", code).asFlow()
+                .map { docs -> docs.mapNotNull { it.toArrival() } }
+        }
+
     suspend fun submit(request: ArrivalRequest): String {
         val ref = collection.add(request).await()
         return ref.id

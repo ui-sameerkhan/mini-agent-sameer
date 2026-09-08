@@ -22,6 +22,18 @@ class WorkersRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
             docs.mapNotNull { it.toObjectSafe(Worker::class.java, "workers") }.sortedBy { it.sno }
         }
 
+    /**
+     * Only the workers assigned to [siteCodes]. Required, not merely cheaper: security rules
+     * reject an unconstrained collection query from a site-scoped user outright, so such a user
+     * must ask per site or receive nothing at all. See mergePerSite().
+     */
+    fun liveWorkersForSites(siteCodes: List<String>): Flow<List<Worker>> =
+        mergePerSite(siteCodes) { code ->
+            collection.whereEqualTo("site", code).asFlow().map { docs ->
+                docs.mapNotNull { it.toObjectSafe(Worker::class.java, "workers") }
+            }
+        }.map { it.sortedBy { w -> w.sno } }
+
     suspend fun findById(id: String): Worker? =
         collection.document(id).get().await().toObjectSafe(Worker::class.java, "workers")
 

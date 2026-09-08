@@ -22,6 +22,21 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
             .map { docs -> docs.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") } }
     }
 
+    /** Today's attendance for the given sites only — see WorkersRepository.liveWorkersForSites. */
+    fun liveTodayForSites(siteCodes: List<String>): Flow<List<Attendance>> {
+        val today = DateUtils.todayStrUtc()
+        return mergePerSite(siteCodes) { code ->
+            collection.whereEqualTo("date", today).whereEqualTo("siteCode", code).asFlow()
+                .map { docs -> docs.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") } }
+        }
+    }
+
+    suspend fun getForDateForSites(date: String, siteCodes: List<String>): List<Attendance> =
+        siteCodes.distinct().flatMap { code ->
+            collection.whereEqualTo("date", date).whereEqualTo("siteCode", code)
+                .get().await().documents.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
+        }
+
     suspend fun getForDate(date: String): List<Attendance> =
         collection.whereEqualTo("date", date).get().await().documents
             .mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }

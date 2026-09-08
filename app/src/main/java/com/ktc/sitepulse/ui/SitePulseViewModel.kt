@@ -99,8 +99,101 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         session.map { it.isLoggedIn }.distinctUntilChanged()
             .flatMapLatest { loggedIn -> if (loggedIn) query().recoverToEmpty(source) else flowOf(emptyList()) }
 
-    val workers: StateFlow<List<Worker>> = onlyWhenLoggedIn("Workers") { container.workersRepository.liveWorkers() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /** Resolved once per login via a cheap doc-existence check — Timekeeper is a Firestore-managed
+     * role (admin adds/removes accounts from Roster), not an email-pattern check like isAdmin/
+     * isOfficeStaff, so it can't live on SessionState itself without making that whole type async. */
+    val isTimekeeper: StateFlow<Boolean> = session.map { it.email }.distinctUntilChanged()
+        .flatMapLatest { email -> flow { emit(if (email.isBlank()) false else container.timekeeperRepository.isTimekeeper(email)) }.catch { emit(false) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // ---- Identity, role and site access ----
+
+    /**
+     * The signed-in user's stored profile, live so a role or site change made by Super Admin
+     * reaches them without signing out. Null when they have no users/{uid} document yet.
+     */
+    private val liveUserProfile: StateFlow<UserProfile?> = session.map { it.uid }.distinctUntilChanged()
+        .flatMapLatest { uid ->
+            if (uid.isNullOrBlank()) flowOf(null)
+            else container.userRepository.live(uid).catch { emit(null) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    init {
+        // An account given access before it ever signed in has its role waiting as an invite,
+        // because only the account itself can reveal the UID a profile must be stored under.
+        // Claiming it here is the first thing that happens after login. Security rules only
+        // accept a profile matching the invite exactly, so this cannot grant more than the
+        // administrator chose; a failure just leaves the user on their previous access.
+        viewModelScope.launch {
+            session.map { it.uid to it.email }.distinctUntilChanged().collect { (uid, email) ->
+                if (uid.isNullOrBlank() || email.isBlank()) return@collect
+                runCatching {
+                    if (container.userRepository.get(uid) != null) return@runCatching
+                    val invite = container.userRepository.getInvite(email) ?: return@runCatching
+                    container.userRepository.claimInvite(uid, email, invite, DateUtils.nowIso())
+                }
+                runCatching { container.userRepository.touchLastLogin(uid, DateUtils.nowIso()) }
+            }
+        }
+    }
+
+    /**
+     * Who is signed in and what they may do — the single source every screen reads.
+     *
+     * An account with no stored profile is not locked out: it falls back to the access the app
+     * granted before this collection existed, so every login that worked yesterday still works.
+     * Super Admin gives them a real profile through User Management, and from that point the
+     * stored one takes over.
+     */
+    val sessionProfile: StateFlow<SessionProfile> =
+        combine(session, liveUserProfile, isTimekeeper) { session, profile, isTk ->
+            when {
+                !session.isLoggedIn -> SessionProfile.SIGNED_OUT
+                profile != null -> SessionProfile.fromProfile(session.uid, session.email, profile)
+                else -> SessionProfile.legacyFallback(
+                    uid = session.uid,
+                    email = session.email,
+                    isConfiguredAdmin = session.isAdmin,
+                    isTimekeeper = isTk,
+                    isOfficeStaffDomain = session.isOfficeStaff,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, SessionProfile.SIGNED_OUT)
+
+    /**
+     * The user's own site scope, resolved before any site-filtered query is built. Null means
+     * "every site" (Super Admin, or a legacy account with no profile yet); a list means query
+     * per site, because Firestore rules reject an unconstrained query from a scoped user rather
+     * than filtering it — see mergePerSite().
+     */
+    private val siteScope: Flow<List<String>?> = sessionProfile
+        .map { if (it.hasAllSites) null else it.assignedSites.filter { c -> c.isNotBlank() } }
+        .distinctUntilChanged()
+
+    /** Runs the site-scoped query for a restricted user and the plain one for an unrestricted one. */
+    private fun <T> scoped(
+        source: String,
+        all: () -> Flow<List<T>>,
+        perSite: (List<String>) -> Flow<List<T>>,
+    ): Flow<List<T>> = combine(
+        session.map { it.isLoggedIn }.distinctUntilChanged(),
+        siteScope,
+    ) { loggedIn, scope -> loggedIn to scope }
+        .flatMapLatest { (loggedIn, scope) ->
+            when {
+                !loggedIn -> flowOf(emptyList())
+                scope == null -> all().recoverToEmpty(source)
+                scope.isEmpty() -> flowOf(emptyList()) // holds no sites: nothing to show, not an error
+                else -> perSite(scope).recoverToEmpty(source)
+            }
+        }
+
+    val workers: StateFlow<List<Worker>> = scoped(
+        "Workers",
+        all = { container.workersRepository.liveWorkers() },
+        perSite = { container.workersRepository.liveWorkersForSites(it) },
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val sites: StateFlow<List<Site>> = onlyWhenLoggedIn("Sites") { container.sitesRepository.liveSites() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -113,19 +206,28 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     // the emptyList() initial value forever, so those reads silently saw "nobody checked in
     // today" even with real check-ins present — the Excel report's Absent Report sheet then
     // marked every worker absent and the per-site/summary/trade sheets had nothing to show.
-    val todayAttendance: StateFlow<List<Attendance>> = onlyWhenLoggedIn("Attendance") { container.attendanceRepository.liveToday() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val todayAttendance: StateFlow<List<Attendance>> = scoped(
+        "Attendance",
+        all = { container.attendanceRepository.liveToday() },
+        perSite = { container.attendanceRepository.liveTodayForSites(it) },
+    ).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Today's check-ins/outs where the physical site didn't match the ERP roster's aligned site. */
     val siteDeviationsToday: StateFlow<List<Attendance>> = todayAttendance
         .map { list -> list.filter { it.siteMismatch && !it.deviationReviewed } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val blocked: StateFlow<List<Blocked>> = onlyWhenLoggedIn("Blocked attempts") { container.blockedRepository.liveLast14Days() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val blocked: StateFlow<List<Blocked>> = scoped(
+        "Blocked attempts",
+        all = { container.blockedRepository.liveLast14Days() },
+        perSite = { container.blockedRepository.liveLast14DaysForSites(it) },
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val pendingArrivals: StateFlow<List<ArrivalRequest>> = onlyWhenLoggedIn("Pending arrivals") { container.arrivalRequestRepository.livePending() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val pendingArrivals: StateFlow<List<ArrivalRequest>> = scoped(
+        "Pending arrivals",
+        all = { container.arrivalRequestRepository.livePending() },
+        perSite = { container.arrivalRequestRepository.livePendingForSites(it) },
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingLeaveRequests: StateFlow<List<Leave>> = session.map { it.isAdmin }.distinctUntilChanged()
         .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
@@ -178,12 +280,6 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /** Resolved once per login via a cheap doc-existence check — Timekeeper is a Firestore-managed
-     * role (admin adds/removes accounts from Roster), not an email-pattern check like isAdmin/
-     * isOfficeStaff, so it can't live on SessionState itself without making that whole type async. */
-    val isTimekeeper: StateFlow<Boolean> = session.map { it.email }.distinctUntilChanged()
-        .flatMapLatest { email -> flow { emit(if (email.isBlank()) false else container.timekeeperRepository.isTimekeeper(email)) }.catch { emit(false) } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /** Admin-only list backing the Manage Timekeepers panel in Roster. */
     val timekeepers: StateFlow<List<Timekeeper>> = session.map { it.isAdmin }.distinctUntilChanged()
@@ -369,68 +465,20 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         combine(session.map { it.isAdmin }.distinctUntilChanged(), isTimekeeper) { isAdmin, isTk -> isAdmin || isTk }
             .distinctUntilChanged()
             .flatMapLatest { canReadLeaves ->
-                if (canReadLeaves) {
-                    container.leaveRepository.liveActiveFrom(DateUtils.todayStrUtc()).recoverToEmpty("Leave records")
-                } else {
-                    flowOf(emptyList())
+                val profile = sessionProfile.value
+                when {
+                    !canReadLeaves -> flowOf(emptyList())
+                    // All-sites holders and timekeepers may read leave unconstrained; a
+                    // site-scoped admin must query per site or the rules refuse outright.
+                    profile.hasAllSites || profile.role == Role.TIMEKEEPER ->
+                        container.leaveRepository.liveActiveFrom(DateUtils.todayStrUtc()).recoverToEmpty("Leave records")
+                    profile.assignedSites.isEmpty() -> flowOf(emptyList())
+                    else -> container.leaveRepository
+                        .liveActiveFromForSites(DateUtils.todayStrUtc(), profile.assignedSites)
+                        .recoverToEmpty("Leave records")
                 }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // ---- Identity, role and site access ----
-
-    /**
-     * The signed-in user's stored profile, live so a role or site change made by Super Admin
-     * reaches them without signing out. Null when they have no users/{uid} document yet.
-     */
-    private val liveUserProfile: StateFlow<UserProfile?> = session.map { it.uid }.distinctUntilChanged()
-        .flatMapLatest { uid ->
-            if (uid.isNullOrBlank()) flowOf(null)
-            else container.userRepository.live(uid).catch { emit(null) }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    init {
-        // An account given access before it ever signed in has its role waiting as an invite,
-        // because only the account itself can reveal the UID a profile must be stored under.
-        // Claiming it here is the first thing that happens after login. Security rules only
-        // accept a profile matching the invite exactly, so this cannot grant more than the
-        // administrator chose; a failure just leaves the user on their previous access.
-        viewModelScope.launch {
-            session.map { it.uid to it.email }.distinctUntilChanged().collect { (uid, email) ->
-                if (uid.isNullOrBlank() || email.isBlank()) return@collect
-                runCatching {
-                    if (container.userRepository.get(uid) != null) return@runCatching
-                    val invite = container.userRepository.getInvite(email) ?: return@runCatching
-                    container.userRepository.claimInvite(uid, email, invite, DateUtils.nowIso())
-                }
-                runCatching { container.userRepository.touchLastLogin(uid, DateUtils.nowIso()) }
-            }
-        }
-    }
-
-    /**
-     * Who is signed in and what they may do — the single source every screen reads.
-     *
-     * An account with no stored profile is not locked out: it falls back to the access the app
-     * granted before this collection existed, so every login that worked yesterday still works.
-     * Super Admin gives them a real profile through User Management, and from that point the
-     * stored one takes over.
-     */
-    val sessionProfile: StateFlow<SessionProfile> =
-        combine(session, liveUserProfile, isTimekeeper) { session, profile, isTk ->
-            when {
-                !session.isLoggedIn -> SessionProfile.SIGNED_OUT
-                profile != null -> SessionProfile.fromProfile(session.uid, session.email, profile)
-                else -> SessionProfile.legacyFallback(
-                    uid = session.uid,
-                    email = session.email,
-                    isConfiguredAdmin = session.isAdmin,
-                    isTimekeeper = isTk,
-                    isOfficeStaffDomain = session.isOfficeStaff,
-                )
-            }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, SessionProfile.SIGNED_OUT)
 
     /**
      * Set when a signed-in account has been disabled, so the UI can show the message and sign
@@ -493,7 +541,13 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             } else {
                 flow {
                     emit(DatedAttendance(date, emptyList(), loading = true))
-                    emit(DatedAttendance(date, container.attendanceRepository.getForDate(date), loading = false))
+                    val profile = sessionProfile.value
+                    val rows = if (profile.hasAllSites) {
+                        container.attendanceRepository.getForDate(date)
+                    } else {
+                        container.attendanceRepository.getForDateForSites(date, profile.assignedSites)
+                    }
+                    emit(DatedAttendance(date, rows, loading = false))
                 }.catch { e ->
                     _dataError.value = "⚠ Attendance for $date failed to load: ${e.message}"
                     emit(DatedAttendance(date, emptyList(), loading = false))
@@ -515,7 +569,14 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 when {
                     !canRead -> flowOf(emptyList())
                     date == DateUtils.todayStrUtc() -> activeLeaves
-                    else -> flow { emit(container.leaveRepository.getActiveOn(date)) }.catch { emit(emptyList()) }
+                    else -> flow {
+                        val profile = sessionProfile.value
+                        emit(
+                            if (profile.hasAllSites || profile.role == Role.TIMEKEEPER)
+                                container.leaveRepository.getActiveOn(date)
+                            else container.leaveRepository.getActiveOnForSites(date, profile.assignedSites)
+                        )
+                    }.catch { emit(emptyList()) }
                 }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

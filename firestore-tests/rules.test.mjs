@@ -272,6 +272,40 @@ test("a user cannot read another person's invite", async () => {
   await assertFails(getDoc(doc(as("uid-foreman-a", "fa@ktc.test"), "userInvites/private@ktc.test")));
 });
 
+// ---------------------------------------------------------------------------------------------
+// Rules are not filters. A query that isn't constrained to what the caller may read is REJECTED
+// outright — it does not come back filtered. This is the behaviour the app's queries must match.
+// ---------------------------------------------------------------------------------------------
+
+test("an unconstrained collection query is REJECTED for a site-scoped user", async () => {
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  // What the app does today: subscribe to every worker and filter on the device.
+  await assertFails(getDocs(collection(db, "workers")));
+});
+
+test("the same query constrained to the user's own site SUCCEEDS", async () => {
+  const { query, where } = await import("firebase/firestore");
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertSucceeds(getDocs(query(collection(db, "workers"), where("site", "==", "SITE-A"))));
+});
+
+test("a constrained query for a site the user does NOT hold is still rejected", async () => {
+  const { query, where } = await import("firebase/firestore");
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(getDocs(query(collection(db, "workers"), where("site", "==", "SITE-B"))));
+});
+
+test("unconstrained today-attendance query is rejected; per-site is allowed", async () => {
+  const { query, where } = await import("firebase/firestore");
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(getDocs(query(collection(db, "attendance"), where("date", "==", "2026-09-08"))));
+  await assertSucceeds(getDocs(query(
+    collection(db, "attendance"),
+    where("date", "==", "2026-09-08"),
+    where("siteCode", "==", "SITE-A"),
+  )));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });

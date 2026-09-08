@@ -69,6 +69,19 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
         collection.whereGreaterThanOrEqualTo("toDate", date).get().await()
             .documents.mapNotNull { it.toLeave() }
 
+    /** Leave for the given sites only, for a user whose access is site-scoped. */
+    fun liveActiveFromForSites(fromDate: String, siteCodes: List<String>): Flow<List<Leave>> =
+        mergePerSite(siteCodes) { code ->
+            collection.whereEqualTo("site", code).asFlow()
+                .map { docs -> docs.mapNotNull { it.toLeave() }.filter { it.toDate >= fromDate } }
+        }
+
+    suspend fun getActiveOnForSites(date: String, siteCodes: List<String>): List<Leave> =
+        siteCodes.distinct().flatMap { code ->
+            collection.whereEqualTo("site", code).get().await()
+                .documents.mapNotNull { it.toLeave() }.filter { it.toDate >= date }
+        }
+
     /** Admin-only live subscription to self-submitted leave applications awaiting a decision. */
     fun livePendingRequests(): Flow<List<Leave>> =
         collection.whereEqualTo("status", "pending").asFlow()

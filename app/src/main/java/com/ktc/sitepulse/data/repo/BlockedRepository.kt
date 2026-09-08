@@ -28,6 +28,20 @@ class BlockedRepository(private val db: FirebaseFirestore = FirebaseFirestore.ge
             .map { docs -> docs.mapNotNull { it.toBlocked() } }
     }
 
+    /**
+     * Blocked attempts for the given sites only — required for site-scoped users, whose
+     * unconstrained queries the rules reject. Scoped by siteCode equality alone and windowed to
+     * the last 14 days client-side: combining an equality clause with a range clause on a
+     * different field would need a hand-deployed composite index, and this collection is small.
+     */
+    fun liveLast14DaysForSites(siteCodes: List<String>): Flow<List<Blocked>> {
+        val cutoff = LocalDate.now(ZoneOffset.UTC).minusDays(14).format(DateTimeFormatter.ISO_LOCAL_DATE)
+        return mergePerSite(siteCodes) { code ->
+            collection.whereEqualTo("siteCode", code).asFlow()
+                .map { docs -> docs.mapNotNull { it.toBlocked() }.filter { it.date >= cutoff } }
+        }
+    }
+
     suspend fun log(blocked: Blocked) {
         runCatching { collection.add(blocked).await() } // best-effort, matches web app's swallow-errors behavior
     }
