@@ -1,14 +1,18 @@
 package com.ktc.sitepulse.ui.users
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -23,6 +27,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -218,6 +223,114 @@ private fun UserRow(user: UserProfile, onEdit: () -> Unit) {
     }
 }
 
+/**
+ * The site list needs its own bounded, scrollable panel rather than flowing into the dialog:
+ * a company with twenty projects would otherwise push the Create button off-screen, and the
+ * last row would be clipped with nothing indicating there was more below.
+ *
+ * The panel has an explicit height so its inner scroll is measured against a real bound — a
+ * scrollable inside a scrollable is only a problem when the inner one is unbounded.
+ */
+@Composable
+private fun SitePicker(
+    sites: List<Site>,
+    selected: List<String>,
+    singleSiteOnly: Boolean,
+    onToggle: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onClear: () -> Unit,
+) {
+    var search by remember { mutableStateOf("") }
+    val shown = remember(sites, search) {
+        if (search.isBlank()) sites
+        else sites.filter { it.name.contains(search, true) || it.code.contains(search, true) }
+    }
+
+    Row(
+        Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (singleSiteOnly) "ASSIGNED OFFICE / SITE" else "ASSIGNED SITES",
+            fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "${selected.size} selected",
+            fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            color = if (selected.isEmpty()) SpAmberMid else SpGreenMid,
+        )
+    }
+
+    if (sites.isEmpty()) {
+        Text(
+            "No sites exist yet — add one in the Sites tab first.",
+            fontSize = 12.sp, color = SpAmberMid, modifier = Modifier.padding(bottom = 8.dp),
+        )
+        return
+    }
+
+    // Bulk actions only earn their space once the list is long enough to make ticking tedious.
+    if (!singleSiteOnly && sites.size > 3) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onSelectAll, modifier = Modifier.weight(1f)) {
+                Text("Select all", fontSize = 12.sp)
+            }
+            OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f)) {
+                Text("Clear", fontSize = 12.sp)
+            }
+        }
+    }
+
+    if (sites.size > 6) {
+        OutlinedTextField(
+            value = search, onValueChange = { search = it },
+            placeholder = { Text("Search sites…", fontSize = 13.sp) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        )
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxWidth().height(if (sites.size > 4) 190.dp else 150.dp),
+    ) {
+        if (shown.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                Text("No sites match \"$search\".", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().padding(vertical = 4.dp)) {
+                items(shown.size) { i ->
+                    val site = shown[i]
+                    val checked = selected.contains(site.code)
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable { onToggle(site.code) }
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = checked, onCheckedChange = { onToggle(site.code) })
+                        Column(Modifier.padding(start = 4.dp)) {
+                            Text(site.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(site.code, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Text(
+        if (singleSiteOnly) "Staff check in at one location — picking another replaces the current one."
+        else "Scroll for more. This person will only ever see the sites ticked here.",
+        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp),
+    )
+}
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun UserEditDialog(
@@ -305,35 +418,24 @@ private fun UserEditDialog(
                 }
 
                 if (needsSites) {
-                    Text(
-                        if (singleSiteOnly) "ASSIGNED OFFICE / SITE" else "ASSIGNED SITES",
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+                    SitePicker(
+                        sites = sites,
+                        selected = selectedSites,
+                        singleSiteOnly = singleSiteOnly,
+                        onToggle = { code ->
+                            if (selectedSites.contains(code)) {
+                                selectedSites.remove(code)
+                            } else {
+                                if (singleSiteOnly) selectedSites.clear()
+                                selectedSites.add(code)
+                            }
+                        },
+                        onSelectAll = {
+                            selectedSites.clear()
+                            selectedSites.addAll(sites.map { it.code })
+                        },
+                        onClear = { selectedSites.clear() },
                     )
-                    if (sites.isEmpty()) {
-                        Text("No sites exist yet — add one in the Sites tab first.", fontSize = 12.sp, color = SpAmberMid)
-                    }
-                    sites.forEach { site ->
-                        val checked = selectedSites.contains(site.code)
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                if (checked) {
-                                    selectedSites.remove(site.code)
-                                } else {
-                                    if (singleSiteOnly) selectedSites.clear()
-                                    selectedSites.add(site.code)
-                                }
-                            },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(checked = checked, onCheckedChange = null)
-                            Text(
-                                "${site.name} (${site.code})",
-                                fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp),
-                            )
-                        }
-                    }
                 } else {
                     Text(
                         "🌐 Super Admin has access to every site automatically.",
