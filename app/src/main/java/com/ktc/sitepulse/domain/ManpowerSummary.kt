@@ -69,11 +69,15 @@ object Manpower {
      * and the reports can never drift apart on what "on leave" means.
      */
     fun isOnLeave(leaves: List<Leave>, workerId: String, dateStr: String): Boolean =
-        leaves.any {
-            it.workerId == workerId && it.status == "approved" &&
+        isOnLeaveIndexed(leaves.filter { it.workerId == workerId }, dateStr)
+
+    /** The same rule against one worker's leave records, for callers that already grouped them. */
+    internal fun isOnLeaveIndexed(workerLeaves: List<Leave>?, dateStr: String): Boolean =
+        workerLeaves?.any {
+            it.status == "approved" &&
                 runCatching { DateUtils.isWithin(dateStr, it.fromDate, it.toDate.ifBlank { it.fromDate }) }
                     .getOrDefault(false)
-        }
+        } ?: false
 
     /**
      * A day-shift check-in at or after the site's late threshold. Night shifts are excluded —
@@ -111,15 +115,25 @@ object Manpower {
         // a set so a worker is only ever counted once toward "present".
         val presentIds = attendance.filter { it.hasIn }.map { it.workerId }.toSet()
         val checkedOutIds = attendance.filter { it.hasOut }.map { it.workerId }.toSet()
-        val onLeaveIds = active.filter { isOnLeave(leaves, it.id, date) }.map { it.id }.toSet()
 
+        // Leave is indexed by worker once rather than rescanned per worker: on a roster of a few
+        // thousand with a few hundred open leave records, the naive form is millions of
+        // comparisons on the path that drives the dashboard.
+        val leavesByWorker = leaves.groupBy { it.workerId }
+        val onLeaveIds = active.asSequence()
+            .filter { w -> isOnLeaveIndexed(leavesByWorker[w.id], date) }
+            .map { it.id }
+            .toSet()
+
+        val activeIds = active.mapTo(HashSet()) { it.id }
         val presentCount = active.count { it.id in presentIds }
         val onLeaveCount = active.count { it.id in onLeaveIds }
         val lateCount = attendance
-            .filter { it.workerId in presentIds && isLate(it, siteByCode) }
+            .asSequence()
+            .filter { it.workerId in presentIds && it.workerId in activeIds && isLate(it, siteByCode) }
             .map { it.workerId }
             .toSet()
-            .count { id -> active.any { it.id == id } }
+            .size
 
         fun breakdown(grouping: (Worker) -> Pair<String, String>): List<ManpowerRow> =
             active.groupBy { grouping(it) }
