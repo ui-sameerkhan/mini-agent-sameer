@@ -647,7 +647,13 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val s = session.value
             val ctx = getApplication<Application>()
+            val profile = sessionProfile.value
             val lockedId = if (s.isOfficeStaff) _myLinkedWorkerId.value else null
+            // Someone punching themselves in — either an office-staff account bound to its own
+            // worker record, or a Staff-role login marking the employee it's linked to. Both get
+            // the wider staff allowance rather than the tight site geofence.
+            val isSelf = s.isOfficeStaff ||
+                (profile.role == Role.STAFF && profile.employeeId?.equals(worker.id, true) == true)
             val result = container.attendanceEngine.mark(
                 dir = dir,
                 worker = worker,
@@ -657,6 +663,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 todayAttendance = todayAttendance.value,
                 isOnline = NetworkStatus.isOnline(ctx),
                 lockedWorkerId = lockedId,
+                isSelfCheckIn = isSelf,
             )
             _markResult.value = result
             // Best-effort admin nudge for a flagged deviation — Roster's Site Deviations card is

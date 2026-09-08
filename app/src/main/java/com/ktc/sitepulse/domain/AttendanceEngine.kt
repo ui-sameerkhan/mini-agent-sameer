@@ -46,6 +46,9 @@ class AttendanceEngine(
         todayAttendance: List<Attendance>,
         isOnline: Boolean,
         lockedWorkerId: String? = null,
+        /** Office staff punching themselves in — uses the wider Site.staffRadius allowance
+         * rather than the tight site geofence that governs marking a worker at the workface. */
+        isSelfCheckIn: Boolean = false,
     ): MarkResult {
         if (lockedWorkerId != null && lockedWorkerId != worker.id) {
             return MarkResult.Rejected(
@@ -141,7 +144,7 @@ class AttendanceEngine(
             }
 
             val near = Geo.nearestSite(fix.toLatLng(), sites)!!
-            if (!near.insideGeofence) {
+            if (!near.isInside(isSelfCheckIn)) {
                 blockedRepo.log(
                     Blocked(
                         workerId = worker.id,
@@ -156,7 +159,9 @@ class AttendanceEngine(
                 )
                 return MarkResult.Blocked(
                     "🚫 ATTENDANCE DENIED — OUTSIDE SITE",
-                    "${worker.name} is not inside any project site or office WiFi. Nearest: ${near.site.name} (${near.site.code}) — ${Geo.formatDistance(near.distanceM)} away."
+                    "${worker.name} is not inside any project site or office WiFi. Nearest: " +
+                        "${near.site.name} (${near.site.code}) — ${Geo.formatDistance(near.distanceM)} away, " +
+                        "allowed up to ${Geo.formatDistance(near.effectiveRadius(isSelfCheckIn))}."
                 )
             }
             site = near.site

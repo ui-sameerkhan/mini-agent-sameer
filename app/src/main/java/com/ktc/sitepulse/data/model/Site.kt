@@ -26,4 +26,11 @@ data class Site(
      * null means "use the company default" (Constants.DEFAULT_LATE_AFTER_HOUR). Nullable so
      * every existing site doc, which has no such field, keeps working untouched. */
     val lateAfterHour: Long? = null,
+    /**
+     * Wider allowance, in metres, for office staff checking themselves in — null means use the
+     * company default (Constants.DEFAULT_STAFF_RADIUS_M, 5km). [radius] stays tight because it
+     * governs site attendance, where proving presence at the workface is the whole point; staff
+     * move between office, stores and site all day and shouldn't be blocked for it.
+     */
+    val staffRadius: Long? = null,
 )

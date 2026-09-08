@@ -351,9 +351,10 @@ private fun UserEditDialog(
     }
 
     // Super Admin always holds every site, so the picker would be meaningless for that role.
-    // Staff hold exactly one location — the office they check in at.
+    // Staff may hold several: they move between office, stores and site during a normal day and
+    // check themselves in at whichever they're at, within that site's wider staff radius.
     val needsSites = role != Role.SUPER_ADMIN
-    val singleSiteOnly = role == Role.STAFF
+    val singleSiteOnly = false
 
     AlertDialog(
         onDismissRequest = onDismiss,

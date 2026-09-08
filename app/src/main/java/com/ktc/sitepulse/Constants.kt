@@ -13,6 +13,15 @@ object Constants {
 
     const val DEFAULT_GEOFENCE_RADIUS_M = 500
 
+    /**
+     * Office staff checking themselves in get a much wider allowance than a worker being marked
+     * at a site. A tight geofence is the point for site attendance — it proves the person is at
+     * the workface. Staff are salaried and mobile between office, stores and site, so holding
+     * them to a few hundred metres just blocks legitimate check-ins. Overridable per site via
+     * Site.staffRadius.
+     */
+    const val DEFAULT_STAFF_RADIUS_M = 5000
+
     /** Company-wide fallback for "what counts as a late arrival" — a day-shift check-in at or
      * after this local hour. A site running different hours overrides it via Site.lateAfterHour;
      * existing site docs have no such field, so they simply fall back to this. */

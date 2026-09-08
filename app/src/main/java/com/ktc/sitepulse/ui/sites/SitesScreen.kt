@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -122,6 +123,7 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
     var nightStartHour by remember { mutableStateOf(existing?.nightStartHour?.toString() ?: "") }
     var dayStartHour by remember { mutableStateOf(existing?.dayStartHour?.toString() ?: "") }
     var lateAfterHour by remember { mutableStateOf(existing?.lateAfterHour?.toString() ?: "") }
+    var staffRadius by remember { mutableStateOf(existing?.staffRadius?.toString() ?: "") }
     var gpsStatus by remember { mutableStateOf("") }
     var wifiStatus by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -131,7 +133,9 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "🏗️ Add Project Site" else "🏗️ Edit Project Site") },
         text = {
-            Column {
+            // Scrollable and height-capped: there are enough fields here now that without this
+            // the last ones sit off the bottom of the dialog with no way to reach them.
+            Column(Modifier.verticalScroll(rememberScrollState()).heightIn(max = 440.dp)) {
                 OutlinedTextField(code, { code = it.uppercase() }, label = { Text("Project Code *") }, modifier = Modifier.fillMaxWidth(), enabled = existing == null)
                 OutlinedTextField(name, { name = it }, label = { Text("Site Name *") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 OutlinedButton(
@@ -198,6 +202,18 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                     supportingText = { Text("A day-shift check-in at or after this hour counts as late on the dashboard. Blank = company default (${Constants.DEFAULT_LATE_AFTER_HOUR}:00).") },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                OutlinedTextField(
+                    staffRadius, { staffRadius = it.filter { c -> c.isDigit() } },
+                    label = { Text("Office Staff Radius (m)") },
+                    supportingText = {
+                        Text(
+                            "How far office staff may be when checking themselves in — much wider " +
+                                "than the site radius above, which stays tight because it proves a " +
+                                "worker is at the workface. Blank = ${Constants.DEFAULT_STAFF_RADIUS_M / 1000}km."
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
             }
         },
         confirmButton = {
@@ -213,6 +229,7 @@ private fun SiteEditDialog(existing: Site?, onDismiss: () -> Unit, onSave: (Site
                             nightStartHour = nightStartHour.toLongOrNull()?.coerceIn(0, 23),
                             dayStartHour = dayStartHour.toLongOrNull()?.coerceIn(0, 23),
                             lateAfterHour = lateAfterHour.toLongOrNull()?.coerceIn(0, 23),
+                            staffRadius = staffRadius.toLongOrNull()?.takeIf { it > 0 },
                         )
                     )
                 }

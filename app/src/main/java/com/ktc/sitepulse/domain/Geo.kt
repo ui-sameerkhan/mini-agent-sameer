@@ -1,5 +1,6 @@
 package com.ktc.sitepulse.domain
 
+import com.ktc.sitepulse.Constants
 import com.ktc.sitepulse.data.model.Site
 import kotlin.math.PI
 import kotlin.math.asin
@@ -12,7 +13,21 @@ import kotlin.math.sqrt
 data class LatLng(val lat: Double, val lng: Double)
 
 data class NearestSite(val site: Site, val distanceM: Long) {
-    val insideGeofence: Boolean get() = distanceM <= (if (site.radius > 0) site.radius else 500)
+    /** Site attendance: the tight radius, because proving presence at the workface is the point. */
+    val insideGeofence: Boolean get() = distanceM <= effectiveRadius(forSelfCheckIn = false)
+
+    /** Office staff checking themselves in — a much wider allowance, see Site.staffRadius. */
+    val insideStaffGeofence: Boolean get() = distanceM <= effectiveRadius(forSelfCheckIn = true)
+
+    fun isInside(forSelfCheckIn: Boolean): Boolean =
+        distanceM <= effectiveRadius(forSelfCheckIn)
+
+    /** The allowance actually applied, so a rejection message can quote the real limit. */
+    fun effectiveRadius(forSelfCheckIn: Boolean): Long = if (forSelfCheckIn) {
+        site.staffRadius?.takeIf { it > 0 } ?: Constants.DEFAULT_STAFF_RADIUS_M.toLong()
+    } else {
+        site.radius.takeIf { it > 0 } ?: Constants.DEFAULT_GEOFENCE_RADIUS_M.toLong()
+    }
 }
 
 object Geo {
