@@ -13,6 +13,8 @@ import org.apache.poi.ss.usermodel.IndexedColors
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.apache.poi.xssf.usermodel.XSSFColor
+import org.apache.poi.xssf.streaming.SXSSFSheet
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.FileOutputStream
@@ -45,6 +47,13 @@ object ReportEngine {
         val generatedBy: String,
     )
 
+    /**
+     * Rows kept in memory before being flushed to a temp file. Small enough that a
+     * hundred-thousand-row export costs a fixed few megabytes instead of scaling with the
+     * workforce; large enough that flushing isn't happening on every other row.
+     */
+    private const val ROW_WINDOW = 200
+
     private val DARK_GREEN = Rgb(0x0B, 0x4D, 0x3A)
     private val MID_GREEN = Rgb(0x17, 0x87, 0x5E)
     private val LIGHT_GREEN = Rgb(0xEA, 0xF3, 0xEE)
@@ -70,8 +79,12 @@ object ReportEngine {
             !it.site.isNullOrBlank() && it.status != "left" && (params.siteScope == "ALL" || it.site == params.siteScope)
         }
 
-        val wb = XSSFWorkbook()
-        val styles = Styles(wb)
+        // Streaming workbook: only ROW_WINDOW rows are ever held in memory, the rest are
+        // flushed to compressed temp files as they're written. A full-company month is well over
+        // 100,000 rows, which the in-memory model cannot hold inside an Android heap.
+        // Styles are created on the underlying XSSF workbook — SXSSF shares its styles table.
+        val wb = SXSSFWorkbook(ROW_WINDOW).apply { isCompressTempFiles = true }
+        val styles = Styles(wb.xssfWorkbook)
         val metaLines = buildMetaLines(params)
 
         if (sorted.isEmpty() && expected.isEmpty()) {
@@ -210,8 +223,14 @@ object ReportEngine {
         val scopeLabel = if (params.siteScope == "ALL") "AllProjects" else params.siteScope
         val fileName = "SitePulse_${scopeLabel}_${params.dateOrMonth}.xlsx"
         val outFile = File(outputDir, fileName)
-        FileOutputStream(outFile).use { wb.write(it) }
-        wb.close()
+        try {
+            FileOutputStream(outFile).use { wb.write(it) }
+        } finally {
+            // dispose() deletes the temp files the streaming workbook wrote rows out to. Skipping
+            // it on a failure path would silently fill the device with abandoned spool files.
+            wb.dispose()
+            wb.close()
+        }
         return outFile
     }
 
@@ -368,7 +387,7 @@ object ReportEngine {
     }
 
     private fun addSheet(
-        wb: XSSFWorkbook, styles: Styles, sheetName: String,
+        wb: SXSSFWorkbook, styles: Styles, sheetName: String,
         title: String, meta: List<String>, headers: List<String>, rows: List<List<String>>,
     ) {
         val safeName = wb.getSheet(sheetName)?.let { "$sheetName-${wb.numberOfSheets}" } ?: sheetName

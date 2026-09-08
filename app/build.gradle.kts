@@ -10,6 +10,16 @@ android {
     namespace = "com.ktc.sitepulse"
     compileSdk = 35
 
+    testOptions {
+        unitTests.all {
+            // Deliberately capped near what Android actually grants an app without largeHeap.
+            // A scale test that passes on a laptop's multi-gigabyte default heap would prove
+            // nothing about whether the export survives on a phone.
+            it.maxHeapSize = "256m"
+            it.testLogging { events("passed", "failed", "standardOut") }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.ktc.sitepulse"
         minSdk = 26
@@ -124,6 +134,8 @@ dependencies {
     implementation("org.json:json:20240303")
 
     testImplementation("junit:junit:4.13.2")
+    // The scale test drives Apache POI directly on the JVM; the app's own POI dependency is
+    // already on this classpath via implementation.
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }

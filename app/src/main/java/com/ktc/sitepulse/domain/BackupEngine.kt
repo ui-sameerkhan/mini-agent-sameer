@@ -14,6 +14,7 @@ import org.apache.poi.ss.usermodel.IndexedColors
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.apache.poi.xssf.usermodel.XSSFColor
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.FileOutputStream
@@ -32,6 +33,9 @@ object BackupEngine {
         fun toBytes(): ByteArray = byteArrayOf(r.toByte(), g.toByte(), b.toByte())
     }
 
+    /** Rows held in memory before flushing to a temp file — see ReportEngine.ROW_WINDOW. */
+    private const val ROW_WINDOW = 200
+
     private val DARK_BLUE = Rgb(0x00, 0x11, 0x3D)
     private val MID_BLUE = Rgb(0x0B, 0x66, 0xD6)
     private val LIGHT_BLUE = Rgb(0xE8, 0xF1, 0xFC)
@@ -49,8 +53,10 @@ object BackupEngine {
         arrivals: List<ArrivalRequest>,
         generatedBy: String,
     ): File {
-        val wb = XSSFWorkbook()
-        val styles = Styles(wb)
+        // Streaming, for the same reason as ReportEngine: a full backup is every attendance
+        // record ever written, which after a year at full workforce is over a million rows.
+        val wb = SXSSFWorkbook(ROW_WINDOW).apply { isCompressTempFiles = true }
+        val styles = Styles(wb.xssfWorkbook) // SXSSF shares the underlying styles table
         val meta = listOf(
             "Generated: ${DateUtils.formatDateTime(DateUtils.nowIso())} · By: $generatedBy",
             "Full data backup — every record, all time",
@@ -133,8 +139,12 @@ object BackupEngine {
         )
 
         val outFile = File(outputDir, "SitePulse_FullBackup_${DateUtils.todayStrUtc()}.xlsx")
-        FileOutputStream(outFile).use { wb.write(it) }
-        wb.close()
+        try {
+            FileOutputStream(outFile).use { wb.write(it) }
+        } finally {
+            wb.dispose() // deletes the row spool files; see ReportEngine
+            wb.close()
+        }
         return outFile
     }
 
@@ -182,7 +192,7 @@ object BackupEngine {
     }
 
     private fun addSheet(
-        wb: XSSFWorkbook, styles: Styles, sheetName: String,
+        wb: SXSSFWorkbook, styles: Styles, sheetName: String,
         title: String, meta: List<String>, headers: List<String>, rows: List<List<String>>,
     ) {
         val sheet = wb.createSheet(sheetName)
