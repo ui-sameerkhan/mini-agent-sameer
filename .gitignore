@@ -10,3 +10,5 @@ captures/
 *.apk
 *.aab
 .kotlin/
+firestore-debug.log
+firebase-debug.log
