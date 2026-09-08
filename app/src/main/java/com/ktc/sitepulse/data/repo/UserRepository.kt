@@ -3,6 +3,7 @@ package com.ktc.sitepulse.data.repo
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.ktc.sitepulse.data.model.UserInvite
 import com.ktc.sitepulse.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -78,5 +79,54 @@ class UserRepository(private val db: FirebaseFirestore = FirebaseFirestore.getIn
         runCatching {
             collection.document(uid).set(mapOf("lastLoginAt" to at), SetOptions.merge()).await()
         }
+    }
+
+    // ---- Invites -------------------------------------------------------------------------
+
+    private val invites get() = db.collection("userInvites")
+
+    /** Leaves the intended role and sites for a login whose UID the admin can't know yet. */
+    suspend fun saveInvite(invite: UserInvite) {
+        invites.document(invite.email.trim().lowercase()).set(invite).await()
+    }
+
+    suspend fun getInvite(email: String): UserInvite? =
+        invites.document(email.trim().lowercase()).get().await()
+            .toObjectSafe(UserInvite::class.java, "userInvites")
+
+    /** Outstanding invites, so Super Admin can see who hasn't signed in to claim theirs yet. */
+    fun liveInvites(): Flow<List<UserInvite>> =
+        invites.asFlow().map { docs ->
+            docs.mapNotNull { d -> d.toObjectSafe(UserInvite::class.java, "userInvites")?.copy(docId = d.id) }
+        }
+
+    suspend fun deleteInvite(email: String) {
+        invites.document(email.trim().lowercase()).delete().await()
+    }
+
+    /**
+     * Turns an invite into a real profile at users/{uid}, on the invited person's first sign-in.
+     *
+     * The written role and sites are copied straight from the invite — security rules verify
+     * they match it exactly, so this can never grant more than the administrator intended. The
+     * invite is then cleared; if that delete is refused it's harmless, since a profile now
+     * exists and takes precedence over any invite.
+     */
+    suspend fun claimInvite(uid: String, email: String, invite: UserInvite, now: String): UserProfile {
+        val profile = UserProfile(
+            uid = uid,
+            name = invite.name,
+            email = email.trim().lowercase(),
+            role = invite.role,
+            assignedSites = invite.assignedSites,
+            status = "active",
+            employeeId = invite.employeeId,
+            createdAt = invite.invitedAt,
+            updatedAt = now,
+            createdBy = invite.invitedBy,
+        )
+        collection.document(uid).set(profile).await()
+        runCatching { deleteInvite(email) }
+        return profile
     }
 }

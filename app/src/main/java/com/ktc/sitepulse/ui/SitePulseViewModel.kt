@@ -14,6 +14,7 @@ import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.ALL_SITES
 import com.ktc.sitepulse.data.model.Role
 import com.ktc.sitepulse.data.model.Timekeeper
+import com.ktc.sitepulse.data.model.UserInvite
 import com.ktc.sitepulse.data.model.UserProfile
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Blocked
@@ -249,32 +250,61 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
         viewModelScope.launch {
             try {
-                if (password.isNotEmpty()) {
+                val now = DateUtils.nowIso()
+                val sites = if (role == Role.SUPER_ADMIN) listOf(ALL_SITES) else assignedSites
+                val existing = container.userRepository.findByEmail(trimmedEmail)
+
+                // Creating the login is the only moment the new account's UID is knowable from
+                // here — a profile must live at users/{uid}, so it's captured and used directly.
+                val newUid = if (password.isNotEmpty()) {
                     setStatus("userStatus", "⏳ Creating login…")
                     container.authRepository.createUserAccount(getApplication(), trimmedEmail, password).getOrThrow()
+                } else null
+
+                val uid = newUid ?: existing?.uid
+                if (uid != null) {
+                    setStatus("userStatus", "⏳ Saving profile…")
+                    container.userRepository.save(
+                        UserProfile(
+                            uid = uid,
+                            name = name.trim(),
+                            email = trimmedEmail,
+                            role = role.id,
+                            assignedSites = sites,
+                            status = "active",
+                            employeeId = employeeId?.trim()?.ifBlank { null },
+                            createdAt = existing?.createdAt ?: now,
+                            updatedAt = now,
+                            createdBy = session.value.email,
+                        )
+                    )
+                    setStatus(
+                        "userStatus",
+                        if (newUid != null)
+                            "✅ ${role.label} created. Share the email and password directly — they won't be shown again."
+                        else "✅ Profile updated for $trimmedEmail.",
+                    )
+                } else {
+                    // The login already exists but its UID is only ever visible to that account,
+                    // so the role is left as an invite for it to claim on next sign-in.
+                    setStatus("userStatus", "⏳ Saving invite…")
+                    container.userRepository.saveInvite(
+                        UserInvite(
+                            email = trimmedEmail,
+                            name = name.trim(),
+                            role = role.id,
+                            assignedSites = sites,
+                            employeeId = employeeId?.trim()?.ifBlank { null },
+                            invitedBy = session.value.email,
+                            invitedAt = now,
+                        )
+                    )
+                    setStatus(
+                        "userStatus",
+                        "✅ ${role.label} access prepared for $trimmedEmail. It applies the next time they sign in — " +
+                            "ask them to open the app once, then they'll appear in this list.",
+                    )
                 }
-                setStatus("userStatus", "⏳ Saving profile…")
-                val now = DateUtils.nowIso()
-                val existing = container.userRepository.findByEmail(trimmedEmail)
-                val profile = UserProfile(
-                    uid = existing?.uid ?: trimmedEmail, // email-keyed until first sign-in resolves the UID
-                    name = name.trim(),
-                    email = trimmedEmail,
-                    role = role.id,
-                    assignedSites = if (role == Role.SUPER_ADMIN) listOf(ALL_SITES) else assignedSites,
-                    status = "active",
-                    employeeId = employeeId?.trim()?.ifBlank { null },
-                    createdAt = existing?.createdAt ?: now,
-                    updatedAt = now,
-                    createdBy = session.value.email,
-                )
-                container.userRepository.save(profile)
-                setStatus(
-                    "userStatus",
-                    if (password.isNotEmpty())
-                        "✅ ${role.label} created. Share the email and password directly — it won't be shown again."
-                    else "✅ Profile saved for $trimmedEmail.",
-                )
             } catch (e: Throwable) {
                 setStatus("userStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
@@ -359,6 +389,25 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             else container.userRepository.live(uid).catch { emit(null) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    init {
+        // An account given access before it ever signed in has its role waiting as an invite,
+        // because only the account itself can reveal the UID a profile must be stored under.
+        // Claiming it here is the first thing that happens after login. Security rules only
+        // accept a profile matching the invite exactly, so this cannot grant more than the
+        // administrator chose; a failure just leaves the user on their previous access.
+        viewModelScope.launch {
+            session.map { it.uid to it.email }.distinctUntilChanged().collect { (uid, email) ->
+                if (uid.isNullOrBlank() || email.isBlank()) return@collect
+                runCatching {
+                    if (container.userRepository.get(uid) != null) return@runCatching
+                    val invite = container.userRepository.getInvite(email) ?: return@runCatching
+                    container.userRepository.claimInvite(uid, email, invite, DateUtils.nowIso())
+                }
+                runCatching { container.userRepository.touchLastLogin(uid, DateUtils.nowIso()) }
+            }
+        }
+    }
 
     /**
      * Who is signed in and what they may do — the single source every screen reads.

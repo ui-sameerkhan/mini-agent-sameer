@@ -57,14 +57,18 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
      * through a secondary, throwaway FirebaseApp instance rather than the shared default one —
      * otherwise it would sign the admin out of their own session to become the new user.
      */
-    suspend fun createUserAccount(context: Context, email: String, password: String): Result<Unit> = runCatching {
+    suspend fun createUserAccount(context: Context, email: String, password: String): Result<String?> = runCatching {
         val secondaryApp = FirebaseApp.initializeApp(context, FirebaseApp.getInstance().options, "tk-create-${System.currentTimeMillis()}")
             ?: error("Could not start a secondary Firebase instance.")
         val secondaryAuth = FirebaseAuth.getInstance(secondaryApp)
         try {
-            secondaryAuth.createUserWithEmailAndPassword(email.trim(), password).await()
+            // The UID is the whole point of doing this here: a profile has to be stored at
+            // users/{uid}, and this is the only moment the creating admin ever learns it.
+            secondaryAuth.createUserWithEmailAndPassword(email.trim(), password).await().user?.uid
         } catch (e: FirebaseAuthUserCollisionException) {
-            // Account already exists under this email — fine, the caller just grants the role.
+            // The login already exists, so its UID isn't knowable from here — the caller leaves
+            // an invite instead, which that account claims the next time it signs in.
+            null
         } finally {
             secondaryAuth.signOut()
             secondaryApp.delete()

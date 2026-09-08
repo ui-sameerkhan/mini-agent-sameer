@@ -170,6 +170,108 @@ test("attendance cannot be deleted by anyone below super admin", async () => {
   await assertFails(deleteDoc(doc(as("uid-foreman-a", "fa@ktc.test"), "attendance/2026-09-08_W-A")));
 });
 
+// ---------------------------------------------------------------------------------------------
+// Invites: access prepared for a login that has not signed in yet.
+// ---------------------------------------------------------------------------------------------
+
+test("an invited account claims exactly the access it was given", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "userInvites/invited@ktc.test"), {
+      email: "invited@ktc.test", name: "Invited", role: "foreman",
+      assignedSites: ["SITE-A"], invitedBy: "super@ktc.test", invitedAt: "2026-09-08",
+    });
+  });
+  const db = as("uid-invited", "invited@ktc.test");
+  await assertSucceeds(getDoc(doc(db, "userInvites/invited@ktc.test")));
+  await assertSucceeds(
+    setDoc(doc(db, "users/uid-invited"), {
+      name: "Invited", email: "invited@ktc.test", role: "foreman",
+      assignedSites: ["SITE-A"], status: "active",
+    }),
+  );
+});
+
+test("an invited account cannot claim MORE than it was invited to", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "userInvites/greedy@ktc.test"), {
+      email: "greedy@ktc.test", name: "Greedy", role: "foreman",
+      assignedSites: ["SITE-A"], invitedBy: "super@ktc.test", invitedAt: "2026-09-08",
+    });
+  });
+  const db = as("uid-greedy", "greedy@ktc.test");
+  // A better role than the invite names.
+  await assertFails(
+    setDoc(doc(db, "users/uid-greedy"), {
+      name: "Greedy", email: "greedy@ktc.test", role: "super_admin",
+      assignedSites: ["SITE-A"], status: "active",
+    }),
+  );
+  // More sites than the invite names.
+  await assertFails(
+    setDoc(doc(db, "users/uid-greedy"), {
+      name: "Greedy", email: "greedy@ktc.test", role: "foreman",
+      assignedSites: ["SITE-A", "SITE-B"], status: "active",
+    }),
+  );
+  // Every site.
+  await assertFails(
+    setDoc(doc(db, "users/uid-greedy"), {
+      name: "Greedy", email: "greedy@ktc.test", role: "foreman",
+      assignedSites: ["ALL"], status: "active",
+    }),
+  );
+});
+
+test("an account with no invite cannot create a profile for itself at all", async () => {
+  const db = as("uid-nobody", "nobody@ktc.test");
+  await assertFails(
+    setDoc(doc(db, "users/uid-nobody"), {
+      name: "Nobody", email: "nobody@ktc.test", role: "foreman",
+      assignedSites: ["SITE-A"], status: "active",
+    }),
+  );
+});
+
+test("an invite cannot be used to write someone else's profile", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "userInvites/imposter@ktc.test"), {
+      email: "imposter@ktc.test", name: "Imposter", role: "foreman",
+      assignedSites: ["SITE-A"], invitedBy: "super@ktc.test", invitedAt: "2026-09-08",
+    });
+  });
+  const db = as("uid-imposter", "imposter@ktc.test");
+  await assertFails(
+    setDoc(doc(db, "users/uid-foreman-a"), {
+      name: "Imposter", email: "imposter@ktc.test", role: "foreman",
+      assignedSites: ["SITE-A"], status: "active",
+    }),
+  );
+});
+
+test("only super admin creates invites", async () => {
+  const foreman = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(
+    setDoc(doc(foreman, "userInvites/fa@ktc.test"), {
+      email: "fa@ktc.test", role: "super_admin", assignedSites: ["ALL"],
+    }),
+  );
+  await assertSucceeds(
+    setDoc(doc(as("uid-super", "super@ktc.test"), "userInvites/new@ktc.test"), {
+      email: "new@ktc.test", name: "New", role: "timekeeper",
+      assignedSites: ["SITE-B"], invitedBy: "super@ktc.test", invitedAt: "2026-09-08",
+    }),
+  );
+});
+
+test("a user cannot read another person's invite", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "userInvites/private@ktc.test"), {
+      email: "private@ktc.test", role: "admin", assignedSites: ["SITE-A"],
+    });
+  });
+  await assertFails(getDoc(doc(as("uid-foreman-a", "fa@ktc.test"), "userInvites/private@ktc.test")));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });
