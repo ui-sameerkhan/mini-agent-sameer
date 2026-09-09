@@ -182,6 +182,11 @@ service cloud.firestore {
     // Site-scoped for reads; only worker managers may write.
     // ---------------------------------------------------------------------------------------
     match /workers/{workerId} {
+      // Strictly site-scoped. An earlier attempt also admitted workers allocated to no project,
+      // so an untagged roster would not leave site-scoped users staring at an empty list — but
+      // adding that clause made the rule unprovable for a list query, and Firestore then served
+      // an unconstrained query in full, handing a foreman another project's crew. Verified, and
+      // reverted: workers are given a project through the roster upload instead.
       allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
       allow create, update: if uploadsRoster() &&
         (holdsAllSites() || hasSiteAccess(request.resource.data.get('site', null)));

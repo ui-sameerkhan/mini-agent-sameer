@@ -50,6 +50,8 @@ await seed(async (db) => {
 
   await setDoc(doc(db, "workers/W-A"), { id: "W-A", name: "Worker A", designation: "Carpenter", site: "SITE-A" });
   await setDoc(doc(db, "workers/W-B"), { id: "W-B", name: "Worker B", designation: "Mason", site: "SITE-B" });
+  // Not yet allocated to any project — the shape most of an untagged roster has.
+  await setDoc(doc(db, "workers/W-FREE"), { id: "W-FREE", name: "Unallocated", designation: "Helper", site: null });
 
   await setDoc(doc(db, "attendance/2026-09-08_W-A"), { workerId: "W-A", date: "2026-09-08", siteCode: "SITE-A" });
   await setDoc(doc(db, "attendance/2026-09-08_W-B"), { workerId: "W-B", date: "2026-09-08", siteCode: "SITE-B" });
@@ -377,6 +379,24 @@ test("a foreman still cannot upload roster entries at all", async () => {
   await assertFails(setDoc(doc(db, "workers/W-FOREMAN-TRY"), {
     id: "W-FOREMAN-TRY", name: "Nope", designation: "Helper", site: "SITE-A",
   }));
+});
+
+// ---------------------------------------------------------------------------------------------
+// A worker allocated to no project belongs to nobody. Hiding them left site-scoped users looking
+// at an empty roster, unable to mark anyone — while another project's crew must stay hidden.
+// ---------------------------------------------------------------------------------------------
+
+test("a worker allocated to no project is NOT visible to a site-scoped user", async () => {
+  // Admitting these would be convenient, but the clause needed to express it makes the rule
+  // unprovable for a list query, and Firestore then serves the unconstrained query in full —
+  // handing a foreman every other project's crew. A worker is given a project instead.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(getDoc(doc(db, "workers/W-FREE")));
+});
+
+test("another project's crew stays hidden", async () => {
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(getDoc(doc(db, "workers/W-B")));
 });
 
 test.after(async () => {
