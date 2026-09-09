@@ -181,6 +181,14 @@ object Permissions {
     fun canApproveRequests(session: SessionProfile): Boolean =
         session.isActive && session.role in setOf(Role.SUPER_ADMIN, Role.ADMIN)
 
+    /**
+     * The Roster tab has two faces: the management panel (pending arrivals, leave, holidays,
+     * site deviations) and the field panel (report a new arrival). Admins and timekeepers get
+     * the former because they own leave and absence; supervisors and foremen get the latter.
+     */
+    fun canManageRoster(session: SessionProfile): Boolean =
+        session.isActive && session.role in setOf(Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER)
+
     /** Staff mark only themselves; everyone else marks the workforce. */
     fun isSelfServiceOnly(session: SessionProfile): Boolean = session.role == Role.STAFF
 
@@ -264,7 +272,9 @@ object Permissions {
             Role.TIMEKEEPER -> setOf("checkin", "dashboard", "attendance", "workers", "roster")
             // Supervisors and foremen mark attendance and read their site's manpower; they get
             // no workforce management, no site configuration and no company-wide reporting.
-            Role.SUPERVISOR, Role.FOREMAN -> setOf("checkin", "dashboard", "attendance")
+            // Roster included so the "Report Arrival" action on Check-In leads somewhere they
+            // are actually permitted; it shows them the field panel, not the management one.
+            Role.SUPERVISOR, Role.FOREMAN -> setOf("checkin", "dashboard", "attendance", "roster")
             Role.STAFF -> emptySet() // self-service screen only, reached without the tab bar
         }
     }

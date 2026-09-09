@@ -96,7 +96,10 @@ fun RosterScreen(
             }
         }
 
-        if (session.isAdmin) {
+        // Was keyed on the legacy admin-email check, which handed an admin-role account the
+        // field panel instead of the management one, and gave a timekeeper no leave or holiday
+        // tools at all. Driven by the role now.
+        if (Permissions.canManageRoster(sessionProfile)) {
             RosterAdminPanel(viewModel)
         } else {
             RosterSupervisorPanel(viewModel)
