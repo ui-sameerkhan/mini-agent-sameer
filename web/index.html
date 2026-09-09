@@ -676,6 +676,81 @@ const PAGE = 50;
 
 let workers = FALLBACK, sites = [], attendance = [], blocked = [], pendingArrivals = [], leaves = [], holidays = [], timekeepers = [];
 let adminOn = false, officeStaffOn = false, timekeeperOn = false, myLinkedWorkerId = null;
+
+// ---------- ROLE + SITE SCOPE ----------
+// Mirrors the Android app and firestore.rules exactly. Access comes from users/{uid} — a role
+// plus the sites that account may reach. Logins that predate that collection keep working
+// through the legacy fallback, which reproduces the access they already had.
+const ALL_SITES = "ALL";
+let session = { uid:null, email:"", role:"supervisor", assignedSites:[ALL_SITES], active:true, employeeId:null };
+
+const hasAllSites = () => session.role === "super_admin" || session.assignedSites.includes(ALL_SITES);
+
+/**
+ * Resolves who is signed in.
+ *
+ * The configured administrator is Super Admin unconditionally, whatever any profile document
+ * says — without that, one malformed users/{uid} record demotes the only account able to repair
+ * user access and nobody can fix it from inside the app. A document carrying no role was never
+ * provisioned as a profile, so it is ignored rather than read as a grant of access.
+ */
+async function resolveSession(user){
+  const email = (user.email||"").toLowerCase();
+  const isCfgAdmin = ADMIN_EMAILS.includes(email);
+
+  let profile = null;
+  try {
+    const snap = await getDoc(doc(db,"users",user.uid));
+    if(snap.exists()) profile = snap.data();
+  } catch(e){ /* unreadable profile must not block sign-in — fall through to the legacy rules */ }
+
+  const provisioned = profile && typeof profile.role === "string" && profile.role !== "";
+
+  if(isCfgAdmin){
+    return { uid:user.uid, email, role:"super_admin", assignedSites:[ALL_SITES], active:true,
+             employeeId: profile ? (profile.employeeId||null) : null };
+  }
+  if(provisioned){
+    return { uid:user.uid, email, role:profile.role,
+             assignedSites: profile.role === "super_admin" ? [ALL_SITES] : (profile.assignedSites||[]),
+             active: (profile.status||"active") === "active",
+             employeeId: profile.employeeId||null };
+  }
+  // Legacy: exactly the access this login had before the users collection existed.
+  let role = "supervisor";
+  try {
+    const tk = await getDoc(doc(db,"timekeepers",email));
+    if(tk.exists()) role = "timekeeper";
+    else if(email.endsWith("@"+OFFICE_STAFF_EMAIL_DOMAIN)) role = "staff";
+  } catch(e){
+    if(email.endsWith("@"+OFFICE_STAFF_EMAIL_DOMAIN)) role = "staff";
+  }
+  return { uid:user.uid, email, role, assignedSites:[ALL_SITES], active:true, employeeId:null };
+}
+
+/**
+ * Firestore rules are not filters: a query that isn't itself constrained to what the caller may
+ * read is refused outright rather than returning a filtered subset. So a site-scoped user has to
+ * ask per site. One listener per site rather than a single "in" clause — that caps at 30 values
+ * and, combined with another equality clause, needs a composite index deployed by hand.
+ */
+function watchPerSite(coll, extraClauses, onRows, siteField){
+  if(hasAllSites()){
+    return onSnapshot(query(collection(db,coll), ...extraClauses), snap => {
+      onRows(snap.docs.map(d=>({_id:d.id, ...d.data()})));
+    }, ()=>{});
+  }
+  const codes = session.assignedSites.filter(Boolean);
+  if(codes.length === 0){ onRows([]); return () => {}; }
+  const perSite = {};
+  const unsubs = codes.map(code =>
+    onSnapshot(query(collection(db,coll), ...extraClauses, where(siteField,"==",code)), snap => {
+      perSite[code] = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+      onRows(Object.values(perSite).flat());
+    }, ()=>{})
+  );
+  return () => unsubs.forEach(u=>u());
+}
 window.wpage = 1;
 
 $("datestr").textContent = new Date().toLocaleDateString([], {weekday:'short', day:'numeric', month:'short'});
@@ -726,23 +801,39 @@ window.doLogout = async function(){ await signOut(auth); };
 
 onAuthStateChanged(auth, async (user)=>{
   const email = (user && user.email ? user.email : "").toLowerCase();
-  const isAdminEmail = !!user && ADMIN_EMAILS.includes(email);
   // Timekeeper is a Firestore-managed role (admin adds/removes accounts from the Manage
   // Timekeepers screen), checked before Office Staff so an explicit grant always wins over
   // the domain-based office-staff match, same precedence admin already gets.
-  let isTimekeeperUser = false;
-  if(user && !isAdminEmail){
-    try { isTimekeeperUser = (await getDoc(doc(db,"timekeepers",email))).exists(); } catch(e){ /* offline — fall through as non-timekeeper */ }
+  // Resolve the stored profile — role plus assigned sites — before deciding what to show.
+  // The six roles map onto the four views this app already has: super_admin and admin get the
+  // full admin view, supervisor and foreman the field view, and staff the self-service one.
+  if(user){
+    session = await resolveSession(user);
+    if(!session.active){
+      $("lg-msg").textContent = "Your account has been disabled. Please contact the administrator.";
+      await signOut(auth);
+      return;
+    }
+  } else {
+    session = { uid:null, email:"", role:"supervisor", assignedSites:[ALL_SITES], active:true, employeeId:null };
   }
-  const isOffice = !!user && !isAdminEmail && !isTimekeeperUser && email.endsWith("@"+OFFICE_STAFF_EMAIL_DOMAIN);
+
+  const isAdminRole = !!user && (session.role === "super_admin" || session.role === "admin");
+  const isTimekeeperUser = !!user && session.role === "timekeeper";
+  const isOffice = !!user && session.role === "staff";
   timekeeperOn = isTimekeeperUser;
-  if(isAdminEmail){
-    // ADMIN — full access
+  const siteNote = hasAllSites() ? ""
+    : (session.assignedSites.length ? " · " + session.assignedSites.join(", ") : " · no site assigned");
+  if(isAdminRole){
+    // SUPER ADMIN / ADMIN — full view; an admin is limited to their assigned sites by the
+    // scoped listeners and by firestore.rules, not by hiding anything here.
     adminOn = true; officeStaffOn = false; timekeeperOn = false;
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.add("show");
     $("lg-msg").textContent = "";
-    $("notice").innerHTML = "";
+    $("notice").innerHTML = session.role === "super_admin"
+      ? ""
+      : '<div class="notice ok">🛠️ Admin: '+email+siteNote+'</div>';
     $("roster-admin").style.display = "block";
     $("roster-supervisor").style.display = "none";
     $("office-btn").style.display = "none";
@@ -754,7 +845,7 @@ onAuthStateChanged(auth, async (user)=>{
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.remove("show");
     $("lg-msg").textContent = "";
-    $("notice").innerHTML = '<div class="notice ok">🧾 Timekeeper: '+email+' — attendance reports and corrections.</div>';
+    $("notice").innerHTML = '<div class="notice ok">📋 Timekeeper: '+email+siteNote+' — attendance reports and corrections.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "none";
     $("office-btn").style.display = "none";
@@ -766,7 +857,7 @@ onAuthStateChanged(auth, async (user)=>{
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.remove("show");
     $("lg-msg").textContent = "";
-    $("notice").innerHTML = '<div class="notice ok">🏢 Office Staff: '+email+' — you can mark your own attendance and apply for leave.</div>';
+    $("notice").innerHTML = '<div class="notice ok">👤 Staff: '+email+siteNote+' — you can mark your own attendance and apply for leave.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
     $("office-btn").style.display = "block";
@@ -774,12 +865,12 @@ onAuthStateChanged(auth, async (user)=>{
     loadMyLinkedWorkerId(email);
     go("checkin");
   } else if(user){
-    // SUPERVISOR — show new arrival form only
+    // SUPERVISOR / FOREMAN — mark attendance and report arrivals, within their own sites.
     adminOn = false; officeStaffOn = false;
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.remove("show");
     $("lg-msg").textContent = "";
-    $("notice").innerHTML = '<div class="notice ok">🧑‍💼 Supervisor: '+email+' — you can mark attendance and report arrivals.</div>';
+    $("notice").innerHTML = '<div class="notice ok">'+(session.role === "foreman" ? "🦺 Foreman: " : "👷 Supervisor: ")+email+siteNote+' — you can mark attendance and report arrivals.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
     $("office-btn").style.display = "none";
@@ -812,12 +903,15 @@ function startData(isAdminUser, isTimekeeperUser){
     renderAnnouncementBanner();
   }, ()=>{});
 
-  onSnapshot(query(collection(db,"workers"), orderBy("sno")), snap => {
-    if(snap.empty){ if(isAdminUser) $("seedbar").style.display="block"; workers = []; }
-    else { $("seedbar").style.display="none"; workers = snap.docs.map(d=>d.data()); }
+  // Workers, scoped to the sites this account holds. orderBy is applied client-side because a
+  // per-site query plus an orderBy on a different field would need a composite index.
+  watchPerSite("workers", [], rows => {
+    workers = rows.sort((a,b)=>(a.sno||0)-(b.sno||0));
+    if(workers.length === 0 && isAdminUser) $("seedbar").style.display="block";
+    else $("seedbar").style.display="none";
     setStatus(true); renderWorkers(); renderDash();
     if($("pg-roster").classList.contains("on")) renderRosterList();
-  }, err => { setStatus(false); $("notice").innerHTML='<div class="notice warn">⚠ Offline ('+err.code+')</div>'; });
+  }, "site");
 
   onSnapshot(collection(db,"sites"), snap => {
     sites = snap.docs.map(d=>({_id:d.id, ...d.data()}));
@@ -827,28 +921,37 @@ function startData(isAdminUser, isTimekeeperUser){
   // Only today's attendance stays live-synced (cheap, small). Past dates are
   // fetched on-demand (see renderAtt/locate/downloadAtt) instead of being
   // streamed to every session — this is what was driving up Firestore reads.
-  onSnapshot(query(collection(db,"attendance"), where("date","==",todayStr())), snap => {
-    attendance = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+  watchPerSite("attendance", [where("date","==",todayStr())], rows => {
+    attendance = rows;
     renderDash();
     if($("pg-workers").classList.contains("on")) renderWorkers();
     if(($("att-date").value||todayStr())===todayStr()) renderAtt();
     if($("loc-id").value && ($("loc-date").value||todayStr())===todayStr()) locate();
     if(isAdminUser && $("pg-roster").classList.contains("on")) renderSiteDeviations();
-  }, ()=>{});
+  }, "siteCode");
 
   if(isAdminUser){
+    // Scoped by siteCode alone and windowed client-side: an equality clause plus a range clause
+    // on a different field would need a hand-deployed composite index.
     const bcut = new Date(Date.now() - 14*24*60*60*1000).toISOString().slice(0,10);
-    onSnapshot(query(collection(db,"blocked"), where("date",">=",bcut)), snap => {
-      blocked = snap.docs.map(d=>({_id:d.id, ...d.data()}));
-      renderDash();
-    }, ()=>{});
+    if(hasAllSites()){
+      onSnapshot(query(collection(db,"blocked"), where("date",">=",bcut)), snap => {
+        blocked = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+        renderDash();
+      }, ()=>{});
+    } else {
+      watchPerSite("blocked", [], rows => {
+        blocked = rows.filter(r => (r.date||"") >= bcut);
+        renderDash();
+      }, "siteCode");
+    }
 
     // Pending worker-arrival requests submitted by supervisors — admin approves
     // before they become real roster/worker entries.
-    onSnapshot(query(collection(db,"arrivalRequests"), where("status","==","pending")), snap => {
-      pendingArrivals = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+    watchPerSite("arrivalRequests", [where("status","==","pending")], rows => {
+      pendingArrivals = rows;
       if($("pg-roster").classList.contains("on")) renderPendingArrivals();
-    }, ()=>{});
+    }, "site");
 
     // Timekeeper accounts — small list, admin-managed from the Manage Timekeepers card.
     onSnapshot(collection(db,"timekeepers"), snap => {
@@ -861,10 +964,19 @@ function startData(isAdminUser, isTimekeeperUser){
     // Leave records — small volume, kept live for absence calculations (both admin's
     // Pending Leave Requests panel and either role's Absent Report) — firestore.rules
     // grants timekeepers the same full read access to this collection as admin.
-    onSnapshot(collection(db,"leaves"), snap => {
-      leaves = snap.docs.map(d=>({_id:d.id, ...d.data()}));
-      if($("pg-roster").classList.contains("on")) renderPendingLeaveRequests();
-    }, ()=>{});
+    // Timekeepers keep an unconstrained read here — the rules grant it for the leave-aware
+    // Absent Report — so only a site-scoped admin needs the per-site form.
+    if(hasAllSites() || session.role === "timekeeper"){
+      onSnapshot(collection(db,"leaves"), snap => {
+        leaves = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+        if($("pg-roster").classList.contains("on")) renderPendingLeaveRequests();
+      }, ()=>{});
+    } else {
+      watchPerSite("leaves", [], rows => {
+        leaves = rows;
+        if($("pg-roster").classList.contains("on")) renderPendingLeaveRequests();
+      }, "site");
+    }
 
     // Company holidays — doc id is the "YYYY-MM-DD" date itself. Small, kept live for
     // the admin management panel and the Absent Report's holiday-aware calculation.
