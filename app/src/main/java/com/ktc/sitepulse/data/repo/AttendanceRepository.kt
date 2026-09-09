@@ -45,6 +45,29 @@ class AttendanceRepository(private val db: FirebaseFirestore = FirebaseFirestore
     suspend fun getAll(): List<Attendance> =
         collection.get().await().documents.mapNotNull { it.toObjectSafe(Attendance::class.java, "attendance") }
 
+    /**
+     * A month's attendance for the given sites, fetched a day at a time.
+     *
+     * Two equality clauses (date + siteCode) are served by Firestore's automatic indexes; pairing
+     * an equality clause with a range over the month would need a composite index deployed by
+     * hand before any site-scoped user could pull a report at all. Same documents either way,
+     * just more round trips — and a site-scoped user is fetching far fewer of them than the
+     * unconstrained query would have returned.
+     */
+    suspend fun getForMonthForSites(monthStr: String, siteCodes: List<String>): List<Attendance> {
+        val days = DateUtils.daysInMonth(monthStr)
+        val out = ArrayList<Attendance>()
+        for (day in 1..days) {
+            val date = "%s-%02d".format(monthStr, day)
+            for (code in siteCodes.distinct()) {
+                collection.whereEqualTo("date", date).whereEqualTo("siteCode", code)
+                    .get().await().documents
+                    .mapNotNullTo(out) { it.toObjectSafe(Attendance::class.java, "attendance") }
+            }
+        }
+        return out
+    }
+
     suspend fun getForMonth(monthStr: String): List<Attendance> {
         val start = DateUtils.monthStart(monthStr)
         val endExclusive = DateUtils.monthEndExclusive(monthStr)

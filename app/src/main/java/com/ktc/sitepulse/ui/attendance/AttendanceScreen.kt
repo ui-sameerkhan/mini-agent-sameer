@@ -45,6 +45,7 @@ import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Site
 import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.domain.DateUtils
+import com.ktc.sitepulse.domain.Permissions
 import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.theme.SpAmberMid
@@ -54,8 +55,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun AttendanceScreen(viewModel: SitePulseViewModel) {
     val session by viewModel.session.collectAsState()
-    val isTimekeeper by viewModel.isTimekeeper.collectAsState()
-    val canCorrect = session.isAdmin || isTimekeeper
+    val sessionProfile by viewModel.sessionProfile.collectAsState()
+    val canCorrect = Permissions.canCorrectAttendance(sessionProfile)
+    // Only the sites this account holds — a report it cannot fetch is worse than one not offered.
+    val reportSites by viewModel.authorizedSites.collectAsState()
     val sites by viewModel.sites.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val statusMessages by viewModel.statusMessages.collectAsState()
@@ -65,6 +68,13 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
     var selectedDate by remember { mutableStateOf(DateUtils.todayStrUtc()) }
     var dayRows by remember { mutableStateOf<List<Attendance>>(emptyList()) }
     var dlSite by remember { mutableStateOf("ALL") }
+
+    // A user who holds exactly one project has no meaningful choice to make — preselect it so
+    // the report is one tap, rather than asking them to pick the only option available.
+    LaunchedEffect(reportSites) {
+        if (reportSites.size == 1) dlSite = reportSites.first().code
+        else if (reportSites.none { it.code == dlSite }) dlSite = "ALL"
+    }
     var dlRange by remember { mutableStateOf("day") }
     var dlSiteExpanded by remember { mutableStateOf(false) }
     var dlRangeExpanded by remember { mutableStateOf(false) }
@@ -102,15 +112,31 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
 
                 ExposedDropdownMenuBox(expanded = dlSiteExpanded, onExpandedChange = { dlSiteExpanded = it }, modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedTextField(
-                        value = if (dlSite == "ALL") "All Projects" else dlSite, onValueChange = {}, readOnly = true,
+                        value = when {
+                            dlSite != "ALL" -> reportSites.firstOrNull { it.code == dlSite }?.let { "${it.name} (${it.code})" } ?: dlSite
+                            sessionProfile.hasAllSites -> "All Projects"
+                            else -> "All My Projects"
+                        },
+                        onValueChange = {}, readOnly = true,
                         label = { Text("Project Scope") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dlSiteExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                     )
                     ExposedDropdownMenu(expanded = dlSiteExpanded, onDismissRequest = { dlSiteExpanded = false }) {
-                        DropdownMenuItem(text = { Text("All Projects") }, onClick = { dlSite = "ALL"; dlSiteExpanded = false })
-                        sites.forEach { s ->
-                            DropdownMenuItem(text = { Text(s.code) }, onClick = { dlSite = s.code; dlSiteExpanded = false })
+                        // "All Projects" means all of THEIR projects; the report is scoped to the
+                        // sites they hold either way, so offering it to a single-site user would
+                        // just be a second name for the same export.
+                        if (reportSites.size > 1) {
+                            DropdownMenuItem(
+                                text = { Text(if (sessionProfile.hasAllSites) "All Projects" else "All My Projects") },
+                                onClick = { dlSite = "ALL"; dlSiteExpanded = false },
+                            )
+                        }
+                        reportSites.forEach { s ->
+                            DropdownMenuItem(
+                                text = { Text("${s.name} (${s.code})") },
+                                onClick = { dlSite = s.code; dlSiteExpanded = false },
+                            )
                         }
                     }
                 }

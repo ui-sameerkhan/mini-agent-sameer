@@ -1324,13 +1324,30 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
     suspend fun generateReport(params: ReportEngine.Params): File {
+        // Every fetch here has to respect the caller's site scope. Firestore rules reject an
+        // unconstrained query from a scoped user outright rather than filtering it, so a
+        // site-limited admin or timekeeper previously got a permission failure instead of a
+        // report — the one screen where that mattered most to them.
+        val profile = sessionProfile.value
+        val scope = profile.assignedSites.filter { it.isNotBlank() }
+
         val attendanceRows = if (params.range == "day") {
-            if (params.dateOrMonth == DateUtils.todayStrUtc()) todayAttendance.value
-            else container.attendanceRepository.getForDate(params.dateOrMonth)
+            when {
+                params.dateOrMonth == DateUtils.todayStrUtc() -> todayAttendance.value
+                profile.hasAllSites -> container.attendanceRepository.getForDate(params.dateOrMonth)
+                else -> container.attendanceRepository.getForDateForSites(params.dateOrMonth, scope)
+            }
         } else {
-            container.attendanceRepository.getForMonth(params.dateOrMonth)
+            if (profile.hasAllSites) container.attendanceRepository.getForMonth(params.dateOrMonth)
+            else container.attendanceRepository.getForMonthForSites(params.dateOrMonth, scope)
         }
-        val leaves = container.leaveRepository.all()
+        // Timekeepers may read leave unconstrained (the rules grant it for the absent report);
+        // a site-scoped admin may not.
+        val leaves = if (profile.hasAllSites || profile.role == Role.TIMEKEEPER) {
+            container.leaveRepository.all()
+        } else {
+            container.leaveRepository.allForSites(scope)
+        }
         val holidays = container.holidayRepository.all()
         val outDir = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
         val workersSnapshot = workers.value

@@ -82,6 +82,12 @@ class LeaveRepository(private val db: FirebaseFirestore = FirebaseFirestore.getI
                 .documents.mapNotNull { it.toLeave() }.filter { it.toDate >= date }
         }
 
+    /** Every leave record for the given sites — the report's site-scoped counterpart to all(). */
+    suspend fun allForSites(siteCodes: List<String>): List<Leave> =
+        siteCodes.distinct().flatMap { code ->
+            collection.whereEqualTo("site", code).get().await().documents.mapNotNull { it.toLeave() }
+        }
+
     /** Admin-only live subscription to self-submitted leave applications awaiting a decision. */
     fun livePendingRequests(): Flow<List<Leave>> =
         collection.whereEqualTo("status", "pending").asFlow()
