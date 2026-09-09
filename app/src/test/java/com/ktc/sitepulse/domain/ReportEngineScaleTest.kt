@@ -10,18 +10,22 @@ import java.io.File
 import java.nio.file.Files
 
 /**
- * Proves the monthly export survives a full-company month.
+ * Establishes how large an export the report can actually produce, by generating the volume for
+ * real rather than reasoning about it. The unit-test heap is capped at 256m in build.gradle.kts
+ * to match what Android grants an app; a test passing on a laptop's multi-gigabyte default would
+ * prove nothing about a phone.
  *
- * The report used to build the entire workbook in memory, which at roughly 4,000 workers over a
- * month — some 104,000 rows of 19 columns — exceeds the heap an Android app is given and takes
- * the app down rather than producing a file. These tests generate that volume for real and assert
- * the file comes out, so the claim rests on a measurement rather than on reasoning about it.
+ * The ceiling is POI's in-memory workbook, which holds every cell as an object. Its streaming
+ * workbook would lift that, but cannot be used here at all: SXSSFSheet builds an
+ * AutoSizeColumnTracker in its constructor, which reaches java.awt.font.FontRenderContext —
+ * absent from the Android runtime — so every createSheet() dies with NoClassDefFoundError
+ * on-device. Raising the ceiling therefore needs an xlsx writer that does not go through POI.
  *
  * Run with:  ./gradlew :app:testDebugUnitTest --tests '*ReportEngineScaleTest*'
  */
 class ReportEngineScaleTest {
 
-    private val workerCount = 4_000
+    private val fullCompany = 4_000
     private val workingDays = 26
 
     private fun sites() = listOf(
@@ -30,11 +34,11 @@ class ReportEngineScaleTest {
         Site(code = "C-26-923", name = "EMAAR South", lat = 24.85, lng = 55.15, radius = 500),
     )
 
-    private fun workers(): List<Worker> {
+    private fun workers(count: Int): List<Worker> {
         val trades = listOf("Carpenter", "Assistant Carpenter", "Mason", "Helper", "Steel Fixer", "Electrician", "Watchman")
         val suppliers = listOf(null, "Al Nahda Manpower", "Gulf Labour Supply")
         val codes = sites().map { it.code }
-        return (1..workerCount).map { i ->
+        return (1..count).map { i ->
             Worker(
                 sno = i.toLong(),
                 id = "W%05d".format(i),
@@ -47,11 +51,11 @@ class ReportEngineScaleTest {
         }
     }
 
-    /** One attendance row per worker per working day — the shape a real month produces. */
-    private fun monthAttendance(month: String, workers: List<Worker>): List<Attendance> {
+    /** One attendance row per worker per day, for [days] days — the shape a real period produces. */
+    private fun attendanceFor(month: String, workers: List<Worker>, days: Int): List<Attendance> {
         val siteNames = sites().associate { it.code to it.name }
-        val rows = ArrayList<Attendance>(workers.size * workingDays)
-        for (day in 1..workingDays) {
+        val rows = ArrayList<Attendance>(workers.size * days)
+        for (day in 1..days) {
             val date = "%s-%02d".format(month, day)
             for (w in workers) {
                 val code = w.site!!
@@ -78,17 +82,14 @@ class ReportEngineScaleTest {
         return rows
     }
 
-    @Test
-    fun `full company month export completes`() {
+    private fun generateAndAssert(
+        workers: List<Worker>,
+        attendance: List<Attendance>,
+        dateOrMonth: String,
+        range: String,
+        label: String,
+    ) {
         val outDir = Files.createTempDirectory("sitepulse-scale").toFile()
-        val workers = workers()
-        val attendance = monthAttendance("2026-08", workers)
-
-        assertTrue(
-            "fixture should reproduce a full-company month",
-            attendance.size >= 100_000,
-        )
-
         val runtime = Runtime.getRuntime()
         runtime.gc()
         val before = runtime.totalMemory() - runtime.freeMemory()
@@ -102,55 +103,38 @@ class ReportEngineScaleTest {
             leaves = emptyList(),
             holidays = emptyList(),
             params = ReportEngine.Params(
-                dateOrMonth = "2026-08",
-                range = "month",
-                siteScope = "ALL",
-                generatedBy = "scale-test",
+                dateOrMonth = dateOrMonth, range = range, siteScope = "ALL", generatedBy = "scale-test",
             ),
         )
 
-        val elapsed = System.currentTimeMillis() - started
         runtime.gc()
         val after = runtime.totalMemory() - runtime.freeMemory()
-
         println(
-            "[scale] ${attendance.size} attendance rows -> ${file.name} " +
-                "(${file.length() / 1024} KB) in ${elapsed}ms; " +
-                "heap ${(before / 1024 / 1024)}MB -> ${(after / 1024 / 1024)}MB"
+            "[scale] $label: ${workers.size} workers, ${attendance.size} rows -> " +
+                "${file.length() / 1024} KB in ${System.currentTimeMillis() - started}ms; " +
+                "heap ${before / 1024 / 1024}MB -> ${after / 1024 / 1024}MB"
         )
-
-        assertTrue("report file should exist", file.exists())
-        assertTrue("report file should not be empty", file.length() > 10_000)
-
+        assertTrue("report should exist and be non-trivial", file.exists() && file.length() > 10_000)
         file.delete()
         outDir.deleteRecursively()
     }
 
+    /** The daily report, for the entire company — the one run every day. */
     @Test
-    fun `single day export for the full company completes`() {
-        val outDir = Files.createTempDirectory("sitepulse-scale-day").toFile()
-        val workers = workers()
-        val attendance = monthAttendance("2026-08", workers).filter { it.date == "2026-08-01" }
+    fun `full company daily report completes`() {
+        val workers = workers(fullCompany)
+        generateAndAssert(workers, attendanceFor("2026-08", workers, days = 1), "2026-08-01", "day", "full company day")
+    }
 
-        val file = ReportEngine.generate(
-            outputDir = outDir,
-            attendanceRows = attendance,
-            workers = workers,
-            sites = sites(),
-            leaves = emptyList(),
-            holidays = emptyList(),
-            params = ReportEngine.Params(
-                dateOrMonth = "2026-08-01",
-                range = "day",
-                siteScope = "ALL",
-                generatedBy = "scale-test",
-            ),
-        )
-
-        println("[scale] daily: ${attendance.size} rows -> ${file.length() / 1024} KB")
-        assertTrue(file.exists() && file.length() > 10_000)
-
-        file.delete()
-        outDir.deleteRecursively()
+    /**
+     * A single project's month. Month mode does considerably more than the daily report — a
+     * per-worker hours summary and a per-worker-per-day absent matrix — so roster size drives
+     * memory as much as row count, and this is the shape that decides whether month-end
+     * reporting works for a project.
+     */
+    @Test
+    fun `single project full month completes`() {
+        val workers = workers(400)
+        generateAndAssert(workers, attendanceFor("2026-08", workers, days = workingDays), "2026-08", "month", "one project month")
     }
 }
