@@ -22,12 +22,25 @@ data class SessionProfile(
     /** True when no users/{uid} document existed and access was derived from the legacy email
      * rules instead — surfaced so Super Admin can see who still needs a real profile. */
     val isLegacy: Boolean,
+    /**
+     * The profile is still being fetched, so nothing about this account is known yet. Every
+     * capability reads false while this holds: guessing a role here is what previously showed
+     * an Admin as a Supervisor with every site for the first moments of their session.
+     */
+    val isResolving: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = uid != null
     val hasAllSites: Boolean get() = role == Role.SUPER_ADMIN || assignedSites.contains(ALL_SITES)
     val displayName: String get() = profile?.displayName ?: email.substringBefore("@")
 
     companion object {
+        /** Signed in, role not yet known. Grants nothing until the profile lands. */
+        fun resolving(uid: String?, email: String) = SessionProfile(
+            uid = uid, email = email, profile = null, role = Role.STAFF,
+            assignedSites = emptyList(), isActive = false, employeeId = null,
+            isLegacy = false, isResolving = true,
+        )
+
         val SIGNED_OUT = SessionProfile(
             uid = null, email = "", profile = null, role = Role.STAFF,
             assignedSites = emptyList(), isActive = false, employeeId = null, isLegacy = false,

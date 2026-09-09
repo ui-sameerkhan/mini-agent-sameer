@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -143,12 +144,33 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
      * The signed-in user's stored profile, live so a role or site change made by Super Admin
      * reaches them without signing out. Null when they have no users/{uid} document yet.
      */
-    private val liveUserProfile: StateFlow<UserProfile?> = session.map { it.uid }.distinctUntilChanged()
+    /**
+     * Three outcomes, deliberately distinct.
+     *
+     * A plain nullable profile conflated "still loading" with "no profile exists", and both fell
+     * through to the legacy fallback — so every Admin, Timekeeper, Foreman and Staff account
+     * appeared as a Supervisor holding every site until their profile arrived, and stayed that
+     * way if the read ever failed. Loading has to be its own state so the app waits instead of
+     * guessing.
+     */
+    private sealed interface ProfileState {
+        data object Loading : ProfileState
+        /** [profile] null means the document genuinely does not exist — a pre-upgrade login. */
+        data class Resolved(val profile: UserProfile?) : ProfileState
+    }
+
+    private val liveUserProfile: StateFlow<ProfileState> = session.map { it.uid }.distinctUntilChanged()
         .flatMapLatest { uid ->
-            if (uid.isNullOrBlank()) flowOf(null)
-            else container.userRepository.live(uid).catch { emit(null) }
+            if (uid.isNullOrBlank()) {
+                flowOf(ProfileState.Resolved(null))
+            } else {
+                container.userRepository.live(uid)
+                    .map<UserProfile?, ProfileState> { ProfileState.Resolved(it) }
+                    .onStart { emit(ProfileState.Loading) }
+                    .catch { emit(ProfileState.Resolved(null)) }
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ProfileState.Loading)
 
     init {
         // An account given access before it ever signed in has its role waiting as an invite,
@@ -178,12 +200,16 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
      * stored one takes over.
      */
     val sessionProfile: StateFlow<SessionProfile> =
-        combine(session, liveUserProfile, isTimekeeper) { session, profile, isTk ->
+        combine(session, liveUserProfile, isTimekeeper) { session, profileState, isTk ->
+            val profile = (profileState as? ProfileState.Resolved)?.profile
             when {
                 !session.isLoggedIn -> SessionProfile.SIGNED_OUT
                 // Checked before any profile: the configured administrator can never be demoted
                 // by a document, which is what keeps a bad profile from locking everyone out.
                 session.isAdmin -> SessionProfile.configuredAdmin(session.uid, session.email, profile)
+                // Still fetching: hold, rather than assume the legacy fallback and flash the
+                // wrong role — or leave someone on it for good if the read never lands.
+                profileState is ProfileState.Loading -> SessionProfile.resolving(session.uid, session.email)
                 // A document with no role was never provisioned as a profile — fall through to
                 // the legacy rules rather than treating its defaults as a grant of access.
                 profile != null && profile.isProvisioned ->

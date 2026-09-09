@@ -2,7 +2,9 @@ package com.ktc.sitepulse.ui.nav
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -11,6 +13,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -96,6 +100,18 @@ fun SitePulseRoot() {
 
     // A disabled account is stopped here, before any screen renders. Firestore rules refuse its
     // data anyway; this turns that into an explanation instead of a screen full of empty lists.
+    // Held until the profile resolves — routing on a guessed role sends people to the wrong
+    // landing screen and briefly shows a tab set they may not be entitled to.
+    if (session.isLoggedIn && sessionProfile.isResolving) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Text("Checking your access…", modifier = Modifier.padding(top = 12.dp))
+            }
+        }
+        return
+    }
+
     val accountDisabled by viewModel.accountDisabled.collectAsState()
     if (accountDisabled) {
         AlertDialog(
