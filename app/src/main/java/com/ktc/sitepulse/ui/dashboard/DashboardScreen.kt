@@ -64,6 +64,7 @@ fun DashboardScreen(viewModel: SitePulseViewModel) {
     val workers by viewModel.workers.collectAsState()
     val sites by viewModel.sites.collectAsState()
     val summary by viewModel.manpowerSummary.collectAsState()
+    val deviations by viewModel.siteDeviationsToday.collectAsState()
     val selectedDate by viewModel.dashboardDate.collectAsState()
     val selectedProject by viewModel.dashboardProject.collectAsState()
     val loading by viewModel.dashboardLoading.collectAsState()
@@ -132,6 +133,41 @@ fun DashboardScreen(viewModel: SitePulseViewModel) {
         }
 
         item { BreakdownCard("Trade-wise Manpower", summary.byTrade, "No employees on the roster yet.") }
+
+        // Site deviations sit here rather than only in Roster: whoever is watching manpower is
+        // the person who needs to see a worker marked somewhere they aren't rostered, and for a
+        // timekeeper this dashboard is the whole job.
+        if (isToday) {
+            item {
+                SectionCard("Site Deviations — Marked Off Roster") {
+                    if (deviations.isEmpty()) {
+                        EmptyState("None today — everyone marked where the roster expects them.")
+                    } else {
+                        val workerById = remember(workers) { workers.associateBy { it.id } }
+                        deviations.take(20).forEach { a ->
+                            val w = workerById[a.workerId]
+                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(w?.name ?: a.workerId, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(
+                                        "Rostered ${a.alignedSite ?: "—"} · marked at ${a.siteCode}",
+                                        fontSize = 11.sp, color = SpAmberMid,
+                                    )
+                                }
+                                Text(DateUtils.formatTimeHm(a.checkIn), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (deviations.size > 20) {
+                            Text(
+                                "+ ${deviations.size - 20} more — review them in Roster.",
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
         item { BreakdownCard("Project-wise Manpower", summary.byProject, "No employees assigned to a project yet.") }
         item { BreakdownCard("Supplier-wise Manpower", summary.bySupplier, "No employees on the roster yet.") }
 

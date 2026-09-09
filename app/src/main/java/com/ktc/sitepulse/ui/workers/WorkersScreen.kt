@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.ui.ImportKind
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.domain.Permissions
 import com.ktc.sitepulse.domain.FILTER_ALL
 import com.ktc.sitepulse.domain.FILTER_UNASSIGNED
 import com.ktc.sitepulse.domain.QrCodeUtil
@@ -64,6 +65,11 @@ private const val PAGE_SIZE = 50
 fun WorkersScreen(viewModel: SitePulseViewModel) {
     val workers by viewModel.workers.collectAsState()
     val sites by viewModel.sites.collectAsState()
+    val sessionProfile by viewModel.sessionProfile.collectAsState()
+    // A timekeeper keeps their own site's roster current but cannot remove people from it —
+    // uploading and deleting are deliberately separate permissions.
+    val canDelete = Permissions.canDeleteWorkers(sessionProfile)
+    val authorizedSites by viewModel.authorizedSites.collectAsState()
     val statusMessages by viewModel.statusMessages.collectAsState()
     val pendingImport by viewModel.pendingImport.collectAsState()
     val pendingDelete by viewModel.pendingDelete.collectAsState()
@@ -115,12 +121,14 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
             onPick = { outsourcePicker.launch("*/*") },
         )
 
-        OutlinedButton(
-            onClick = { viewModel.requestDeleteAllWorkers() },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed),
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        ) { Text("Delete All Workers") }
-        statusMessages["deleteStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
+        if (canDelete) {
+            OutlinedButton(
+                onClick = { viewModel.requestDeleteAllWorkers() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SpRed),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            ) { Text("Delete All Workers") }
+            statusMessages["deleteStatus"]?.let { Text(it, color = SpRed, modifier = Modifier.padding(top = 6.dp)) }
+        }
 
         OutlinedTextField(
             value = filter.query, onValueChange = { updateFilter(filter.copy(query = it)) },
@@ -285,7 +293,9 @@ fun WorkersScreen(viewModel: SitePulseViewModel) {
                     Row(Modifier.padding(top = 8.dp)) {
                         OutlinedButton(onClick = { editing = w }) { Text("Edit") }
                         OutlinedButton(onClick = { showingQr = w }, modifier = Modifier.padding(start = 8.dp)) { Text("📷 QR") }
-                        OutlinedButton(onClick = { viewModel.requestDeleteWorker(w.id, w.name) }, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }
+                        if (canDelete) {
+                            OutlinedButton(onClick = { viewModel.requestDeleteWorker(w.id, w.name) }, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }
+                        }
                     }
                 }
             }

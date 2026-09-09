@@ -349,6 +349,36 @@ test("a partial profile does not grant a NON-admin any access it lacked", async 
   await assertFails(setDoc(doc(db, "users/uid-partial"), { role: "super_admin" }));
 });
 
+// ---------------------------------------------------------------------------------------------
+// Timekeepers keep their own site's roster current, but cannot remove people from it.
+// ---------------------------------------------------------------------------------------------
+
+test("a timekeeper uploads roster entries for their own site", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "workers/W-NEW-B"), {
+    id: "W-NEW-B", name: "New Hire", designation: "Helper", site: "SITE-B",
+  }));
+});
+
+test("a timekeeper cannot write a roster entry for another site", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertFails(setDoc(doc(db, "workers/W-NEW-A"), {
+    id: "W-NEW-A", name: "Wrong Site", designation: "Helper", site: "SITE-A",
+  }));
+});
+
+test("a timekeeper cannot delete a worker", async () => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await assertFails(deleteDoc(doc(as("uid-tk-b", "tkb@ktc.test"), "workers/W-B")));
+});
+
+test("a foreman still cannot upload roster entries at all", async () => {
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(setDoc(doc(db, "workers/W-FOREMAN-TRY"), {
+    id: "W-FOREMAN-TRY", name: "Nope", designation: "Helper", site: "SITE-A",
+  }));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });

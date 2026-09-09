@@ -107,6 +107,13 @@ service cloud.firestore {
       return isActive() && role() in ['super_admin', 'admin'];
     }
 
+    // Roles that may add or update a roster entry. Timekeepers are included because keeping
+    // their own site's roster current is the job — but only within the sites they hold, and
+    // deleting people stays with managesWorkers() below.
+    function uploadsRoster() {
+      return isActive() && role() in ['super_admin', 'admin', 'timekeeper'];
+    }
+
     // ---------------------------------------------------------------------------------------
     // Site scoping
     // ---------------------------------------------------------------------------------------
@@ -176,8 +183,11 @@ service cloud.firestore {
     // ---------------------------------------------------------------------------------------
     match /workers/{workerId} {
       allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
-      allow write: if managesWorkers() &&
+      allow create, update: if uploadsRoster() &&
         (holdsAllSites() || hasSiteAccess(request.resource.data.get('site', null)));
+      // Removing someone from the workforce is narrower than editing them.
+      allow delete: if managesWorkers() &&
+        (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
     }
 
     // sites/{siteCode} — geofence definitions. Readable by any active user (a site's coordinates

@@ -126,6 +126,13 @@ object Permissions {
     /** Roles that manage the workforce itself, rather than just recording its attendance. */
     private val WORKER_MANAGERS = setOf(Role.SUPER_ADMIN, Role.ADMIN)
 
+    /**
+     * Roles that may upload a roster. Timekeepers are included because keeping their site's
+     * roster current is the job — but only within the sites they hold, and without the
+     * destructive operations (delete-all, delete worker) that stay with WORKER_MANAGERS.
+     */
+    private val ROSTER_UPLOADERS = setOf(Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER)
+
     /** Roles allowed to correct an attendance record after the fact. */
     private val ATTENDANCE_CORRECTORS = setOf(Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER)
 
@@ -148,6 +155,14 @@ object Permissions {
         session.isActive && session.role == Role.SUPER_ADMIN
 
     fun canManageWorkers(session: SessionProfile): Boolean =
+        session.isActive && session.role in WORKER_MANAGERS
+
+    /** Uploading or editing the roster, without the power to delete people from it. */
+    fun canUploadRoster(session: SessionProfile): Boolean =
+        session.isActive && session.role in ROSTER_UPLOADERS
+
+    /** Deleting workers is deliberately narrower than editing them. */
+    fun canDeleteWorkers(session: SessionProfile): Boolean =
         session.isActive && session.role in WORKER_MANAGERS
 
     fun canMarkAttendance(session: SessionProfile): Boolean =
@@ -244,7 +259,9 @@ object Permissions {
         return when (session.role) {
             Role.SUPER_ADMIN -> setOf("checkin", "dashboard", "sites", "attendance", "workers", "roster")
             Role.ADMIN -> setOf("checkin", "dashboard", "attendance", "workers", "roster")
-            Role.TIMEKEEPER -> setOf("dashboard", "attendance", "roster")
+            // Check-In included so a timekeeper can scan ID badges to mark attendance, and
+            // Workers so they can keep their own site's roster current.
+            Role.TIMEKEEPER -> setOf("checkin", "dashboard", "attendance", "workers", "roster")
             // Supervisors and foremen mark attendance and read their site's manpower; they get
             // no workforce management, no site configuration and no company-wide reporting.
             Role.SUPERVISOR, Role.FOREMAN -> setOf("checkin", "dashboard", "attendance")
@@ -255,7 +272,7 @@ object Permissions {
     /** Where a role lands after signing in. */
     fun landingRoute(session: SessionProfile): String = when (session.role) {
         Role.STAFF -> "office"
-        Role.TIMEKEEPER -> "attendance"
+        Role.TIMEKEEPER -> "dashboard"
         else -> "checkin"
     }
 }
