@@ -150,7 +150,13 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         combine(session, liveUserProfile, isTimekeeper) { session, profile, isTk ->
             when {
                 !session.isLoggedIn -> SessionProfile.SIGNED_OUT
-                profile != null -> SessionProfile.fromProfile(session.uid, session.email, profile)
+                // Checked before any profile: the configured administrator can never be demoted
+                // by a document, which is what keeps a bad profile from locking everyone out.
+                session.isAdmin -> SessionProfile.configuredAdmin(session.uid, session.email, profile)
+                // A document with no role was never provisioned as a profile — fall through to
+                // the legacy rules rather than treating its defaults as a grant of access.
+                profile != null && profile.isProvisioned ->
+                    SessionProfile.fromProfile(session.uid, session.email, profile)
                 else -> SessionProfile.legacyFallback(
                     uid = session.uid,
                     email = session.email,

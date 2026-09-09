@@ -306,6 +306,49 @@ test("unconstrained today-attendance query is rejected; per-site is allowed", as
   )));
 });
 
+// ---------------------------------------------------------------------------------------------
+// Lockout protection. A users/{uid} document holding only an incidental field must not read as
+// a grant of access — that demoted the administrator's own account and left nobody able to
+// repair user access from inside the app.
+// ---------------------------------------------------------------------------------------------
+
+test("a profile holding only a timestamp does not demote the configured admin", async () => {
+  await seed(async (db) => {
+    // Exactly what the buggy last-login write produced.
+    await setDoc(doc(db, "users/uid-cfg-admin"), { lastLoginAt: "2026-09-09T07:00:00Z" });
+  });
+  const db = as("uid-cfg-admin", "admin@ktc-manpower.com");
+  await assertSucceeds(getDoc(doc(db, "workers/W-A")));
+  await assertSucceeds(getDoc(doc(db, "workers/W-B")));
+  await assertSucceeds(getDocs(collection(db, "users")));
+  await assertSucceeds(setDoc(doc(db, "users/uid-someone"), {
+    name: "Someone", email: "s@ktc.test", role: "foreman",
+    assignedSites: ["SITE-A"], status: "active",
+  }));
+});
+
+test("the configured admin cannot be locked out by a disabled or demoted profile", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users/uid-cfg-admin2"), {
+      name: "Admin", email: "admin@ktc-manpower.com",
+      role: "staff", assignedSites: [], status: "disabled",
+    });
+  });
+  const db = as("uid-cfg-admin2", "admin@ktc-manpower.com");
+  await assertSucceeds(getDoc(doc(db, "workers/W-B")));
+  await assertSucceeds(getDocs(collection(db, "users")));
+});
+
+test("a partial profile does not grant a NON-admin any access it lacked", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users/uid-partial"), { lastLoginAt: "2026-09-09T07:00:00Z" });
+  });
+  const db = as("uid-partial", "partial@ktc.test");
+  // Falls back to legacy access, which never included user management.
+  await assertFails(getDocs(collection(db, "users")));
+  await assertFails(setDoc(doc(db, "users/uid-partial"), { role: "super_admin" }));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });

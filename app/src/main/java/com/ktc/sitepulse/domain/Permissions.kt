@@ -74,6 +74,27 @@ data class SessionProfile(
             )
         }
 
+        /**
+         * The configured administrator is Super Admin unconditionally — whatever any profile
+         * document happens to say.
+         *
+         * This is the break-glass guarantee. Without it, one malformed users/{uid} document is
+         * enough to demote the only account that can fix user access, leaving nobody able to
+         * repair it from inside the app. The email comes from app configuration, not from data
+         * a user can write, so it cannot be turned into an escalation path.
+         */
+        fun configuredAdmin(uid: String?, email: String, profile: UserProfile?): SessionProfile =
+            SessionProfile(
+                uid = uid,
+                email = email,
+                profile = profile,
+                role = Role.SUPER_ADMIN,
+                assignedSites = listOf(ALL_SITES),
+                isActive = true,
+                employeeId = profile?.employeeId,
+                isLegacy = profile == null || !profile.isProvisioned,
+            )
+
         fun fromProfile(uid: String?, email: String, profile: UserProfile): SessionProfile =
             SessionProfile(
                 uid = uid,

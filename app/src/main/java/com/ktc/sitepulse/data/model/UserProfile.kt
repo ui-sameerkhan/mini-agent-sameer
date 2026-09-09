@@ -35,7 +35,12 @@ data class UserProfile(
     @DocumentId @get:Exclude val uid: String = "",
     val name: String = "",
     val email: String = "",
-    val role: String = Role.SUPERVISOR.id,
+    /**
+     * Blank means this document was never provisioned as a real profile — see [isProvisioned].
+     * Deliberately NOT defaulting to a role: a partial document (one written by a stray field
+     * update, say) would then silently grant that role to whoever it belonged to.
+     */
+    val role: String = "",
     val assignedSites: List<String> = emptyList(),
     val status: String = "active",
     /** Links a Staff login to their own worker record, so self check-in knows who they are. */
@@ -45,6 +50,14 @@ data class UserProfile(
     val createdBy: String? = null,
     val lastLoginAt: String? = null,
 ) {
+    /**
+     * True only when this document actually carries a role. A document holding just an
+     * incidental field — a last-login stamp, for instance — is not a grant of access, and
+     * treating it as one would silently demote whoever it belonged to.
+     */
+    @get:Exclude
+    val isProvisioned: Boolean get() = role.isNotBlank()
+
     @get:Exclude
     val roleEnum: Role get() = Role.fromId(role) ?: Role.SUPERVISOR
 

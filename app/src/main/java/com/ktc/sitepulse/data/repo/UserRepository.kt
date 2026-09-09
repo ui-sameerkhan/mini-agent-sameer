@@ -73,11 +73,18 @@ class UserRepository(private val db: FirebaseFirestore = FirebaseFirestore.getIn
         ).await()
     }
 
-    /** Best-effort last-login stamp for the User Management list. Never fails a login: a user
-     * whose rules don't permit this write still signs in normally. */
+    /**
+     * Best-effort last-login stamp for the User Management list.
+     *
+     * Deliberately update() and not set(merge): set() CREATES the document when it doesn't
+     * exist, which previously conjured a users/{uid} holding nothing but a timestamp. Read back,
+     * that parsed as a profile with default values and silently demoted the account it belonged
+     * to — including the administrator's own. update() fails harmlessly on a missing document
+     * instead, which is exactly the wanted behaviour: no profile, nothing to stamp.
+     */
     suspend fun touchLastLogin(uid: String, at: String) {
         runCatching {
-            collection.document(uid).set(mapOf("lastLoginAt" to at), SetOptions.merge()).await()
+            collection.document(uid).update("lastLoginAt", at).await()
         }
     }
 

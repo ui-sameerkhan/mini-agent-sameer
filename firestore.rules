@@ -39,16 +39,34 @@ service cloud.firestore {
     }
 
     // An account explicitly marked disabled loses everything, immediately.
+    // The configured administrator can never be disabled by a document, for the same
+    // break-glass reason as isConfiguredAdmin().
     function isDisabled() {
-      return hasProfile() && profile().get('status', 'active') != 'active';
+      return hasProfile() && !isConfiguredAdmin() &&
+        profile().get('status', 'active') != 'active';
     }
 
     function isActive() {
       return isSignedIn() && !isDisabled();
     }
 
+    // The configured administrator is Super Admin unconditionally, whatever any profile says.
+    // Break-glass: without this, one malformed users/{uid} document demotes the only account
+    // that can repair user access, and nobody can fix it from inside the app. The email comes
+    // from these rules, not from data a user can write, so it is not an escalation path.
+    function isConfiguredAdmin() {
+      return isSignedIn() && email() in adminEmails();
+    }
+
+    // A document with no role was never provisioned as a profile — a stray field write must not
+    // read as a grant of access — so such an account falls back to the legacy rules.
+    function isProvisioned() {
+      return hasProfile() && profile().get('role', '') != '';
+    }
+
     function role() {
-      return hasProfile() ? profile().get('role', 'supervisor') : legacyRole();
+      return isConfiguredAdmin() ? 'super_admin'
+        : (isProvisioned() ? profile().role : legacyRole());
     }
 
     // Pre-existing accounts, mapped to the access they already had:
@@ -97,7 +115,7 @@ service cloud.firestore {
     // already had — narrowing it here would break working logins on upgrade, which is exactly
     // what this change must not do. Once Super Admin gives them a profile, that profile governs.
     function holdsAllSites() {
-      return isSuperAdmin() || !hasProfile() || ('ALL' in profile().get('assignedSites', []));
+      return isSuperAdmin() || !isProvisioned() || ('ALL' in profile().get('assignedSites', []));
     }
 
     function hasSiteAccess(siteCode) {
