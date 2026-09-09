@@ -37,6 +37,7 @@ import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
 import com.ktc.sitepulse.domain.WorkersImport
 import com.ktc.sitepulse.util.NetworkStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -84,6 +85,36 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     private val _dataError = MutableStateFlow<String?>(null)
     /** Surfaces live-query failures (e.g. Firestore permission-denied) instead of silently showing empty lists. */
     val dataError: StateFlow<String?> = _dataError
+
+    /**
+     * Wraps a one-shot Firestore read that a screen awaits directly.
+     *
+     * Screens call these from LaunchedEffect and scope.launch, where an exception is not caught
+     * by anything and takes the whole app down. A permission error must degrade to an empty list
+     * and a banner, never a crash — the live flows already behave that way via recoverToEmpty,
+     * and this gives the on-demand reads the same guarantee in one place rather than requiring
+     * every call site to remember.
+     */
+    private suspend fun <T> safeRead(source: String, fallback: T, block: suspend () -> T): T =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e // cancellation is normal control flow, never an error to report
+        } catch (e: Throwable) {
+            _dataError.value = "⚠ $source failed to load: ${e.message ?: e::class.simpleName}"
+            fallback
+        }
+
+    /** The write-side counterpart: reports the failure rather than crashing the caller. */
+    private suspend fun safeWrite(source: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            _dataError.value = "⚠ $source failed: ${e.message ?: e::class.simpleName}"
+        }
+    }
 
     private fun <T> Flow<List<T>>.recoverToEmpty(source: String): Flow<List<T>> = catch { e ->
         _dataError.value = "⚠ $source failed to load: ${e.message}"
@@ -658,7 +689,9 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         viewModelScope.launch {
             session.map { it.email to it.isOfficeStaff }.distinctUntilChanged().collect { (email, isOfficeStaff) ->
-                _myLinkedWorkerId.value = if (isOfficeStaff) container.staffWorkerLinkRepository.getLinkedWorkerId(email) else null
+                _myLinkedWorkerId.value = if (isOfficeStaff) {
+                    runCatching { container.staffWorkerLinkRepository.getLinkedWorkerId(email) }.getOrNull()
+                } else null
             }
         }
     }
@@ -768,7 +801,7 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ---- Sites ----
 
-    suspend fun saveSite(site: Site) = container.sitesRepository.saveSite(site)
+    suspend fun saveSite(site: Site) = safeWrite("Saving site") { container.sitesRepository.saveSite(site) }
 
     fun requestDeleteSite(code: String, name: String) {
         _pendingDelete.value = PendingDelete("site", code, name)
@@ -1012,12 +1045,15 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    suspend fun myLeaveRequests(): List<Leave> = container.leaveRepository.forRequester(session.value.email)
+    suspend fun myLeaveRequests(): List<Leave> =
+        safeRead("Your leave requests", emptyList()) { container.leaveRepository.forRequester(session.value.email) }
 
     /** Admin-only: every leave record ever — pending, approved, and rejected — for the Leave History panel. */
-    suspend fun allLeaveHistory(): List<Leave> = container.leaveRepository.all()
+    suspend fun allLeaveHistory(): List<Leave> =
+        safeRead("Leave history", emptyList()) { container.leaveRepository.all() }
 
-    suspend fun myAttendanceHistory(): List<Attendance> = container.attendanceRepository.getMarkedBy(session.value.email)
+    suspend fun myAttendanceHistory(): List<Attendance> =
+        safeRead("Your attendance history", emptyList()) { container.attendanceRepository.getMarkedBy(session.value.email) }
 
     fun approveLeaveRequest(leave: Leave) {
         if (leave.docId.isBlank()) { setStatus("leaveReviewStatus", "❌ This request has no ID — can't be approved. Ask the requester to resubmit."); return }
@@ -1244,13 +1280,22 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
     // ---- Reports ----
 
     suspend fun attendanceForDate(date: String): List<Attendance> =
-        if (date == DateUtils.todayStrUtc()) todayAttendance.value
-        else container.attendanceRepository.getForDate(date)
+        safeRead("Attendance for $date", emptyList()) {
+            if (date == DateUtils.todayStrUtc()) {
+                todayAttendance.value
+            } else {
+                val profile = sessionProfile.value
+                if (profile.hasAllSites) container.attendanceRepository.getForDate(date)
+                else container.attendanceRepository.getForDateForSites(date, profile.assignedSites)
+            }
+        }
 
     /** Worker Locator (Dashboard): where a specific worker was marked on a given date. */
     suspend fun locateWorker(workerId: String, date: String): Attendance? =
-        if (date == DateUtils.todayStrUtc()) todayAttendance.value.find { it.workerId == workerId }
-        else container.attendanceRepository.getRecord(date, workerId)
+        safeRead("Worker locator", null) {
+            if (date == DateUtils.todayStrUtc()) todayAttendance.value.find { it.workerId == workerId }
+            else container.attendanceRepository.getRecord(date, workerId)
+        }
 
     suspend fun generateReport(params: ReportEngine.Params): File {
         val attendanceRows = if (params.range == "day") {
