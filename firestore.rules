@@ -259,7 +259,7 @@ service cloud.firestore {
     // ---------------------------------------------------------------------------------------
     // transferRequests/{autoId} — a worker moving from one site to another.
     //
-    // Raised by whoever is actually looking at the man (foreman, supervisor, timekeeper) and
+    // Raised by whoever is actually looking at the man (supervisor or timekeeper) and
     // approved by the receiving site's timekeeper. Head office is deliberately not in this loop:
     // a transfer is a fact observed at a gate, and requiring an admin to confirm it left the
     // roster stale — the worker kept counting against the site they had already left.
@@ -274,9 +274,9 @@ service cloud.firestore {
         hasSiteAccess(resource.data.get('fromSite', null))
       );
 
-      // Anyone who marks attendance may raise one, but only INTO a site they hold: a foreman can
-      // pull a worker towards their own gate, never push one onto somebody else's site. It must
-      // start pending, so raising a request can never be a disguised self-approval.
+      // Anyone who marks attendance may raise one, but only INTO a site they hold: a supervisor
+      // can pull a worker towards their own gate, never push one onto somebody else's site. It
+      // must start pending, so raising a request can never be a disguised self-approval.
       allow create: if marksAttendance() &&
         hasSiteAccess(request.resource.data.get('toSite', null)) &&
         request.resource.data.status == 'pending' &&
@@ -284,7 +284,7 @@ service cloud.firestore {
 
       // Approving one moves the roster, so it takes exactly the authority needed to write that
       // roster row at the receiving site: the site's timekeeper, or an admin above them. A
-      // foreman is not in uploadsRoster(), so nobody can approve the request they just raised.
+      // supervisor is not in uploadsRoster(), so nobody can approve a request they just raised.
       allow update: if uploadsRoster() && hasSiteAccess(resource.data.get('toSite', null));
       allow delete: if isSuperAdmin() || isAdmin();
     }
