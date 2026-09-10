@@ -224,6 +224,83 @@ object ReportEngine {
         return outFile
     }
 
+    /**
+     * The ERP biometric cross-check, as a two-sheet workbook: what needs looking at, and the
+     * full comparison behind it.
+     *
+     * The verdict column is written in plain words rather than the enum name, because this file
+     * is read by people deciding whether to question a foreman, and "MARKED_NOT_PUNCHED" invites
+     * a harsher reading than the finding supports.
+     */
+    fun generateBiometricReconciliation(
+        outputDir: File,
+        summary: BiometricReconciliation.Summary,
+        generatedBy: String,
+    ): File {
+        val wb = XSSFWorkbook()
+        val styles = Styles(wb)
+
+        val dateLabel = when {
+            summary.dates.isEmpty() -> "no dates"
+            summary.dates.size == 1 -> summary.dates.first()
+            else -> "${summary.dates.first()} to ${summary.dates.last()}"
+        }
+        val meta = mutableListOf(
+            "Period: $dateLabel",
+            "Generated: ${DateUtils.nowIso()} by $generatedBy",
+            "Agreed: ${summary.agreed}   |   Needs review: ${summary.reviewCount}",
+            "Marked without a punch: ${summary.markedNotPunched}   |   " +
+                "Punched but not marked: ${summary.punchedNotMarked}   |   " +
+                "Time mismatch: ${summary.timeMismatch}",
+            "Biometric coverage: ${summary.coverage} of ${summary.markedTotal} marked workers appear in the report",
+        )
+        // Say it on the sheet, not just on screen: a file gets forwarded, and a low-coverage
+        // result read without this line looks like a fraud list when it is nothing of the sort.
+        if (summary.coverageTooLowToJudge) {
+            meta.add(
+                "WARNING: fewer than half the marked workers appear in the biometric report at all, " +
+                    "so \"marked without a punch\" here mostly means \"no reader covers this man\" — not a discrepancy."
+            )
+        }
+
+        val headers = listOf(
+            "Date", "Worker ID", "Name", "Project", "Finding",
+            "SitePulse IN", "Biometric IN", "Gap (min)", "Marked By",
+        )
+
+        fun row(f: BiometricReconciliation.Finding) = listOf(
+            f.date, f.workerId, f.name, f.siteCode, verdictLabel(f.verdict),
+            f.sitePulseIn, f.biometricIn, f.gapMinutes?.toString().orEmpty(), f.markedBy,
+        )
+
+        val review = summary.findings.filter { it.needsReview }
+        addSheet(
+            wb, styles, "NEEDS REVIEW",
+            title = "SITEPULSE — ERP BIOMETRIC CROSS-CHECK", meta = meta,
+            headers = headers, rows = review.map { row(it) },
+        )
+        addSheet(
+            wb, styles, "ALL RECORDS",
+            title = "SITEPULSE — BIOMETRIC CROSS-CHECK (FULL COMPARISON)", meta = meta,
+            headers = headers, rows = summary.findings.map { row(it) },
+        )
+
+        val outFile = File(outputDir, "SitePulse_BiometricCheck_${summary.dates.firstOrNull() ?: "report"}.xlsx")
+        try {
+            FileOutputStream(outFile).use { wb.write(it) }
+        } finally {
+            wb.close()
+        }
+        return outFile
+    }
+
+    private fun verdictLabel(v: BiometricReconciliation.Verdict): String = when (v) {
+        BiometricReconciliation.Verdict.AGREED -> "Agrees with biometric"
+        BiometricReconciliation.Verdict.MARKED_NOT_PUNCHED -> "Marked, no biometric punch"
+        BiometricReconciliation.Verdict.PUNCHED_NOT_MARKED -> "Punched, not marked in app"
+        BiometricReconciliation.Verdict.TIME_MISMATCH -> "Times differ"
+    }
+
     private fun sheetName(code: String): String = code.take(31).ifBlank { "NA" }
 
     private fun hoursLabel(a: Attendance): String =

@@ -25,6 +25,9 @@ import com.ktc.sitepulse.data.model.Worker
 import com.ktc.sitepulse.data.repo.PushResult
 import com.ktc.sitepulse.data.repo.SessionState
 import com.ktc.sitepulse.domain.BackupRestoreResult
+import com.ktc.sitepulse.domain.BiometricImport
+import com.ktc.sitepulse.domain.BiometricReconciliation
+import com.ktc.sitepulse.domain.ParsedBiometric
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.Manpower
 import com.ktc.sitepulse.domain.ManpowerSummary
@@ -1243,6 +1246,88 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: Throwable) {
                 setStatus("arrivalReviewStatus", "❌ Reject failed: ${e.message ?: e::class.simpleName}")
             }
+        }
+    }
+
+    // ---- ERP biometric verification ----
+
+    private val _biometricSummary = MutableStateFlow<BiometricReconciliation.Summary?>(null)
+
+    /**
+     * The last cross-check of SitePulse attendance against the ERP biometric report. Held in
+     * memory only: the biometric system stays the system of record for punches, and keeping a
+     * copy in Firestore would create a third version of the truth to keep in step with two others.
+     */
+    val biometricSummary: StateFlow<BiometricReconciliation.Summary?> = _biometricSummary
+
+    fun clearBiometricSummary() { _biometricSummary.value = null }
+
+    /**
+     * Reads the ERP biometric report (report 8127) and compares it against attendance already
+     * recorded, so a mark made for someone who never punched can be found.
+     *
+     * The attendance side is fetched with the caller's own site scope, so a timekeeper verifying
+     * their site cannot pull another project's records in through this door.
+     */
+    fun verifyAgainstBiometric(uri: Uri, fileName: String, fallbackDate: String) {
+        val s = sessionProfile.value
+        if (!Permissions.canCorrectAttendance(s)) {
+            setStatus("biometricStatus", "❌ Only an admin or timekeeper can run this check.")
+            return
+        }
+        viewModelScope.launch {
+            setStatus("biometricStatus", "⏳ Reading the biometric report…")
+            try {
+                val ctx = getApplication<Application>()
+                val table = SpreadsheetReader.read(ctx, uri, fileName)
+                when (val parsed = BiometricImport.parse(table, fallbackDate)) {
+                    is ParsedBiometric.ColumnsNotFound -> setStatus("biometricStatus", "❌ ${parsed.message}")
+                    is ParsedBiometric.NoValidRows -> setStatus("biometricStatus", "❌ ${parsed.message}")
+                    is ParsedBiometric.Ok -> {
+                        setStatus("biometricStatus", "⏳ Comparing ${parsed.punches.size} punches…")
+                        val scope = authorizedSites.value.map { it.code }
+                        val attendance = parsed.dates.flatMap { date ->
+                            if (s.hasAllSites) container.attendanceRepository.getForDate(date)
+                            else container.attendanceRepository.getForDateForSites(date, scope)
+                        }
+                        val summary = BiometricReconciliation.run(
+                            attendance = attendance,
+                            punches = parsed.punches,
+                            workers = workers.value,
+                        )
+                        _biometricSummary.value = summary
+                        val skipped = if (parsed.skippedRows > 0) " (${parsed.skippedRows} rows had no ID)" else ""
+                        setStatus(
+                            "biometricStatus",
+                            if (summary.reviewCount == 0)
+                                "✅ ${summary.agreed} records agree with the biometric. Nothing to review.$skipped"
+                            else
+                                "⚠ ${summary.reviewCount} of ${summary.findings.size} need review.$skipped",
+                        )
+                    }
+                }
+            } catch (e: Throwable) {
+                setStatus("biometricStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /**
+     * Writes the reconciliation to an .xlsx so it can be sent on or filed against a payroll run.
+     * Returns the file for the caller to share, matching [generateReport].
+     */
+    suspend fun exportBiometricFindings(): File {
+        val summary = _biometricSummary.value
+        require(summary != null && summary.findings.isNotEmpty()) {
+            "Run the check first — there is nothing to export."
+        }
+        val outDir = File(getApplication<Application>().cacheDir, "reports").apply { mkdirs() }
+        return withContext(Dispatchers.IO) {
+            ReportEngine.generateBiometricReconciliation(
+                outputDir = outDir,
+                summary = summary,
+                generatedBy = sessionProfile.value.email,
+            )
         }
     }
 

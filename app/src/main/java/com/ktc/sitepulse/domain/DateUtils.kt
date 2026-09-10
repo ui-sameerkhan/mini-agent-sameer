@@ -119,4 +119,68 @@ object DateUtils {
         val to = LocalDate.parse(toDate, ISO_DATE)
         return !d.isBefore(from) && !d.isAfter(to)
     }
+
+    /**
+     * Best-effort "YYYY-MM-DD" from whatever a spreadsheet from another system happens to contain.
+     * Returns "" when nothing sensible can be read, so the caller can fall back to a known date
+     * rather than inventing one.
+     *
+     * The ERP prints dates in its own locale and Excel hands some cells back as a serial number,
+     * so guessing is unavoidable — but the guessing is bounded here rather than spread across
+     * every importer. Day-first is assumed for ambiguous slash dates (01/09/2026 is 1 September),
+     * because that is the convention everywhere this is used; an ISO date is passed through
+     * untouched, and a value with a four-digit year first is read year-first regardless.
+     */
+    fun normaliseDate(raw: String?): String {
+        val s = raw?.trim().orEmpty()
+        if (s.isBlank()) return ""
+
+        // Excel serial date: days since 1899-12-30. Only treat plausibly-dated numbers this way.
+        s.toDoubleOrNull()?.let { serial ->
+            val days = serial.toLong()
+            if (days in 20_000..60_000) {
+                return LocalDate.of(1899, 12, 30).plusDays(days).format(ISO_DATE)
+            }
+            return ""
+        }
+
+        // Drop any time part the cell carries alongside the date.
+        val datePart = s.split(' ', 'T').first()
+        val parts = datePart.split('-', '/', '.').filter { it.isNotBlank() }
+        if (parts.size != 3) return tryMonthName(datePart)
+
+        val nums = parts.map { it.toIntOrNull() ?: return tryMonthName(datePart) }
+        val (y, m, d) = when {
+            parts[0].length == 4 -> Triple(nums[0], nums[1], nums[2])   // 2026-09-01
+            parts[2].length == 4 -> Triple(nums[2], nums[1], nums[0])   // 01/09/2026, day first
+            else -> Triple(2000 + nums[2], nums[1], nums[0])            // 01/09/26
+        }
+        return try {
+            LocalDate.of(y, m, d).format(ISO_DATE)
+        } catch (e: java.time.DateTimeException) {
+            ""
+        }
+    }
+
+    private val MONTHS = listOf(
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    )
+
+    /** Handles the "01-Sep-2026" shape the ERP uses on some reports. */
+    private fun tryMonthName(s: String): String {
+        val parts = s.split('-', '/', ' ', '.').filter { it.isNotBlank() }
+        if (parts.size != 3) return ""
+        val monthIdx = parts.indexOfFirst { p -> MONTHS.any { p.lowercase().startsWith(it) } }
+        if (monthIdx == -1) return ""
+        val month = MONTHS.indexOfFirst { parts[monthIdx].lowercase().startsWith(it) } + 1
+        val others = parts.filterIndexed { i, _ -> i != monthIdx }.mapNotNull { it.toIntOrNull() }
+        if (others.size != 2) return ""
+        val year = others.firstOrNull { it > 31 }?.let { if (it < 100) 2000 + it else it } ?: return ""
+        val day = others.first { it <= 31 }
+        return try {
+            LocalDate.of(year, month, day).format(ISO_DATE)
+        } catch (e: java.time.DateTimeException) {
+            ""
+        }
+    }
 }

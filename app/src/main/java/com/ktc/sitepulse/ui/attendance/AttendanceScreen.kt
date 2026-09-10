@@ -40,15 +40,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import com.ktc.sitepulse.data.model.Attendance
 import com.ktc.sitepulse.data.model.Site
 import com.ktc.sitepulse.data.model.Worker
+import com.ktc.sitepulse.domain.BiometricReconciliation
 import com.ktc.sitepulse.domain.DateUtils
 import com.ktc.sitepulse.domain.Permissions
 import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.ui.SitePulseViewModel
 import com.ktc.sitepulse.ui.theme.SpAmberMid
+import com.ktc.sitepulse.ui.theme.SpGreenMid
+import com.ktc.sitepulse.ui.theme.SpRed
+import com.ktc.sitepulse.util.displayName
 import kotlinx.coroutines.launch
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -97,6 +103,8 @@ fun AttendanceScreen(viewModel: SitePulseViewModel) {
         }, modifier = Modifier.fillMaxWidth()) { Text("📅 Date: $selectedDate") }
 
         if (canCorrect) {
+            BiometricCheckCard(viewModel, selectedDate)
+
             OutlinedButton(onClick = { addingNew = true }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 Text("+ Add Manual Attendance Record")
             }
@@ -518,4 +526,177 @@ private fun Throwable.diagnosticChain(): String {
         depth++
     }
     return parts.joinToString(" ← caused by ")
+}
+
+
+/**
+ * Cross-check the day's attendance against the ERP biometric report (report 8127).
+ *
+ * This is the answer to the question a geofence cannot settle — a GPS fix proves a phone was on
+ * site, not that the man whose badge was scanned was standing beside it. The biometric can prove
+ * that, because he had to put his own finger on a reader.
+ *
+ * Deliberately framed as "verify", not "catch": most of what it surfaces is an honest gap (a
+ * worker who never passes a reader, a missed marking), and the card says so rather than
+ * presenting a list of names as a list of suspects.
+ */
+@Composable
+private fun BiometricCheckCard(viewModel: SitePulseViewModel, selectedDate: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val statusMessages by viewModel.statusMessages.collectAsState()
+    val summary by viewModel.biometricSummary.collectAsState()
+    var exporting by remember { mutableStateOf(false) }
+    var exportStatus by remember { mutableStateOf("") }
+    var showAll by remember { mutableStateOf(false) }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { viewModel.verifyAgainstBiometric(it, it.displayName(context), selectedDate) }
+    }
+
+    Card(
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("VERIFY AGAINST ERP BIOMETRIC", fontWeight = FontWeight.Bold)
+            Text(
+                "Upload the ERP biometric report (8127) and the app compares it against what was " +
+                    "marked here. Anyone marked present with no punch is listed for review, along " +
+                    "with the name of whoever marked them.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            )
+            OutlinedButton(onClick = { picker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                Text("⬆ Upload 8127 Report (.xlsx / .csv)")
+            }
+            Text(
+                "If the file has no date column, $selectedDate is assumed.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            statusMessages["biometricStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
+
+            summary?.let { s ->
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                    Stat("Agree", s.agreed.toString(), SpGreenMid, Modifier.weight(1f))
+                    Stat("No punch", s.markedNotPunched.toString(), SpRed, Modifier.weight(1f))
+                    Stat("Not marked", s.punchedNotMarked.toString(), SpAmberMid, Modifier.weight(1f))
+                    Stat("Time gap", s.timeMismatch.toString(), SpAmberMid, Modifier.weight(1f))
+                }
+
+                // The single most important line on this card. Without it, a site with no reader
+                // produces a long "no punch" list that reads exactly like a fraud report.
+                if (s.coverageTooLowToJudge) {
+                    Text(
+                        "⚠ Only ${s.coverage} of ${s.markedTotal} marked workers appear in this " +
+                            "biometric report at all. For the rest there is no reader covering them, " +
+                            "so \"no punch\" here does not mean anything is wrong.",
+                        color = SpAmberMid, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
+                val shown = if (showAll) s.findings else s.findings.filter { it.needsReview }
+                if (shown.isEmpty()) {
+                    Text(
+                        "Everything checked agrees with the biometric.",
+                        color = SpGreenMid, modifier = Modifier.padding(top = 10.dp),
+                    )
+                } else {
+                    shown.take(60).forEach { f ->
+                        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            Text(
+                                "${f.name.ifBlank { f.workerId }} (${f.workerId}) · ${f.date}",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                verdictText(f),
+                                color = when (f.verdict) {
+                                    BiometricReconciliation.Verdict.MARKED_NOT_PUNCHED -> SpRed
+                                    BiometricReconciliation.Verdict.AGREED -> SpGreenMid
+                                    else -> SpAmberMid
+                                },
+                                fontSize = 12.sp,
+                            )
+                            if (f.markedBy.isNotBlank()) {
+                                Text(
+                                    "Marked by ${f.markedBy}" + if (f.siteCode.isNotBlank()) " · ${f.siteCode}" else "",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
+                                )
+                            }
+                        }
+                    }
+                    if (shown.size > 60) {
+                        Text(
+                            "+ ${shown.size - 60} more — download the Excel to see them all.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                    OutlinedButton(onClick = { showAll = !showAll }, modifier = Modifier.weight(1f)) {
+                        Text(if (showAll) "Show only issues" else "Show all (${s.findings.size})")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            exporting = true
+                            scope.launch {
+                                try {
+                                    val file = viewModel.exportBiometricFindings()
+                                    val uri = FileProvider.getUriForFile(
+                                        context, "${context.packageName}.fileprovider", file
+                                    )
+                                    context.startActivity(
+                                        Intent.createChooser(
+                                            Intent(Intent.ACTION_SEND).apply {
+                                                type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                                putExtra(Intent.EXTRA_STREAM, uri)
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            },
+                                            "Share biometric cross-check",
+                                        )
+                                    )
+                                } catch (e: Throwable) {
+                                    // Same reason the report download catches Throwable rather than
+                                    // Exception: POI can raise Errors that would take the app down.
+                                    exportStatus = "❌ ${e.diagnosticChain()}"
+                                } finally {
+                                    exporting = false
+                                }
+                            }
+                        },
+                        enabled = !exporting,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) { Text(if (exporting) "…" else "⬇ Excel") }
+                }
+                if (exportStatus.isNotBlank()) Text(exportStatus, modifier = Modifier.padding(top = 6.dp))
+                TextButton(onClick = {
+                    viewModel.clearBiometricSummary()
+                    exportStatus = ""
+                }) { Text("Clear result") }
+            }
+        }
+    }
+}
+
+private fun verdictText(f: BiometricReconciliation.Finding): String = when (f.verdict) {
+    BiometricReconciliation.Verdict.AGREED ->
+        "✅ Agrees — app ${f.sitePulseIn}, biometric ${f.biometricIn}"
+    BiometricReconciliation.Verdict.MARKED_NOT_PUNCHED ->
+        "❌ Marked present at ${f.sitePulseIn.ifBlank { "—" }}, but no biometric punch that day"
+    BiometricReconciliation.Verdict.PUNCHED_NOT_MARKED ->
+        "⚠ Punched at ${f.biometricIn} but never marked in the app — possibly an unpaid day"
+    BiometricReconciliation.Verdict.TIME_MISMATCH ->
+        "⚠ App ${f.sitePulseIn} vs biometric ${f.biometricIn} — ${f.gapMinutes} minutes apart"
+}
+
+@Composable
+private fun Stat(label: String, value: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(value, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = color)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+    }
 }
