@@ -19,7 +19,7 @@ data class UserInvite(
     @DocumentId @get:Exclude val docId: String = "",
     val email: String = "",
     val name: String = "",
-    val role: String = Role.FOREMAN.id,
+    val role: String = Role.SUPERVISOR.id,
     val assignedSites: List<String> = emptyList(),
     val employeeId: String? = null,
     val invitedBy: String = "",

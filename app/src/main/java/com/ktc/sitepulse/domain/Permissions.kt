@@ -133,7 +133,7 @@ object Permissions {
 
     /** Roles that may record attendance for other people. */
     private val ATTENDANCE_MARKERS = setOf(
-        Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER, Role.SUPERVISOR, Role.FOREMAN,
+        Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER, Role.SUPERVISOR,
     )
 
     /** Roles that manage the workforce itself, rather than just recording its attendance. */
@@ -151,7 +151,7 @@ object Permissions {
 
     /** Roles that see manpower reporting beyond a bare headcount. */
     private val REPORT_VIEWERS = setOf(
-        Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER, Role.SUPERVISOR, Role.FOREMAN,
+        Role.SUPER_ADMIN, Role.ADMIN, Role.TIMEKEEPER, Role.SUPERVISOR,
     )
 
     // ---- Capability checks ----------------------------------------------------------------
@@ -307,11 +307,11 @@ object Permissions {
             // Check-In included so a timekeeper can scan ID badges to mark attendance, and
             // Workers so they can keep their own site's roster current.
             Role.TIMEKEEPER -> setOf("checkin", "dashboard", "attendance", "workers", "roster")
-            // Supervisors and foremen mark attendance and read their site's manpower; they get
-            // no workforce management, no site configuration and no company-wide reporting.
-            // Roster included so the "Report Arrival" action on Check-In leads somewhere they
-            // are actually permitted; it shows them the field panel, not the management one.
-            Role.SUPERVISOR, Role.FOREMAN -> setOf("checkin", "dashboard", "attendance", "roster")
+            // Supervisors mark attendance and read their site's manpower; they get no workforce
+            // management, no site configuration and no company-wide reporting. Roster included
+            // so the "Report Arrival" action on Check-In leads somewhere they are actually
+            // permitted; it shows them the field panel, not the management one.
+            Role.SUPERVISOR -> setOf("checkin", "dashboard", "attendance", "roster")
             Role.STAFF -> emptySet() // self-service screen only, reached without the tab bar
         }
     }

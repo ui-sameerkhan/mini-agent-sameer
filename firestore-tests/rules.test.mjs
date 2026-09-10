@@ -514,6 +514,55 @@ test("both ends of a move can see it, but nobody can list the lot", async () => 
   await assertFails(getDocs(query(collection(db, "transferRequests"), where("toSite", "==", "SITE-B"))));
 });
 
+// ---------------------------------------------------------------------------------------------
+// Retired roles.
+//
+// "foreman" was merged into supervisor — identical permissions, and the same job at KTC. The
+// merge removed it from User Management, but profiles written before it still say "foreman".
+// If the id ever stops resolving, every one of those accounts silently loses the ability to mark
+// attendance, with nothing in the app to explain why. These tests exist to make that impossible.
+// ---------------------------------------------------------------------------------------------
+
+await seed(async (db) => {
+  await setDoc(doc(db, "users/uid-old-foreman"), {
+    name: "Old Foreman", email: "of@ktc.test", role: "foreman",
+    assignedSites: ["SITE-A"], status: "active",
+  });
+});
+
+test("a profile still holding the retired 'foreman' role keeps marking attendance", async () => {
+  const db = as("uid-old-foreman", "of@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "attendance/2026-09-20_W-A"), {
+    workerId: "W-A", date: "2026-09-20", siteCode: "SITE-A",
+  }));
+});
+
+test("a retired 'foreman' profile stays bound to its own sites", async () => {
+  // Merging the role must not widen it either.
+  const db = as("uid-old-foreman", "of@ktc.test");
+  await assertFails(setDoc(doc(db, "attendance/2026-09-20_W-B"), {
+    workerId: "W-B", date: "2026-09-20", siteCode: "SITE-B",
+  }));
+});
+
+test("a retired 'foreman' profile can raise a transfer but still cannot approve one", async () => {
+  const db = as("uid-old-foreman", "of@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "transferRequests/T-OLD-FOREMAN"), {
+    workerId: "W-B", workerName: "Worker B", fromSite: "SITE-B", toSite: "SITE-A",
+    requestedBy: "of@ktc.test", status: "pending",
+  }));
+  await assertFails(setDoc(doc(db, "transferRequests/T-OLD-FOREMAN"), {
+    status: "approved", approvedBy: "of@ktc.test",
+  }, { merge: true }));
+});
+
+test("a retired 'foreman' profile gains no roster rights from the merge", async () => {
+  const db = as("uid-old-foreman", "of@ktc.test");
+  await assertFails(setDoc(doc(db, "workers/W-FOREMAN-MERGE"), {
+    id: "W-FOREMAN-MERGE", name: "Nope", designation: "Helper", site: "SITE-A",
+  }));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });

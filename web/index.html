@@ -701,6 +701,12 @@ let adminOn = false, officeStaffOn = false, timekeeperOn = false, myLinkedWorker
 const ALL_SITES = "ALL";
 let session = { uid:null, email:"", role:"supervisor", assignedSites:[ALL_SITES], active:true, employeeId:null };
 
+// Retired role ids, mapped to whatever replaced them — mirrors Role.MERGED_INTO on Android.
+// "foreman" was merged into Supervisor: identical permissions, and the same job at KTC. Profiles
+// written before the merge still say "foreman", so this must keep resolving for good.
+const MERGED_ROLES = { foreman: "supervisor" };
+const normaliseRole = r => MERGED_ROLES[r] || r;
+
 const hasAllSites = () => session.role === "super_admin" || session.assignedSites.includes(ALL_SITES);
 // Mirrors Permissions.hasSiteAccess / canRequestTransfer / canApproveTransfer on Android, and the
 // matching clauses in firestore.rules. Hiding a button is a convenience here, never the boundary:
@@ -708,7 +714,7 @@ const hasAllSites = () => session.role === "super_admin" || session.assignedSite
 const hasSiteAccess = code => session.active !== false &&
   (hasAllSites() || (!!code && session.assignedSites.some(s => String(s).toLowerCase() === String(code).toLowerCase())));
 const canRequestTransfer = toSite =>
-  ["super_admin","admin","timekeeper","supervisor","foreman"].includes(session.role) && hasSiteAccess(toSite);
+  ["super_admin","admin","timekeeper","supervisor"].includes(session.role) && hasSiteAccess(toSite);
 const canApproveTransfer = toSite =>
   ["super_admin","admin","timekeeper"].includes(session.role) && hasSiteAccess(toSite);
 
@@ -737,7 +743,7 @@ async function resolveSession(user){
              employeeId: profile ? (profile.employeeId||null) : null };
   }
   if(provisioned){
-    return { uid:user.uid, email, role:profile.role,
+    return { uid:user.uid, email, role:normaliseRole(profile.role),
              assignedSites: profile.role === "super_admin" ? [ALL_SITES] : (profile.assignedSites||[]),
              active: (profile.status||"active") === "active",
              employeeId: profile.employeeId||null };
@@ -833,7 +839,7 @@ onAuthStateChanged(auth, async (user)=>{
   // the domain-based office-staff match, same precedence admin already gets.
   // Resolve the stored profile — role plus assigned sites — before deciding what to show.
   // The six roles map onto the four views this app already has: super_admin and admin get the
-  // full admin view, supervisor and foreman the field view, and staff the self-service one.
+  // full admin view, supervisor the field view, and staff the self-service one.
   if(user){
     session = await resolveSession(user);
     if(!session.active){
@@ -903,7 +909,7 @@ onAuthStateChanged(auth, async (user)=>{
     $("adminbtn").style.display = "inline-block";
     $("tabbar").classList.remove("show");
     $("lg-msg").textContent = "";
-    $("notice").innerHTML = '<div class="notice ok">'+(session.role === "foreman" ? "🦺 Foreman: " : "👷 Supervisor: ")+email+siteNote+' — you can mark attendance and report arrivals.</div>';
+    $("notice").innerHTML = '<div class="notice ok">👷 Supervisor: '+email+siteNote+' — you can mark attendance and report arrivals.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
     $("roster-transfers").style.display = "block";
@@ -970,8 +976,8 @@ function startData(isAdminUser, isTimekeeperUser){
     if(isAdminUser && $("pg-roster").classList.contains("on")) renderSiteDeviations();
   }, "siteCode");
 
-  // Site transfers — deliberately OUTSIDE the isAdminUser block below. Foremen and supervisors
-  // raise these and timekeepers approve them, so scoping the listener to admins would leave the
+  // Site transfers — deliberately OUTSIDE the isAdminUser block below. Supervisors raise these
+  // and timekeepers approve them, so scoping the listener to admins would leave the
   // approver unable to see their own queue. Staff never touch the roster, so they are excluded.
   //
   // Incoming is what this user may act on; outgoing is a heads-up that a site they hold is about

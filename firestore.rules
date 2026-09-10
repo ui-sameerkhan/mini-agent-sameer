@@ -97,6 +97,11 @@ service cloud.firestore {
     }
 
     // Every role that records attendance for other people.
+    //
+    // 'foreman' is retired and no longer offered in User Management — it was merged into
+    // supervisor, which it matched permission for permission. It MUST stay listed here: profiles
+    // written before the merge still hold role 'foreman', and dropping the id would lock those
+    // accounts out of marking attendance overnight. It is never re-used for anything narrower.
     function marksAttendance() {
       return isActive() &&
         role() in ['super_admin', 'admin', 'timekeeper', 'supervisor', 'foreman'];

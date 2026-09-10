@@ -190,7 +190,7 @@ function caption(s, text, y, color) {
   card(s, M, 3.12, 9, 1.05, PAPER);
   body(s, "Both run on Google Firebase — the same infrastructure Google runs its own products on. Data is replicated and backed up by Google; a lost or broken site phone loses nothing.", M + 0.28, 3.32, 8.44, 0.7, { size: 12 });
 
-  stat(s, M, 4.2, 2.2, "6", "user roles, each with its own access", NAVY);
+  stat(s, M, 4.2, 2.2, "5", "user roles, each with its own access", NAVY);
   stat(s, 3.15, 4.2, 2.4, "2", "apps, one shared database", BLUEMD);
   stat(s, 6.05, 4.2, 3.4, "0", "paper attendance sheets required", GREEN);
 
@@ -259,17 +259,14 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "Six roles, each seeing only their own work", { sub: "Access is decided by role plus the projects that person is assigned to" });
+  heading(s, "Five roles, scoped to their own projects", { size: 30, sub: "Access is decided by role plus the projects that person is assigned to" });
 
   const roles = [
     ["Super Admin", "Full access. Creates users, sets roles, configures projects and geofences.", NAVY],
     ["Admin", "Manages the workforce, attendance and reports across their assigned projects.", BLUEMD],
     ["Timekeeper", "Owns their site's roster and attendance. Approves incoming worker transfers.", BLUE],
-    // Supervisor and Foreman hold identical permissions in the system — the earlier wording
-    // implied only the Foreman could raise transfers, which is not true of either app or the
-    // security rules. Kept as two roles because they are two real job titles on site.
+    // Foreman was merged into Supervisor: identical permissions, and the same job at KTC.
     ["Supervisor", "Marks attendance, reads manpower and raises transfers for their projects.", GREEN],
-    ["Foreman", "Same access as Supervisor — a separate title so records show who marked what.", AMBER],
     ["Staff", "Office staff. Marks only their own attendance and applies for their own leave.", MUTED],
   ];
 
@@ -282,9 +279,19 @@ function caption(s, text, y, color) {
     body(s, duty, x + 0.24, yy + 0.76, 2.36, 0.62, { size: 10.5, color: MUTED });
   });
 
+  // The vacated sixth slot carries the merge note — it balances the grid and answers the
+  // "wasn't there a Foreman?" question before anyone has to ask it.
+  {
+    const x = M + 2 * 3.09, yy = 1.5 + 1.72;
+    card(s, x, yy, 2.82, 1.5, BLUESF);
+    body(s, "Foreman", x + 0.24, yy + 0.22, 2.36, 0.28, { size: 13, bold: true, color: NAVY });
+    body(s, "Merged into Supervisor — same job at KTC. Logins created as Foreman still work, and now read as Supervisor.",
+      x + 0.24, yy + 0.56, 2.36, 0.82, { size: 10, color: MUTED });
+  }
+
   caption(s, "A person cannot see, mark or export data for a project they are not assigned to.", 4.92);
 
-  s.addNotes("Site assignment is the second half of the permission. A timekeeper on Project A cannot open Project B's attendance at all.\n\nIf asked why Supervisor and Foreman are listed separately: they carry the same access. They are kept apart because they are two real job titles, and the role is stamped on every attendance record, so you can tell which of them marked it. They can be merged into one role if HR would rather have five.");
+  s.addNotes("Site assignment is the second half of the permission. A timekeeper on Project A cannot open Project B's attendance at all.\n\nThere used to be a sixth role, Foreman, carrying permissions identical to Supervisor. It was merged in, since at KTC it is the same job. Logins created as Foreman before the merge keep working unchanged and now read as Supervisor.");
 }
 
 // =============================================================================================
@@ -421,7 +428,7 @@ function caption(s, text, y, color) {
     x: 6.62, y: 1.62, w: 2.88, h: 2.62, rectRadius: 0.09,
     fill: { color: "0A2050" }, line: { color: "1B3468", width: 1 },
   });
-  s.addText("44", {
+  s.addText("48", {
     x: 6.62, y: 2.0, w: 2.88, h: 1.0, fontFace: HEAD, fontSize: 60, bold: true,
     color: GOLD, align: "center", isTextBox: true, margin: 0,
   });
@@ -429,7 +436,7 @@ function caption(s, text, y, color) {
     x: 6.72, y: 2.96, w: 2.68, h: 0.3, fontFace: BODY, fontSize: 12, bold: true,
     color: WHITE, align: "center", isTextBox: true, margin: 0,
   });
-  s.addText("Each one checks a permission that must be granted — and one that must be refused. All 44 pass.", {
+  s.addText("Each one checks a permission that must be granted — and one that must be refused. All 48 pass.", {
     x: 6.86, y: 3.3, w: 2.4, h: 0.8, fontFace: BODY, fontSize: 10, color: "B9C7DE",
     align: "center", isTextBox: true, margin: 0, lineSpacingMultiple: 1.1,
   });
@@ -573,7 +580,7 @@ function caption(s, text, y, color) {
     isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
   });
 
-  const marks = [["4,000", "workers supported"], ["6", "roles"], ["44", "security tests passing"]];
+  const marks = [["4,000", "workers supported"], ["5", "roles"], ["48", "security tests passing"]];
   marks.forEach(([v, l], i) => {
     const x = M + i * 3.05;
     s.addText(v, { x, y: 3.62, w: 2.8, h: 0.6, fontFace: HEAD, fontSize: 32, bold: true, color: GOLD, isTextBox: true, margin: 0 });

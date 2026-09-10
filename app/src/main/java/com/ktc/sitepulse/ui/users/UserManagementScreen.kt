@@ -344,7 +344,7 @@ private fun UserEditDialog(
     var email by remember { mutableStateOf(existing?.email ?: "") }
     var password by remember { mutableStateOf("") }
     var employeeId by remember { mutableStateOf(existing?.employeeId ?: "") }
-    var role by remember { mutableStateOf(existing?.roleEnum ?: Role.FOREMAN) }
+    var role by remember { mutableStateOf(existing?.roleEnum ?: Role.SUPERVISOR) }
     var roleExpanded by remember { mutableStateOf(false) }
     val selectedSites = remember {
         (existing?.assignedSites?.filter { it != ALL_SITES } ?: emptyList()).toMutableStateList()
