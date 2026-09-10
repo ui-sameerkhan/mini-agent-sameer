@@ -230,7 +230,41 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 5 — Proof of location
+// 5 — ID badges and scanning
+// =============================================================================================
+{
+  const s = lightSlide();
+  heading(s, "ID badges and scanning", { sub: "The worker's employee number, printed as a code the phone can read" });
+
+  const steps = [
+    ["1", "Generate", "Every worker's employee number becomes a QR code. Nothing to type in, nothing to look up.", BLUEMD],
+    ["2", "Print", "Twelve badges to an A4 page, each with the worker's name and ID underneath, as one printable file.", NAVY],
+    ["3", "Scan", "Point the phone at the badge. The worker is identified in under a second, with no chance of a mistyped ID.", GREEN],
+  ];
+
+  steps.forEach(([n, title, text, col], i) => {
+    const x = M + i * 3.09;
+    card(s, x, 1.5, 2.82, 1.95, PAPER);
+    badge(s, x + 0.24, 1.74, 0.5, n, col);
+    body(s, title, x + 0.24, 2.38, 2.36, 0.32, { size: 15, bold: true });
+    body(s, text, x + 0.24, 2.74, 2.36, 0.9, { size: 10.5, color: MUTED });
+  });
+
+  card(s, M, 3.62, 4.35, 1.45, BLUESF);
+  badge(s, M + 0.24, 3.86, 0.42, "1", BLUEMD);
+  body(s, "Existing badges still work", M + 0.78, 3.84, 3.3, 0.3, { size: 13, bold: true });
+  body(s, "The scanner reads ordinary barcodes as well as QR, so badges already issued do not have to be replaced.", M + 0.78, 4.16, 3.3, 0.78, { size: 10.5, color: MUTED });
+
+  card(s, 5.15, 3.62, 4.35, 1.45, PAPER);
+  badge(s, 5.39, 3.86, 0.42, "2", NAVY);
+  body(s, "A badge is never required", 5.93, 3.84, 3.3, 0.3, { size: 13, bold: true });
+  body(s, "Lost his badge, or a new man with none yet? Search by name or employee number and mark him as normal.", 5.93, 4.16, 3.3, 0.78, { size: 10.5, color: MUTED });
+
+  s.addNotes("Badges are a speed-up, not a dependency — every check-in that works with a scan also works by search, so a lost badge never stops a man being marked.\n\nThe scanner accepts all common barcode formats, so if KTC already issues ID cards with a barcode, those can be used from day one and no reprint is needed.");
+}
+
+// =============================================================================================
+// 6 — Proof of location
 // =============================================================================================
 {
   const s = lightSlide();
@@ -255,7 +289,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 6 — Six roles
+// 7 — Six roles
 // =============================================================================================
 {
   const s = lightSlide();
@@ -295,7 +329,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 7 — Site transfers
+// 8 — Site transfers
 // =============================================================================================
 {
   const s = lightSlide();
@@ -331,7 +365,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 8 — Reports
+// 9 — Reports
 // =============================================================================================
 {
   const s = lightSlide();
@@ -361,7 +395,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 9 — Dashboard
+// 10 — Dashboard
 // =============================================================================================
 {
   const s = lightSlide();
@@ -403,7 +437,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 10 — Security (dark)
+// 11 — Security (dark)
 // =============================================================================================
 {
   const s = darkSlide();
@@ -447,7 +481,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 11 — Scale, with the measured chart
+// 12 — Scale, with the measured chart
 // =============================================================================================
 {
   const s = lightSlide();
@@ -499,7 +533,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 12 — Benefits for HR
+// 13 — Benefits for HR
 // =============================================================================================
 {
   const s = lightSlide();
@@ -527,7 +561,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 13 — Cost and what's next
+// 14 — Cost and what's next
 // =============================================================================================
 {
   const s = lightSlide();
@@ -556,7 +590,7 @@ function caption(s, text, y, color) {
 
   card(s, M, 3.68, 4.35, 1.35, PAPER);
   body(s, "Already live today", M + 0.26, 3.86, 3.85, 0.28, { size: 12, bold: true, color: NAVY });
-  body(s, "GPS check-in, badge scanning, six roles, site scoping, transfers, leave, holidays, dashboards, Excel reports, and full backup and restore.", M + 0.26, 4.18, 3.85, 0.72, { size: 10.5, color: MUTED });
+  body(s, "GPS check-in, QR badges, five roles, site scoping, transfers, leave, holidays, dashboards, Excel reports, and full backup and restore.", M + 0.26, 4.18, 3.85, 0.72, { size: 10.5, color: MUTED });
 
   caption(s, "Cost figure is a projection based on expected usage, not a quoted price.", 5.0);
 
@@ -564,7 +598,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 14 — Close (dark)
+// 15 — Close (dark)
 // =============================================================================================
 {
   const s = darkSlide();

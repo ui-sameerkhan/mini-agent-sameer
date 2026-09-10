@@ -1,8 +1,9 @@
 """
 Geometric QA for the deck.
 
-LibreOffice cannot load any file in this container, so a pixel render is not available. This
-checks the things a render would have caught, straight off the real .pptx:
+A companion to the visual render, not a replacement for it — the render is the authority, and
+it caught defects this could not (see the note on font metrics below). This runs first because
+it is fast and it names the offending shape, straight off the real .pptx:
 
   1. every shape sits inside the slide,
   2. content keeps a 0.5" margin (a few shapes bleed on purpose and are whitelisted),
@@ -12,6 +13,10 @@ checks the things a render would have caught, straight off the real .pptx:
 Text width is measured with Liberation Sans/Serif. Calibri is ~8% narrower than Arial and
 Liberation Sans is Arial-metric, so Calibri widths are scaled down; a safety factor is applied
 on top so a "fits" verdict is conservative rather than optimistic.
+
+Trust that verdict only so far. Liberation Serif stands in for Cambria and runs narrower than
+the real face, so this check once passed five headings that actually wrapped onto a second line
+and collided with the sub-line beneath them. Always look at the rendered pages as well.
 """
 from pptx import Presentation
 from pptx.util import Emu
@@ -72,7 +77,7 @@ def wrapped_lines(text, box_w_in, face, size_pt, bold):
 
 # Shapes allowed outside the safe margin: the decorative circles that bleed off the title and
 # closing slides by design.
-BLEED_OK = {1, 14}
+BLEED_OK = {1, 15}
 
 problems = []
 info = []
