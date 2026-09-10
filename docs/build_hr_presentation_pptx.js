@@ -54,7 +54,7 @@ function heading(s, text, opts = {}) {
   });
   if (opts.sub) {
     s.addText(opts.sub, {
-      x: M, y: 0.99, w: W - M * 2, h: 0.34,
+      x: M, y: 1.02, w: W - M * 2, h: 0.34,
       fontFace: BODY, fontSize: 13, color: opts.subColor || MUTED,
       isTextBox: true, margin: 0,
     });
@@ -147,7 +147,7 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "Where attendance breaks down today", { sub: "The four failures SitePulse was built to remove" });
+  heading(s, "Where attendance breaks down", { sub: "The four failures SitePulse was built to remove" });
 
   const items = [
     ["1", "Paper and Excel", "A day's attendance is collected on paper, typed up later, and consolidated by hand. Mistakes only surface at payroll."],
@@ -175,7 +175,7 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "One system, two apps, one live database", { sub: "The same data, whether you are standing at the gate or sitting in head office" });
+  heading(s, "Two apps, one live database", { sub: "The same data, whether you are standing at the gate or sitting in head office" });
 
   card(s, M, 1.5, 4.35, 1.45, BLUESF);
   badge(s, M + 0.24, 1.72, 0.44, "A", BLUEMD);
@@ -234,7 +234,7 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "Proof that the man was actually there", { sub: "Location is checked by the system, not asserted by a person" });
+  heading(s, "Proof the man was there", { sub: "Location is checked by the system, not asserted by a person" });
 
   const rows = [
     ["Every project carries its own geofence", "Super Admin sets each project's coordinates and radius. A tight compound and a spread-out site get different limits."],
@@ -259,22 +259,22 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "Five roles, scoped to their own projects", { size: 30, sub: "Access is decided by role plus the projects that person is assigned to" });
+  heading(s, "Five roles, scoped by project", { sub: "Access is decided by role plus the projects that person is assigned to" });
 
   const roles = [
-    ["Super Admin", "Full access. Creates users, sets roles, configures projects and geofences.", NAVY],
-    ["Admin", "Manages the workforce, attendance and reports across their assigned projects.", BLUEMD],
-    ["Timekeeper", "Owns their site's roster and attendance. Approves incoming worker transfers.", BLUE],
+    ["Super Admin", "Full access. Creates users, sets roles, configures projects and geofences.", NAVY, "SA"],
+    ["Admin", "Manages the workforce, attendance and reports across their assigned projects.", BLUEMD, "A"],
+    ["Timekeeper", "Owns their site's roster and attendance. Approves incoming worker transfers.", BLUE, "TK"],
     // Foreman was merged into Supervisor: identical permissions, and the same job at KTC.
-    ["Supervisor", "Marks attendance, reads manpower and raises transfers for their projects.", GREEN],
-    ["Staff", "Office staff. Marks only their own attendance and applies for their own leave.", MUTED],
+    ["Supervisor", "Marks attendance, reads manpower and raises transfers for their projects.", GREEN, "SV"],
+    ["Staff", "Office staff. Marks only their own attendance and applies for their own leave.", MUTED, "ST"],
   ];
 
-  roles.forEach(([name, duty, col], i) => {
+  roles.forEach(([name, duty, col, initials], i) => {
     const x = M + (i % 3) * 3.09;
     const yy = 1.5 + Math.floor(i / 3) * 1.72;
     card(s, x, yy, 2.82, 1.5, PAPER);
-    badge(s, x + 0.24, yy + 0.22, 0.42, name.charAt(0), col);
+    badge(s, x + 0.24, yy + 0.22, 0.42, initials, col);
     body(s, name, x + 0.76, yy + 0.26, 1.92, 0.3, { size: 13, bold: true });
     body(s, duty, x + 0.24, yy + 0.76, 2.36, 0.62, { size: 10.5, color: MUTED });
   });
@@ -451,7 +451,7 @@ function caption(s, text, y, color) {
 // =============================================================================================
 {
   const s = lightSlide();
-  heading(s, "Built and measured for 4,000 workers", { sub: "Report generation timed on the standard build, not estimated" });
+  heading(s, "Measured for 4,000 workers", { sub: "Report generation timed on the standard build, not estimated" });
 
   s.addChart(
     pres.ChartType.bar,
@@ -468,7 +468,7 @@ function caption(s, text, y, color) {
       showTitle: true,
       title: "Excel report generation (seconds)",
       titleFontFace: BODY, titleFontSize: 12, titleColor: MUTED,
-      showValue: true, dataLabelPosition: "outEnd",
+      showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "0.0",
       dataLabelFontFace: BODY, dataLabelFontSize: 11, dataLabelColor: INK,
       showLegend: false,
       catAxisLabelColor: MUTED, catAxisLabelFontSize: 9, catAxisLabelFontFace: BODY,
