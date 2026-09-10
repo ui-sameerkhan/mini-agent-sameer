@@ -42,6 +42,7 @@ import com.ktc.sitepulse.domain.ReportEngine
 import com.ktc.sitepulse.domain.SpreadsheetReader
 import com.ktc.sitepulse.domain.WorkersImport
 import com.ktc.sitepulse.util.NetworkStatus
+import com.ktc.sitepulse.work.BiometricReminder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -193,6 +194,22 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 runCatching { container.userRepository.touchLastLogin(uid, DateUtils.nowIso()) }
             }
+        }
+
+        // The daily biometric reminder follows the role: on for the accounts that actually run
+        // the check, off for everyone else, and off entirely at sign-out so a shared site phone
+        // does not keep nagging the next person about a job that is not theirs.
+        viewModelScope.launch {
+            sessionProfile
+                .map { Triple(Permissions.canCorrectAttendance(it), it.hasAllSites, it.assignedSites) }
+                .distinctUntilChanged()
+                .collect { (canVerify, hasAll, sites) ->
+                    val ctx = getApplication<Application>()
+                    runCatching {
+                        if (canVerify) BiometricReminder.enableFor(ctx, BiometricReminder.scopeKey(hasAll, sites))
+                        else BiometricReminder.disable(ctx)
+                    }
+                }
         }
     }
 

@@ -116,6 +116,12 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.zxing:core:3.5.3")
 
+    // Background work: the daily reminder to run the ERP biometric cross-check. WorkManager
+    // rather than AlarmManager because the reminder must survive a reboot and an app kill, and
+    // because it is allowed to slide by a few minutes — exact alarms need a permission this
+    // does not warrant.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
