@@ -265,8 +265,11 @@ function caption(s, text, y, color) {
     ["Super Admin", "Full access. Creates users, sets roles, configures projects and geofences.", NAVY],
     ["Admin", "Manages the workforce, attendance and reports across their assigned projects.", BLUEMD],
     ["Timekeeper", "Owns their site's roster and attendance. Approves incoming worker transfers.", BLUE],
-    ["Supervisor", "Marks attendance and reads manpower for the projects they hold.", GREEN],
-    ["Foreman", "Marks attendance at the gate and raises transfers for workers who turn up.", AMBER],
+    // Supervisor and Foreman hold identical permissions in the system — the earlier wording
+    // implied only the Foreman could raise transfers, which is not true of either app or the
+    // security rules. Kept as two roles because they are two real job titles on site.
+    ["Supervisor", "Marks attendance, reads manpower and raises transfers for their projects.", GREEN],
+    ["Foreman", "Same access as Supervisor — a separate title so records show who marked what.", AMBER],
     ["Staff", "Office staff. Marks only their own attendance and applies for their own leave.", MUTED],
   ];
 
@@ -281,7 +284,7 @@ function caption(s, text, y, color) {
 
   caption(s, "A person cannot see, mark or export data for a project they are not assigned to.", 4.92);
 
-  s.addNotes("Site assignment is the second half of the permission. A timekeeper on Project A cannot open Project B's attendance at all.");
+  s.addNotes("Site assignment is the second half of the permission. A timekeeper on Project A cannot open Project B's attendance at all.\n\nIf asked why Supervisor and Foreman are listed separately: they carry the same access. They are kept apart because they are two real job titles, and the role is stamped on every attendance record, so you can tell which of them marked it. They can be merged into one role if HR would rather have five.");
 }
 
 // =============================================================================================
