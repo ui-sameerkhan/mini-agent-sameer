@@ -546,6 +546,7 @@ private fun BiometricCheckCard(viewModel: SitePulseViewModel, selectedDate: Stri
     val scope = rememberCoroutineScope()
     val statusMessages by viewModel.statusMessages.collectAsState()
     val summary by viewModel.biometricSummary.collectAsState()
+    val todayCheck by viewModel.todayBiometricCheck.collectAsState()
     var exporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf("") }
     var showAll by remember { mutableStateOf(false) }
@@ -568,6 +569,27 @@ private fun BiometricCheckCard(viewModel: SitePulseViewModel, selectedDate: Stri
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
             )
+            // Whether today has been done, in one line. A daily control that nobody can see the
+            // state of quietly stops happening, and then nobody notices it stopped.
+            todayCheck.let { log ->
+                if (log == null) {
+                    Text(
+                        "⚠ Not checked today.",
+                        color = SpAmberMid, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                } else {
+                    Text(
+                        (if (log.isClean) "✅ Checked today — nothing to review."
+                         else "✅ Checked today — ${log.reviewCount} to review.") +
+                            "  (${log.runBy.substringBefore("@")}, ${DateUtils.formatTimeHm(log.runAt)})",
+                        color = if (log.isClean) SpGreenMid else SpAmberMid,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+            }
+
             OutlinedButton(onClick = { picker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
                 Text("⬆ Upload 8127 Report (.xlsx / .csv)")
             }

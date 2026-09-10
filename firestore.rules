@@ -119,6 +119,13 @@ service cloud.firestore {
       return isActive() && role() in ['super_admin', 'admin', 'timekeeper'];
     }
 
+    // Roles that correct attendance after the fact, and so may also run and record the ERP
+    // biometric cross-check. Same set as uploadsRoster() today, kept separate because they are
+    // different powers that could reasonably diverge later.
+    function verifiesAttendance() {
+      return isActive() && role() in ['super_admin', 'admin', 'timekeeper'];
+    }
+
     // ---------------------------------------------------------------------------------------
     // Site scoping
     // ---------------------------------------------------------------------------------------
@@ -287,6 +294,33 @@ service cloud.firestore {
       // supervisor is not in uploadsRoster(), so nobody can approve a request they just raised.
       allow update: if uploadsRoster() && hasSiteAccess(resource.data.get('toSite', null));
       allow delete: if isSuperAdmin() || isAdmin();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // biometricChecks/{date__scope} — a record that the ERP biometric cross-check was run.
+    //
+    // Counts only: how many records agreed, how many need review, and how much of the workforce
+    // the biometric file covered. No worker names and no punch times, so there is nothing
+    // confidential here — which is why any active user may read it. Its purpose is to make the
+    // control demonstrable: "we reconcile daily" has to be evidenced, and a foreman who can see
+    // the check ran yesterday behaves differently from one who assumes it never runs.
+    //
+    // Always addressed by document id, never listed. A list would need scoping by the caller's
+    // sites, and a partly-provable list rule is exactly the shape that has bitten this file
+    // before — so the client fetches "was this day checked?" one id at a time instead.
+    // ---------------------------------------------------------------------------------------
+    match /biometricChecks/{checkId} {
+      allow read: if isActive();
+
+      // Only the roles that can run the check may record one, and only in their own name — an
+      // entry attributing a run to somebody else would corrupt the very audit trail this exists
+      // to provide. Re-running a day overwrites its entry, which is why update is allowed.
+      allow create, update: if verifiesAttendance() &&
+        request.resource.data.runBy.lower() == email() &&
+        request.resource.data.get('date', '') != '';
+
+      // A run that happened cannot be un-happened by whoever ran it.
+      allow delete: if isSuperAdmin();
     }
 
     // arrivalRequests/{autoId} — supervisor-submitted, admin-approved.

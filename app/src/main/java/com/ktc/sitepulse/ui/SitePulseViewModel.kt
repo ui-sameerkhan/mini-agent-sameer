@@ -18,6 +18,7 @@ import com.ktc.sitepulse.data.model.TransferRequest
 import com.ktc.sitepulse.data.model.UserInvite
 import com.ktc.sitepulse.data.model.UserProfile
 import com.ktc.sitepulse.data.model.Attendance
+import com.ktc.sitepulse.data.model.BiometricCheckLog
 import com.ktc.sitepulse.data.model.Blocked
 import com.ktc.sitepulse.data.model.Leave
 import com.ktc.sitepulse.data.model.Site
@@ -1262,6 +1263,28 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun clearBiometricSummary() { _biometricSummary.value = null }
 
+    /** This account's scope key, so two people checking two projects don't overwrite each other. */
+    private fun biometricScopeKey(s: SessionProfile): String =
+        BiometricCheckLog.scopeKeyFor(s.hasAllSites, s.assignedSites)
+
+    /**
+     * Whether today has already been verified, and what it found — the "is this actually being
+     * done every day?" line. Live, so the moment a run finishes the screen stops nagging.
+     *
+     * A control nobody can evidence is not a control: this is what turns "we reconcile against
+     * the biometric daily" from a claim into something demonstrable.
+     */
+    val todayBiometricCheck: StateFlow<BiometricCheckLog?> = sessionProfile
+        .map { it.isLoggedIn to biometricScopeKey(it) }
+        .distinctUntilChanged()
+        .flatMapLatest { (loggedIn, scope) ->
+            if (!loggedIn) flowOf(null)
+            else container.biometricCheckRepository
+                .live(DateUtils.todayStrUtc(), scope)
+                .catch { emit(null) } // an unreadable log must never block the screen
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     /**
      * Reads the ERP biometric report (report 8127) and compares it against attendance already
      * recorded, so a mark made for someone who never punched can be found.
@@ -1316,11 +1339,57 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                             else
                                 "⚠ ${summary.reviewCount} of ${summary.findings.size} need review.$skipped",
                         )
+
+                        // Record that the check happened, one small document per verified day.
+                        // Best-effort: the comparison above is already on screen and useful, so a
+                        // failure to write the log must not present as a failed check.
+                        recordBiometricRun(s, parsed.dates, summary)
                     }
                 }
             } catch (e: Throwable) {
                 setStatus("biometricStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
             }
+        }
+    }
+
+    /**
+     * Logs that the cross-check ran, one document per verified day.
+     *
+     * Counts only — no names, no punch times — so this stays tiny and carries nothing
+     * confidential. A single-day check is one write; a month's report is one per day it covered.
+     *
+     * When a report spans several days the counts cannot be split per day without re-running the
+     * comparison date by date, so each day's entry carries the run's totals and says which days
+     * it covered. That is honest about what was checked, and the per-day detail is in the Excel.
+     */
+    private suspend fun recordBiometricRun(
+        s: SessionProfile,
+        dates: List<String>,
+        summary: BiometricReconciliation.Summary,
+    ) {
+        val scope = biometricScopeKey(s)
+        val now = DateUtils.nowIso()
+        try {
+            dates.forEach { date ->
+                container.biometricCheckRepository.save(
+                    BiometricCheckLog(
+                        date = date,
+                        scope = scope,
+                        runBy = s.email,
+                        runAt = now,
+                        agreed = summary.agreed.toLong(),
+                        markedNotPunched = summary.markedNotPunched.toLong(),
+                        punchedNotMarked = summary.punchedNotMarked.toLong(),
+                        timeMismatch = summary.timeMismatch.toLong(),
+                        coverage = summary.coverage.toLong(),
+                        markedTotal = summary.markedTotal.toLong(),
+                        coverageTooLow = summary.coverageTooLowToJudge,
+                    )
+                )
+            }
+        } catch (e: Throwable) {
+            // Silent by design: the comparison is done and on screen. Saying "check failed" here
+            // would be wrong, and saying nothing loses only the audit entry, not the result.
         }
     }
 

@@ -17,7 +17,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
 
 const PROJECT_ID = "sitepulse-rules-test";
 // Resolved relative to this file so the suite runs from any working directory.
@@ -560,6 +560,76 @@ test("a retired 'foreman' profile gains no roster rights from the merge", async 
   const db = as("uid-old-foreman", "of@ktc.test");
   await assertFails(setDoc(doc(db, "workers/W-FOREMAN-MERGE"), {
     id: "W-FOREMAN-MERGE", name: "Nope", designation: "Helper", site: "SITE-A",
+  }));
+});
+
+// ---------------------------------------------------------------------------------------------
+// biometricChecks — the record that the ERP cross-check was run.
+//
+// The value of this collection is entirely in it being trustworthy: it exists so somebody can be
+// shown that verification happens daily. An entry naming the wrong person, or one a supervisor
+// could quietly fabricate, would make it worse than having nothing.
+// ---------------------------------------------------------------------------------------------
+
+test("a timekeeper records their own run", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "biometricChecks/2026-09-20__SITE-B"), {
+    date: "2026-09-20", scope: "SITE-B", runBy: "tkb@ktc.test",
+    runAt: "2026-09-20T05:00:00Z", agreed: 40, markedNotPunched: 2,
+  }));
+});
+
+test("nobody can log a run in somebody else's name", async () => {
+  // Otherwise the audit trail could be used to blame a colleague for a check they never ran.
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertFails(setDoc(doc(db, "biometricChecks/2026-09-21__SITE-B"), {
+    date: "2026-09-21", scope: "SITE-B", runBy: "super@ktc.test",
+    runAt: "2026-09-21T05:00:00Z", agreed: 40,
+  }));
+});
+
+test("a supervisor cannot fabricate a clean check", async () => {
+  // A supervisor can mark attendance but not verify it; letting them write here would let the
+  // person being checked write the record saying they were checked.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(setDoc(doc(db, "biometricChecks/2026-09-22__SITE-A"), {
+    date: "2026-09-22", scope: "SITE-A", runBy: "fa@ktc.test",
+    runAt: "2026-09-22T05:00:00Z", agreed: 99, markedNotPunched: 0,
+  }));
+});
+
+test("re-running a day overwrites its entry rather than being refused", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "biometricChecks/2026-09-20__SITE-B"), {
+    date: "2026-09-20", scope: "SITE-B", runBy: "tkb@ktc.test",
+    runAt: "2026-09-20T09:00:00Z", agreed: 41, markedNotPunched: 1,
+  }));
+});
+
+test("an entry with no date is refused", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertFails(setDoc(doc(db, "biometricChecks/junk"), {
+    scope: "SITE-B", runBy: "tkb@ktc.test", runAt: "2026-09-20T05:00:00Z",
+  }));
+});
+
+test("anyone active can see that the check ran, since it holds only counts", async () => {
+  // The deterrent only works if the people being checked can see that checking happens.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertSucceeds(getDoc(doc(db, "biometricChecks/2026-09-20__SITE-B")));
+});
+
+test("a run cannot be deleted by whoever ran it", async () => {
+  const tk = as("uid-tk-b", "tkb@ktc.test");
+  await assertFails(deleteDoc(doc(tk, "biometricChecks/2026-09-20__SITE-B")));
+  const su = as("uid-super", "super@ktc.test");
+  await assertSucceeds(deleteDoc(doc(su, "biometricChecks/2026-09-20__SITE-B")));
+});
+
+test("a disabled account cannot record a run", async () => {
+  const db = as("uid-disabled", "gone@ktc.test");
+  await assertFails(setDoc(doc(db, "biometricChecks/2026-09-23__SITE-A"), {
+    date: "2026-09-23", scope: "SITE-A", runBy: "gone@ktc.test", runAt: "2026-09-23T05:00:00Z",
   }));
 });
 

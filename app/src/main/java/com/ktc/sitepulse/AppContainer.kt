@@ -6,6 +6,7 @@ import com.ktc.sitepulse.data.repo.AppVersionRepository
 import com.ktc.sitepulse.data.repo.ArrivalRequestRepository
 import com.ktc.sitepulse.data.repo.AttendanceRepository
 import com.ktc.sitepulse.data.repo.AuthRepository
+import com.ktc.sitepulse.data.repo.BiometricCheckRepository
 import com.ktc.sitepulse.data.repo.BlockedRepository
 import com.ktc.sitepulse.data.repo.HolidayRepository
 import com.ktc.sitepulse.data.repo.LeaveRepository
@@ -29,6 +30,7 @@ class AppContainer(context: Context) {
     val sitesRepository = SitesRepository()
     val attendanceRepository = AttendanceRepository()
     val blockedRepository = BlockedRepository()
+    val biometricCheckRepository = BiometricCheckRepository()
     val arrivalRequestRepository = ArrivalRequestRepository()
     val transferRequestRepository = TransferRequestRepository()
     val leaveRepository = LeaveRepository()
