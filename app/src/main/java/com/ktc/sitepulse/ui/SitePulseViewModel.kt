@@ -252,11 +252,13 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-    val workers: StateFlow<List<Worker>> = scoped(
-        "Workers",
-        all = { container.workersRepository.liveWorkers() },
-        perSite = { container.workersRepository.liveWorkersForSites(it) },
-    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /**
+     * The whole roster, for every role. Not an oversight: workers transfer between projects, and
+     * the receiving site's timekeeper must be able to find and mark someone rostered elsewhere.
+     * Attendance stays site-scoped — see [todayAttendance] and firestore.rules.
+     */
+    val workers: StateFlow<List<Worker>> = onlyWhenLoggedIn("Workers") { container.workersRepository.liveWorkers() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val sites: StateFlow<List<Site>> = onlyWhenLoggedIn("Sites") { container.sitesRepository.liveSites() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

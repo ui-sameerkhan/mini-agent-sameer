@@ -234,19 +234,22 @@ object Permissions {
      * assigned are visible only to users who hold every site — otherwise an unassigned worker
      * would leak into every site-restricted user's list.
      */
+    /**
+     * The roster is shared: anyone who may mark attendance may reach any worker, because workers
+     * transfer between projects and the receiving site has to be able to record them. Staff
+     * remain the exception — they only ever reach their own record.
+     */
     fun canAccessEmployee(session: SessionProfile, worker: Worker): Boolean {
         if (!session.isActive) return false
-        if (session.hasAllSites) return true
-        // Staff may only ever reach their own record.
         if (session.role == Role.STAFF) return worker.id == session.employeeId
-        return hasSiteAccess(session, worker.site)
+        return true
     }
 
     /** Filters a worker list down to what this user is allowed to see. */
     fun visibleWorkers(session: SessionProfile, workers: List<Worker>): List<Worker> {
         if (!session.isActive) return emptyList()
-        if (session.hasAllSites) return workers
-        return workers.filter { canAccessEmployee(session, it) }
+        if (session.role == Role.STAFF) return workers.filter { canAccessEmployee(session, it) }
+        return workers
     }
 
     /**

@@ -69,10 +69,25 @@ test("super admin reads every site's workers", async () => {
   await assertSucceeds(getDoc(doc(db, "workers/W-B")));
 });
 
-test("foreman reads only their assigned site's worker", async () => {
+test("the roster is shared, so a transferred worker can be found and marked", async () => {
+  // Workers move between projects. If the receiving site could not read the worker, the
+  // transfer could not be recorded at all — see the note on /workers in firestore.rules.
   const db = as("uid-foreman-a", "fa@ktc.test");
   await assertSucceeds(getDoc(doc(db, "workers/W-A")));
-  await assertFails(getDoc(doc(db, "workers/W-B")));
+  await assertSucceeds(getDoc(doc(db, "workers/W-B")));
+});
+
+test("a worker rostered elsewhere can be marked at the site they turned up to", async () => {
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  // W-B is rostered to SITE-B; the foreman marks them at SITE-A, where they actually are.
+  await assertSucceeds(setDoc(doc(db, "attendance/2026-09-12_W-B"), {
+    workerId: "W-B", date: "2026-09-12", siteCode: "SITE-A",
+    alignedSite: "SITE-B", siteMismatch: true,
+  }));
+  // ...but still not at a site they do not hold.
+  await assertFails(setDoc(doc(db, "attendance/2026-09-13_W-B"), {
+    workerId: "W-B", date: "2026-09-13", siteCode: "SITE-B",
+  }));
 });
 
 test("foreman marks attendance at their site but not another", async () => {
@@ -279,22 +294,9 @@ test("a user cannot read another person's invite", async () => {
 // outright — it does not come back filtered. This is the behaviour the app's queries must match.
 // ---------------------------------------------------------------------------------------------
 
-test("an unconstrained collection query is REJECTED for a site-scoped user", async () => {
+test("the full roster may be listed, since it is shared", async () => {
   const db = as("uid-foreman-a", "fa@ktc.test");
-  // What the app does today: subscribe to every worker and filter on the device.
-  await assertFails(getDocs(collection(db, "workers")));
-});
-
-test("the same query constrained to the user's own site SUCCEEDS", async () => {
-  const { query, where } = await import("firebase/firestore");
-  const db = as("uid-foreman-a", "fa@ktc.test");
-  await assertSucceeds(getDocs(query(collection(db, "workers"), where("site", "==", "SITE-A"))));
-});
-
-test("a constrained query for a site the user does NOT hold is still rejected", async () => {
-  const { query, where } = await import("firebase/firestore");
-  const db = as("uid-foreman-a", "fa@ktc.test");
-  await assertFails(getDocs(query(collection(db, "workers"), where("site", "==", "SITE-B"))));
+  await assertSucceeds(getDocs(collection(db, "workers")));
 });
 
 test("unconstrained today-attendance query is rejected; per-site is allowed", async () => {
@@ -386,17 +388,17 @@ test("a foreman still cannot upload roster entries at all", async () => {
 // at an empty roster, unable to mark anyone — while another project's crew must stay hidden.
 // ---------------------------------------------------------------------------------------------
 
-test("a worker allocated to no project is NOT visible to a site-scoped user", async () => {
-  // Admitting these would be convenient, but the clause needed to express it makes the rule
-  // unprovable for a list query, and Firestore then serves the unconstrained query in full —
-  // handing a foreman every other project's crew. A worker is given a project instead.
+test("a worker allocated to no project is still reachable", async () => {
+  // An untagged roster must not leave a timekeeper unable to mark anyone.
   const db = as("uid-foreman-a", "fa@ktc.test");
-  await assertFails(getDoc(doc(db, "workers/W-FREE")));
+  await assertSucceeds(getDoc(doc(db, "workers/W-FREE")));
 });
 
-test("another project's crew stays hidden", async () => {
+test("sharing the roster does NOT share the attendance behind it", async () => {
+  // The payroll-bearing record stays scoped even though the roster row is visible.
   const db = as("uid-foreman-a", "fa@ktc.test");
-  await assertFails(getDoc(doc(db, "workers/W-B")));
+  await assertSucceeds(getDoc(doc(db, "workers/W-B")));
+  await assertFails(getDoc(doc(db, "attendance/2026-09-08_W-B")));
 });
 
 test.after(async () => {

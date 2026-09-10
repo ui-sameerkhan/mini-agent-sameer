@@ -182,12 +182,19 @@ service cloud.firestore {
     // Site-scoped for reads; only worker managers may write.
     // ---------------------------------------------------------------------------------------
     match /workers/{workerId} {
-      // Strictly site-scoped. An earlier attempt also admitted workers allocated to no project,
-      // so an untagged roster would not leave site-scoped users staring at an empty list — but
-      // adding that clause made the rule unprovable for a list query, and Firestore then served
-      // an unconstrained query in full, handing a foreman another project's crew. Verified, and
-      // reverted: workers are given a project through the roster upload instead.
-      allow read: if isActive() && (holdsAllSites() || hasSiteAccess(resource.data.get('site', null)));
+      // The roster is shared across sites, deliberately.
+      //
+      // Workers transfer between projects constantly, and the receiving site's timekeeper has to
+      // be able to mark someone who turns up there today but is rostered elsewhere. Scoping the
+      // roster made that impossible: the worker simply did not exist as far as that timekeeper
+      // was concerned, so the transfer could not be recorded at all.
+      //
+      // What stays scoped is the attendance itself — who worked where, for how long, and every
+      // correction — which is the payroll-bearing record. A roster row carries a name, an ID and
+      // a trade; the confidential part is below, not here. A transfer is not hidden either: the
+      // attendance record keeps the rostered site alongside the site actually worked and flags
+      // the mismatch for review (see AttendanceEngine.mark).
+      allow read: if isActive();
       allow create, update: if uploadsRoster() &&
         (holdsAllSites() || hasSiteAccess(request.resource.data.get('site', null)));
       // Removing someone from the workforce is narrower than editing them.

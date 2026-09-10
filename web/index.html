@@ -903,15 +903,16 @@ function startData(isAdminUser, isTimekeeperUser){
     renderAnnouncementBanner();
   }, ()=>{});
 
-  // Workers, scoped to the sites this account holds. orderBy is applied client-side because a
-  // per-site query plus an orderBy on a different field would need a composite index.
-  watchPerSite("workers", [], rows => {
-    workers = rows.sort((a,b)=>(a.sno||0)-(b.sno||0));
+  // The whole roster, for every role — workers transfer between projects and the receiving
+  // site's timekeeper has to be able to find and mark someone rostered elsewhere. Attendance
+  // below stays site-scoped; see the note on /workers in firestore.rules.
+  onSnapshot(query(collection(db,"workers"), orderBy("sno")), snap => {
+    workers = snap.docs.map(d=>d.data());
     if(workers.length === 0 && isAdminUser) $("seedbar").style.display="block";
     else $("seedbar").style.display="none";
     setStatus(true); renderWorkers(); renderDash();
     if($("pg-roster").classList.contains("on")) renderRosterList();
-  }, "site");
+  }, err => { setStatus(false); $("notice").innerHTML='<div class="notice warn">⚠ Offline ('+err.code+')</div>'; });
 
   onSnapshot(collection(db,"sites"), snap => {
     sites = snap.docs.map(d=>({_id:d.id, ...d.data()}));
