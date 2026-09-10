@@ -238,6 +238,7 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
 
   <!-- ============ ADMIN: ATTENDANCE ============ -->
   <div class="page" id="pg-att">
+    <button class="sbtn" id="tk-transfers-btn" style="display:none;width:100%;padding:12px;margin-bottom:10px;background:var(--amber-soft);color:var(--amber);font-weight:700;border:1px solid var(--line);border-radius:10px" onclick="go('roster')">🔄 Site Transfers &amp; Roster</button>
     <input type="date" class="inp" id="att-date" onchange="renderAtt()">
     <div class="card">
       <h4 class="cardh">Download Attendance Report</h4>
@@ -288,6 +289,18 @@ label{font-size:10px;font-weight:700;color:var(--mut);display:block;margin-botto
   <!-- ============ ROSTER MANAGEMENT ============ -->
   <div class="page" id="pg-roster">
     <button class="sbtn" style="padding:9px 14px;margin-bottom:10px" onclick="go('checkin')">← Back to Check-In</button>
+
+    <!-- Outside #roster-admin on purpose: foremen and supervisors raise transfers and timekeepers
+         approve them, so this card belongs to every role that reaches this page, not just admin. -->
+    <div id="roster-transfers" style="display:none">
+      <div class="card">
+        <h4 class="cardh">Site Transfers</h4>
+        <div class="muted" style="margin-bottom:8px">A worker who turned up at your site but is still on another site's roster. Approving moves his roster entry across — his attendance was never blocked. The receiving site's timekeeper decides; head office isn't in the loop.</div>
+        <div id="site-transfers-list"><div class="muted">Nothing waiting.</div></div>
+        <div id="transfer-status" class="muted" style="margin-top:6px"></div>
+      </div>
+    </div>
+
     <div id="roster-admin" style="display:none">
       <div class="card">
         <h4 class="cardh">Notifications</h4>
@@ -675,6 +688,10 @@ const initials = n => (n||"?").split(" ").slice(0,2).map(x=>x[0]).join("").toUpp
 const PAGE = 50;
 
 let workers = FALLBACK, sites = [], attendance = [], blocked = [], pendingArrivals = [], leaves = [], holidays = [], timekeepers = [];
+// Site transfers, split by direction: what is coming into a site you hold (yours to decide) and
+// what is leaving one (yours to know about). Kept apart because the two lists are answered by
+// two separate single-equality queries — see watchPerSite and the note in TransferRequestRepository.
+let transfersIn = [], transfersOut = [];
 let adminOn = false, officeStaffOn = false, timekeeperOn = false, myLinkedWorkerId = null;
 
 // ---------- ROLE + SITE SCOPE ----------
@@ -685,6 +702,15 @@ const ALL_SITES = "ALL";
 let session = { uid:null, email:"", role:"supervisor", assignedSites:[ALL_SITES], active:true, employeeId:null };
 
 const hasAllSites = () => session.role === "super_admin" || session.assignedSites.includes(ALL_SITES);
+// Mirrors Permissions.hasSiteAccess / canRequestTransfer / canApproveTransfer on Android, and the
+// matching clauses in firestore.rules. Hiding a button is a convenience here, never the boundary:
+// every one of these is enforced again server-side.
+const hasSiteAccess = code => session.active !== false &&
+  (hasAllSites() || (!!code && session.assignedSites.some(s => String(s).toLowerCase() === String(code).toLowerCase())));
+const canRequestTransfer = toSite =>
+  ["super_admin","admin","timekeeper","supervisor","foreman"].includes(session.role) && hasSiteAccess(toSite);
+const canApproveTransfer = toSite =>
+  ["super_admin","admin","timekeeper"].includes(session.role) && hasSiteAccess(toSite);
 
 /**
  * Resolves who is signed in.
@@ -783,6 +809,7 @@ window.go = function(pg, btn){
   $("pg-"+pg).classList.add("on");
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
   if(btn) btn.classList.add("on");
+  if(pg==="roster"){ renderSiteTransfers(); }
   if(pg==="roster" && adminOn){ renderRosterList(); renderPendingArrivals(); renderPendingLeaveRequests(); renderSiteDeviations(); renderHolidayList(); renderTimekeeperList(); }
   if(pg==="office") { renderMyLeaves(); renderMyAttendance(); }
   window.scrollTo(0,0);
@@ -836,6 +863,7 @@ onAuthStateChanged(auth, async (user)=>{
       : '<div class="notice ok">🛠️ Admin: '+email+siteNote+'</div>';
     $("roster-admin").style.display = "block";
     $("roster-supervisor").style.display = "none";
+    $("roster-transfers").style.display = "block";
     $("office-btn").style.display = "none";
     startData(true, false);
     go("checkin", document.querySelector(".tab"));
@@ -848,6 +876,10 @@ onAuthStateChanged(auth, async (user)=>{
     $("notice").innerHTML = '<div class="notice ok">📋 Timekeeper: '+email+siteNote+' — attendance reports and corrections.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "none";
+    // A timekeeper has no tab bar and lands on Attendance, so without this button the transfer
+    // queue they are the approver for would be unreachable on the web app.
+    $("roster-transfers").style.display = "block";
+    $("tk-transfers-btn").style.display = "block";
     $("office-btn").style.display = "none";
     startData(false, true);
     go("att");
@@ -860,6 +892,7 @@ onAuthStateChanged(auth, async (user)=>{
     $("notice").innerHTML = '<div class="notice ok">👤 Staff: '+email+siteNote+' — you can mark your own attendance and apply for leave.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
+    $("roster-transfers").style.display = "none";
     $("office-btn").style.display = "block";
     startData(false, false);
     loadMyLinkedWorkerId(email);
@@ -873,6 +906,7 @@ onAuthStateChanged(auth, async (user)=>{
     $("notice").innerHTML = '<div class="notice ok">'+(session.role === "foreman" ? "🦺 Foreman: " : "👷 Supervisor: ")+email+siteNote+' — you can mark attendance and report arrivals.</div>';
     $("roster-admin").style.display = "none";
     $("roster-supervisor").style.display = "block";
+    $("roster-transfers").style.display = "block";
     $("office-btn").style.display = "none";
     startData(false, false);
     go("checkin");
@@ -880,6 +914,11 @@ onAuthStateChanged(auth, async (user)=>{
     adminOn = false; officeStaffOn = false; timekeeperOn = false; myLinkedWorkerId = null;
     $("adminbtn").style.display = "none";
     $("tabbar").classList.remove("show");
+    // Clear the transfer queue on sign-out: the next person to sign in on this device must not
+    // see the previous user's sites, even for the instant before their own listeners attach.
+    transfersIn = []; transfersOut = [];
+    $("roster-transfers").style.display = "none";
+    $("tk-transfers-btn").style.display = "none";
     $("notice").innerHTML = "";
     go("login");
   }
@@ -930,6 +969,26 @@ function startData(isAdminUser, isTimekeeperUser){
     if($("loc-id").value && ($("loc-date").value||todayStr())===todayStr()) locate();
     if(isAdminUser && $("pg-roster").classList.contains("on")) renderSiteDeviations();
   }, "siteCode");
+
+  // Site transfers — deliberately OUTSIDE the isAdminUser block below. Foremen and supervisors
+  // raise these and timekeepers approve them, so scoping the listener to admins would leave the
+  // approver unable to see their own queue. Staff never touch the roster, so they are excluded.
+  //
+  // Incoming is what this user may act on; outgoing is a heads-up that a site they hold is about
+  // to lose someone. An all-sites account gets only the incoming list — for them every transfer
+  // is both directions at once, and two entries would read as two separate transfers.
+  if(session.role !== "staff"){
+    watchPerSite("transferRequests", [where("status","==","pending")], rows => {
+      transfersIn = rows;
+      if($("pg-roster").classList.contains("on")) renderSiteTransfers();
+    }, "toSite");
+    if(!hasAllSites()){
+      watchPerSite("transferRequests", [where("status","==","pending")], rows => {
+        transfersOut = rows;
+        if($("pg-roster").classList.contains("on")) renderSiteTransfers();
+      }, "fromSite");
+    }
+  }
 
   if(isAdminUser){
     // Scoped by siteCode alone and windowed client-side: an equality clause plus a range clause
@@ -2435,10 +2494,114 @@ function renderSiteDeviations(){
   if(!flagged.length){ el.innerHTML = '<div class="muted">None today.</div>'; return; }
   el.innerHTML = flagged.map(a=>{
     const w = findWorker(a.workerId);
-    return '<div class="att-row" style="justify-content:space-between"><div><b>'+(w?w.name:a.workerId)+' (ID '+a.workerId+')</b><div class="muted" style="color:var(--amber-mid)">Aligned: '+a.alignedSite+' → Reported: '+a.siteName+' ('+a.siteCode+')</div></div>'
-      +'<button class="sbtn b-ok" onclick="acknowledgeSiteDeviation(\''+a._id+'\')">Acknowledge</button></div>';
+    // Acknowledging only clears the flag — the roster row still points at the site the worker
+    // left, so he keeps counting there. "Move to" raises the transfer from where the mismatch
+    // was actually noticed, which is the only place anyone can see the man standing there.
+    const already = transfersIn.some(t => t.workerId === a.workerId && t.toSite === a.siteCode);
+    const canMove = !!w && !already && canRequestTransfer(a.siteCode);
+    return '<div class="att-row" style="justify-content:space-between"><div><b>'+(w?w.name:a.workerId)+' (ID '+a.workerId+')</b><div class="muted" style="color:var(--amber-mid)">Aligned: '+a.alignedSite+' → Reported: '+a.siteName+' ('+a.siteCode+')</div>'
+      +(already?'<div class="muted" style="color:var(--green-mid)">🔄 Transfer already raised.</div>':'')+'</div>'
+      +'<div>'+(canMove?'<button class="sbtn b-save" onclick="requestTransfer(\''+a.workerId+'\',\''+a.siteCode+'\')">Move to '+a.siteCode+'</button> ':'')
+      +'<button class="sbtn b-ok" onclick="acknowledgeSiteDeviation(\''+a._id+'\')">Acknowledge</button></div></div>';
   }).join("");
 }
+
+// ---------- SITE TRANSFERS ----------
+// The flow that replaced "ask admin to reassign": whoever is looking at the worker raises it,
+// the receiving site's timekeeper approves it. See firestore.rules /transferRequests.
+
+function renderSiteTransfers(){
+  const el = $("site-transfers-list");
+  if(!el) return;
+  const route = t => (t.fromSite ? t.fromSite : "Unassigned") + " → " + t.toSite;
+  let html = "";
+  if(!transfersIn.length){
+    html += '<div class="muted">Nothing waiting.</div>';
+  } else {
+    html += transfersIn.slice().sort((a,b)=>(b.ts||"").localeCompare(a.ts||"")).map(t=>{
+      const decide = canApproveTransfer(t.toSite);
+      return '<div class="att-row" style="justify-content:space-between"><div><b>'+t.workerName+' (ID '+t.workerId+')</b>'
+        +'<div class="muted" style="color:var(--amber-mid)">'+route(t)+'</div>'
+        +'<div class="muted">'+(t.designation||"—")+' · raised by '+String(t.requestedBy||"").split("@")[0]+' · '+(t.requestedDate||"")+'</div></div>'
+        +'<div>'+(decide
+          ? '<button class="sbtn b-save" onclick="approveTransfer(\''+t._id+'\')">Approve</button> <button class="sbtn b-del" onclick="rejectTransfer(\''+t._id+'\')">Reject</button>'
+          : '<span class="muted">Awaiting timekeeper</span>')+'</div></div>';
+    }).join("");
+  }
+  // Only shown to site-scoped users — see the listener comment; for an all-sites account every
+  // outgoing transfer is already in the incoming list above.
+  const out = transfersOut.filter(t => !transfersIn.some(i => i._id === t._id));
+  if(out.length){
+    html += '<div class="muted" style="margin-top:10px;color:var(--amber-mid)"><b>Leaving your site</b> — that site\'s timekeeper decides these, not you.</div>'
+      + out.map(t=>'<div class="att-row"><div><b>'+t.workerName+' (ID '+t.workerId+')</b><div class="muted">'+route(t)+'</div></div></div>').join("");
+  }
+  el.innerHTML = html;
+}
+
+/** Raise a transfer for a worker who turned up at a site other than the one his roster shows. */
+window.requestTransfer = async function(workerId, toSite, reason){
+  const status = $("transfer-status");
+  const w = findWorker(workerId);
+  if(!w){ if(status) status.textContent = "❌ Worker "+workerId+" is not on the roster."; return; }
+  if(!canRequestTransfer(toSite)){ if(status) status.textContent = "❌ You don't have access to "+toSite+"."; return; }
+  const fromSite = w.site || "";
+  if(String(fromSite).toLowerCase() === String(toSite).toLowerCase()){
+    if(status) status.textContent = "ℹ "+w.name+" is already on "+toSite+"'s roster."; return;
+  }
+  try {
+    // Two people noticing the same man on the same morning shouldn't queue two cards.
+    const dupe = await getDocs(query(collection(db,"transferRequests"),
+      where("workerId","==",String(workerId)), where("toSite","==",toSite), where("status","==","pending")));
+    if(!dupe.empty){ if(status) status.textContent = "ℹ Already requested — waiting for the timekeeper."; return; }
+    await addDoc(collection(db,"transferRequests"), {
+      workerId: String(workerId), workerName: w.name, designation: w.designation||"",
+      fromSite, toSite, reason: reason || "",
+      requestedBy: (auth.currentUser&&auth.currentUser.email)||"unknown", requestedByRole: session.role,
+      requestedDate: todayStr(), status: "pending", ts: new Date().toISOString(),
+    });
+    if(status){ status.className="muted"; status.textContent = "✅ Transfer raised — "+toSite+"'s timekeeper can approve it."; }
+    notifyAdmin("Site transfer requested", w.name+" ("+workerId+") · "+(fromSite||"Unassigned")+" → "+toSite, "#/roster");
+  } catch(e){ if(status) status.textContent = "❌ "+e.message; }
+};
+
+/**
+ * Approve: move the roster row first, then mark the request done. That order on purpose — if the
+ * second write fails the worker is at least on the right site and the card stays for a retry,
+ * whereas the reverse would show an approved transfer that never moved anybody.
+ */
+window.approveTransfer = async function(reqId){
+  const status = $("transfer-status");
+  const t = transfersIn.find(r=>r._id===reqId);
+  if(!t){ if(status) status.textContent = "❌ Request not found."; return; }
+  if(!canApproveTransfer(t.toSite)){ if(status) status.textContent = "❌ Only "+t.toSite+"'s timekeeper or an admin can approve this."; return; }
+  const w = findWorker(t.workerId);
+  if(!w){ if(status) status.textContent = "❌ Worker "+t.workerId+" is no longer on the roster."; return; }
+  try {
+    const patch = { site: t.toSite, alignedDate: todayStr() };
+    // Someone standing at the gate is not "left", whatever a stale roster row says.
+    if(w.status === "left"){ patch.status = "active"; patch.leftDate = null; }
+    await setDoc(doc(db,"workers",String(t.workerId)), patch, {merge:true});
+    await setDoc(doc(db,"transferRequests",reqId), {
+      status:"approved", approvedAt:new Date().toISOString(),
+      approvedBy:(auth.currentUser&&auth.currentUser.email)||"admin",
+    }, {merge:true});
+    if(status){ status.className="muted"; status.textContent = "✅ "+t.workerName+" moved to "+t.toSite+"."; }
+  } catch(e){ if(status) status.textContent = "❌ Approve failed: "+e.message; }
+};
+
+window.rejectTransfer = async function(reqId){
+  const status = $("transfer-status");
+  const t = transfersIn.find(r=>r._id===reqId);
+  if(!t){ if(status) status.textContent = "❌ Request not found."; return; }
+  if(!canApproveTransfer(t.toSite)){ if(status) status.textContent = "❌ Only "+t.toSite+"'s timekeeper or an admin can decide this."; return; }
+  try {
+    await setDoc(doc(db,"transferRequests",reqId), {
+      status:"rejected", rejectedAt:new Date().toISOString(),
+      rejectedBy:(auth.currentUser&&auth.currentUser.email)||"admin",
+    }, {merge:true});
+    if(status){ status.className="muted"; status.textContent = "🚫 Transfer rejected — "+t.workerName+" stays on "+(t.fromSite||"no site")+"."; }
+  } catch(e){ if(status) status.textContent = "❌ Reject failed: "+e.message; }
+};
 
 // ---------- PUSH NOTIFICATIONS ----------
 // Open to every role now, not just admin — registers this browser in pushTokens/{email}
@@ -2592,7 +2755,16 @@ window.submitNewArrival = async function(){
   const w = findWorker(id);
   let name, designation;
   if(w){
-    if(w.site && w.site!==site && w.status!=="left"){ status.textContent = "⚠ "+w.name+" is already aligned to "+w.site+". Ask admin to reassign if this is a genuine transfer."; return; }
+    // Already on another site's roster? That's not an arrival, it's a transfer. This used to
+    // dead-end with "ask admin to reassign", which is how rosters went stale — the man was here,
+    // his attendance was being marked here, and his roster row still pointed at the site he left.
+    if(w.site && w.site!==site && w.status!=="left"){
+      await requestTransfer(String(id), site, "Reported as an arrival at "+site);
+      status.className = "muted";
+      status.textContent = "🔄 "+w.name+" is on "+w.site+"'s roster — raised a transfer to "+site+" instead. "
+        + site+"'s timekeeper approves it on the Roster page. His attendance can be marked today either way.";
+      return;
+    }
     name = w.name; designation = w.designation;
   } else {
     name = $("arrival-name").value.trim();

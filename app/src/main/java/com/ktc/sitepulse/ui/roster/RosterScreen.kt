@@ -96,6 +96,10 @@ fun RosterScreen(
             }
         }
 
+        // Above both panels: a transfer is time-sensitive (the man is standing at the gate now)
+        // and both faces of this screen need it — foremen raise them, timekeepers approve them.
+        SiteTransfersCard(viewModel)
+
         // Was keyed on the legacy admin-email check, which handed an admin-role account the
         // field panel instead of the management one, and gave a timekeeper no leave or holiday
         // tools at all. Driven by the role now.
@@ -103,6 +107,88 @@ fun RosterScreen(
             RosterAdminPanel(viewModel)
         } else {
             RosterSupervisorPanel(viewModel)
+        }
+    }
+}
+
+/**
+ * Site transfers — the queue that replaced "ask admin to reassign".
+ *
+ * Shown to every role that can reach Roster, but it does different work for each: the receiving
+ * site's timekeeper gets Approve/Reject, and the foreman who raised the request gets to watch it
+ * rather than wonder whether it went anywhere. Approve is gated on the same permission the rules
+ * enforce, so the button and the write can't disagree.
+ */
+@Composable
+private fun SiteTransfersCard(viewModel: SitePulseViewModel) {
+    val sessionProfile by viewModel.sessionProfile.collectAsState()
+    val statusMessages by viewModel.statusMessages.collectAsState()
+    val incoming by viewModel.pendingTransfersIn.collectAsState()
+    val outgoing by viewModel.transfersOut.collectAsState()
+
+    Card(
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("SITE TRANSFERS", fontWeight = FontWeight.Bold)
+            Text(
+                "A worker who turned up at your site but is still on another site's roster. " +
+                    "Approving moves his roster entry across — his attendance was never blocked.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            )
+
+            Text("Coming in", fontWeight = FontWeight.SemiBold, color = SpGreenMid)
+            if (incoming.isEmpty()) {
+                Text("Nothing waiting.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            } else {
+                incoming.forEach { req ->
+                    val canDecide = Permissions.canApproveTransfer(sessionProfile, req.toSite)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${req.workerName} (ID ${req.workerId})", fontWeight = FontWeight.SemiBold)
+                            Text(req.route, color = SpAmberMid)
+                            Text(
+                                "${req.designation.ifBlank { "—" }} · raised by ${req.requestedBy.substringBefore("@")} · ${req.requestedDate}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                            )
+                        }
+                        if (canDecide) {
+                            Column {
+                                Button(
+                                    onClick = { viewModel.approveTransfer(req) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SpGreenMid),
+                                ) { Text("Approve") }
+                                TextButton(onClick = { viewModel.rejectTransfer(req) }) { Text("Reject", color = SpRed) }
+                            }
+                        } else {
+                            Text("Awaiting\ntimekeeper", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            if (outgoing.isNotEmpty()) {
+                Text(
+                    "Leaving your site", fontWeight = FontWeight.SemiBold, color = SpAmberMid,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                Text(
+                    "Requested by the site they turned up at. You can't approve these — that site's timekeeper does.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                )
+                outgoing.forEach { req ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text("${req.workerName} (ID ${req.workerId})", fontWeight = FontWeight.SemiBold)
+                        Text(req.route, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            statusMessages["transferReviewStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
+            statusMessages["transferStatus"]?.let { Text(it, modifier = Modifier.padding(top = 4.dp)) }
         }
     }
 }
@@ -161,13 +247,26 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             ) { Text("📷 Scan QR / Barcode") }
+            // Someone already on another site's roster isn't an arrival, he's a transfer — say so
+            // before the button is pressed, so the foreman knows what he is about to raise.
+            val isTransfer = existing != null && site.isNotBlank() && !existing.isLeft &&
+                !existing.site.isNullOrBlank() && !existing.site.equals(site, ignoreCase = true)
             val verifyText = when {
                 workerId.isBlank() -> ""
+                isTransfer -> "🔄 ${existing!!.name} is on ${existing.site}'s roster. This raises a transfer to $site — its timekeeper approves it. His attendance can be marked today regardless."
                 existing != null -> "✅ ${existing.name} — ${existing.designation} (currently: ${existing.site ?: "unassigned"})"
                 else -> "🆕 New worker — ID not in the system yet."
             }
             if (verifyText.isNotBlank()) {
-                Text(verifyText, color = if (existing != null) SpGreenMid else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                Text(
+                    verifyText,
+                    color = when {
+                        isTransfer -> SpAmberMid
+                        existing != null -> SpGreenMid
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
             if (existing == null && workerId.isNotBlank()) {
                 OutlinedTextField(name, { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
@@ -175,9 +274,9 @@ private fun RosterSupervisorPanel(viewModel: SitePulseViewModel) {
             }
             Button(
                 onClick = { viewModel.submitNewArrival(site, workerId, name, trade, date) },
-                colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isTransfer) SpAmberMid else SpBrandBlueMid),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            ) { Text("Report New Arrival") }
+            ) { Text(if (isTransfer) "🔄 Request Transfer to $site" else "Report New Arrival") }
             statusMessages["arrivalStatus"]?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
         }
     }
@@ -190,6 +289,8 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
     val pendingArrivals by viewModel.pendingArrivals.collectAsState()
     val pendingLeaveRequests by viewModel.pendingLeaveRequests.collectAsState()
     val siteDeviationsToday by viewModel.siteDeviationsToday.collectAsState()
+    val pendingTransfersIn by viewModel.pendingTransfersIn.collectAsState()
+    val sessionProfile by viewModel.sessionProfile.collectAsState()
     val pendingImport by viewModel.pendingImport.collectAsState()
     val workers by viewModel.workers.collectAsState()
     val sites by viewModel.sites.collectAsState()
@@ -350,15 +451,32 @@ private fun RosterAdminPanel(viewModel: SitePulseViewModel) {
             } else {
                 siteDeviationsToday.forEach { a ->
                     val w = workers.find { it.id == a.workerId }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    // Acknowledging only clears the flag — the roster row still points at the site
+                    // the worker left, so he keeps counting there. "Move to" is the fix: it raises
+                    // the transfer straight from where the mismatch was noticed.
+                    val alreadyRequested = pendingTransfersIn.any { it.workerId == a.workerId && it.toSite == a.siteCode }
+                    val canMove = w != null && !alreadyRequested &&
+                        Permissions.canRequestTransfer(sessionProfile, a.siteCode)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("${w?.name ?: a.workerId} (ID ${a.workerId})", fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Aligned: ${a.alignedSite} → Reported: ${a.siteName} (${a.siteCode})",
                                 color = SpAmberMid,
                             )
+                            if (alreadyRequested) {
+                                Text("🔄 Transfer already raised.", color = SpGreenMid, fontSize = 12.sp)
+                            }
                         }
-                        OutlinedButton(onClick = { viewModel.acknowledgeSiteDeviation(a) }) { Text("Acknowledge") }
+                        Column {
+                            if (canMove) {
+                                Button(
+                                    onClick = { viewModel.requestTransfer(w!!, a.siteCode, "Site deviation on ${a.date}") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SpBrandBlueMid),
+                                ) { Text("Move to ${a.siteCode}") }
+                            }
+                            TextButton(onClick = { viewModel.acknowledgeSiteDeviation(a) }) { Text("Acknowledge") }
+                        }
                     }
                 }
             }

@@ -14,6 +14,7 @@ import com.ktc.sitepulse.data.model.Holiday
 import com.ktc.sitepulse.data.model.ALL_SITES
 import com.ktc.sitepulse.data.model.Role
 import com.ktc.sitepulse.data.model.Timekeeper
+import com.ktc.sitepulse.data.model.TransferRequest
 import com.ktc.sitepulse.data.model.UserInvite
 import com.ktc.sitepulse.data.model.UserProfile
 import com.ktc.sitepulse.data.model.Attendance
@@ -293,6 +294,35 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
         all = { container.arrivalRequestRepository.livePending() },
         perSite = { container.arrivalRequestRepository.livePendingForSites(it) },
     ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Transfers waiting on this user: workers coming INTO a site they hold. The receiving site's
+     * timekeeper approves these, so this is the queue their Roster screen shows.
+     */
+    val pendingTransfersIn: StateFlow<List<TransferRequest>> = scoped(
+        "Pending transfers",
+        all = { container.transferRequestRepository.livePending() },
+        perSite = { container.transferRequestRepository.livePendingForSites(it) },
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Transfers taking a worker AWAY from a site this user holds — information, not a queue. The
+     * losing site can't block the move (the man is already at the other gate) but its timekeeper
+     * should not find out about a headcount change from next month's report.
+     *
+     * Empty for users who hold every site: for them every outgoing transfer is also an incoming
+     * one, and showing the same request in two lists reads as two transfers.
+     */
+    val transfersOut: StateFlow<List<TransferRequest>> = combine(
+        session.map { it.isLoggedIn }.distinctUntilChanged(),
+        siteScope,
+    ) { loggedIn, scope -> loggedIn to scope }
+        .flatMapLatest { (loggedIn, scope) ->
+            if (!loggedIn || scope.isNullOrEmpty()) flowOf(emptyList())
+            else container.transferRequestRepository.liveOutgoingForSites(scope)
+                .recoverToEmpty("Outgoing transfers")
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingLeaveRequests: StateFlow<List<Leave>> = session.map { it.isAdmin }.distinctUntilChanged()
         .flatMapLatest { isAdmin -> if (isAdmin) container.leaveRepository.livePendingRequests().recoverToEmpty("Pending leave requests") else flowOf(emptyList()) }
@@ -1124,8 +1154,17 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
             val existing = workers.value.find { it.id == workerId }
+            // A worker already aligned elsewhere isn't a new arrival — he's a transfer. This used
+            // to dead-end with "ask admin to reassign", which is how rosters went stale: the man
+            // was on site, his attendance was being marked here, and his roster row still pointed
+            // at the project he had left. Raise the transfer for the site's timekeeper instead.
             if (existing != null && !existing.site.isNullOrBlank() && existing.site != site && !existing.isLeft) {
-                setStatus("arrivalStatus", "⚠ ${existing.name} is already aligned to ${existing.site}. Ask admin to reassign if this is a genuine transfer.")
+                requestTransfer(existing, site, reason = "Reported as an arrival at $site")
+                setStatus(
+                    "arrivalStatus",
+                    "🔄 ${existing.name} is on ${existing.site}'s roster — raised a transfer to $site instead. " +
+                        "$site's timekeeper approves it on the Roster page. You can mark his attendance now either way.",
+                )
                 return@launch
             }
             val finalName = existing?.name ?: name
@@ -1203,6 +1242,126 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                 container.arrivalRequestRepository.reject(request.docId, session.value.email, DateUtils.nowIso())
             } catch (e: Throwable) {
                 setStatus("arrivalReviewStatus", "❌ Reject failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    // ---- Site transfers ----
+
+    /**
+     * Raise a transfer for a worker who turned up at a site other than the one their roster
+     * shows. Attendance for that worker is *not* held up by this — it was already marked, with
+     * the deviation flagged. What this fixes is the roster row, so the man stops counting
+     * against the site he left.
+     */
+    fun requestTransfer(worker: Worker, toSite: String, reason: String = "") {
+        val s = sessionProfile.value
+        if (!Permissions.canRequestTransfer(s, toSite)) {
+            setStatus("transferStatus", "❌ ${Permissions.siteAccessDenialReason(s, toSite) ?: "You can't raise a transfer for this site."}")
+            return
+        }
+        val fromSite = worker.site.orEmpty()
+        if (fromSite.equals(toSite, ignoreCase = true)) {
+            setStatus("transferStatus", "ℹ ${worker.name} is already on $toSite's roster — nothing to transfer.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                // Two foremen noticing the same man on the same morning shouldn't queue two cards.
+                val existing = container.transferRequestRepository.findPending(worker.id, toSite)
+                if (existing != null) {
+                    setStatus("transferStatus", "ℹ Already requested by ${existing.requestedBy} — waiting for the timekeeper.")
+                    return@launch
+                }
+                container.transferRequestRepository.submit(
+                    TransferRequest(
+                        workerId = worker.id,
+                        workerName = worker.name,
+                        designation = worker.designation,
+                        fromSite = fromSite,
+                        toSite = toSite,
+                        reason = reason.trim(),
+                        requestedBy = s.email,
+                        requestedByRole = s.role.id,
+                        requestedDate = DateUtils.todayStrUtc(),
+                        status = "pending",
+                        ts = DateUtils.nowIso(),
+                    )
+                )
+                setStatus("transferStatus", "✅ Transfer raised — $toSite's timekeeper can approve it.")
+
+                // Best-effort nudge. The request is already saved, so a network hiccup here must
+                // not undo the success message above.
+                try {
+                    val token = container.settingsRepository.getAdminPushToken()
+                    if (!token.isNullOrBlank()) {
+                        container.netlifyApi.sendPush(
+                            token, "Site transfer requested",
+                            "${worker.name} (${worker.id}) · ${if (fromSite.isBlank()) "Unassigned" else fromSite} → $toSite",
+                            "#/roster",
+                        )
+                    }
+                } catch (e: Throwable) {
+                    // Silent: the transfer itself is saved and visible on Roster.
+                }
+            } catch (e: Throwable) {
+                setStatus("transferStatus", "❌ Failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    /**
+     * Approve a transfer: move the roster row to the receiving site, then mark the request done.
+     *
+     * The roster write goes first on purpose. If it succeeds and the status update then fails,
+     * the worker is on the right site and the card stays on screen for a retry — annoying but
+     * correct. The other order would show an approved transfer that never actually moved anyone.
+     */
+    fun approveTransfer(request: TransferRequest) {
+        if (request.docId.isBlank()) { setStatus("transferReviewStatus", "❌ This request has no ID — can't be approved."); return }
+        val s = sessionProfile.value
+        if (!Permissions.canApproveTransfer(s, request.toSite)) {
+            setStatus("transferReviewStatus", "❌ Only ${request.toSite}'s timekeeper or an admin can approve this.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val worker = workers.value.find { it.id == request.workerId }
+                if (worker == null) {
+                    setStatus("transferReviewStatus", "❌ Worker ${request.workerId} is no longer on the roster.")
+                    return@launch
+                }
+                container.workersRepository.saveWorker(
+                    worker.copy(
+                        site = request.toSite,
+                        alignedDate = DateUtils.todayStrUtc(),
+                        // A transfer brings a worker back into service: someone standing at the
+                        // gate is not "left", whatever a stale roster row says.
+                        status = if (worker.isLeft) "active" else worker.status,
+                        leftDate = if (worker.isLeft) null else worker.leftDate,
+                    )
+                )
+                container.transferRequestRepository.approve(request.docId, s.email, DateUtils.nowIso())
+                setStatus("transferReviewStatus", "✅ ${request.workerName} moved to ${request.toSite}.")
+            } catch (e: Throwable) {
+                setStatus("transferReviewStatus", "❌ Approve failed: ${e.message ?: e::class.simpleName}")
+            }
+        }
+    }
+
+    fun rejectTransfer(request: TransferRequest) {
+        if (request.docId.isBlank()) { setStatus("transferReviewStatus", "❌ This request has no ID — can't be rejected."); return }
+        val s = sessionProfile.value
+        if (!Permissions.canApproveTransfer(s, request.toSite)) {
+            setStatus("transferReviewStatus", "❌ Only ${request.toSite}'s timekeeper or an admin can decide this.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                container.transferRequestRepository.reject(request.docId, s.email, DateUtils.nowIso())
+                setStatus("transferReviewStatus", "🚫 Transfer rejected — ${request.workerName} stays on ${request.fromSite.ifBlank { "no site" }}.")
+            } catch (e: Throwable) {
+                setStatus("transferReviewStatus", "❌ Reject failed: ${e.message ?: e::class.simpleName}")
             }
         }
     }

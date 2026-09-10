@@ -16,6 +16,7 @@ import com.ktc.sitepulse.data.repo.SettingsRepository
 import com.ktc.sitepulse.data.repo.SitesRepository
 import com.ktc.sitepulse.data.repo.StaffWorkerLinkRepository
 import com.ktc.sitepulse.data.repo.TimekeeperRepository
+import com.ktc.sitepulse.data.repo.TransferRequestRepository
 import com.ktc.sitepulse.data.repo.UserRepository
 import com.ktc.sitepulse.data.repo.WifiProvider
 import com.ktc.sitepulse.data.repo.WorkersRepository
@@ -29,6 +30,7 @@ class AppContainer(context: Context) {
     val attendanceRepository = AttendanceRepository()
     val blockedRepository = BlockedRepository()
     val arrivalRequestRepository = ArrivalRequestRepository()
+    val transferRequestRepository = TransferRequestRepository()
     val leaveRepository = LeaveRepository()
     val holidayRepository = HolidayRepository()
     val timekeeperRepository = TimekeeperRepository()

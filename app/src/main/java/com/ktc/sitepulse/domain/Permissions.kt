@@ -259,6 +259,27 @@ object Permissions {
     fun canMarkAttendanceAt(session: SessionProfile, siteCode: String?): Boolean =
         canMarkAttendance(session) && hasSiteAccess(session, siteCode)
 
+    // ---- Site transfers -------------------------------------------------------------------
+
+    /**
+     * Raising a transfer for a worker who turned up at [toSite]. Anyone who may mark attendance
+     * may raise one — the foreman at the gate is the person who actually knows the man is there —
+     * but only towards a site they hold, so a transfer can only ever pull a worker in, never
+     * push one onto somebody else's project.
+     */
+    fun canRequestTransfer(session: SessionProfile, toSite: String?): Boolean =
+        canMarkAttendance(session) && hasSiteAccess(session, toSite)
+
+    /**
+     * Approving a transfer rewrites the worker's roster row, so it takes the same authority as
+     * writing that roster at the receiving site: the site's own timekeeper, or an admin above
+     * them. Foremen and supervisors are deliberately excluded — otherwise raising and approving
+     * would be the same person, and the cost centre a worker is charged to could be moved by
+     * whoever happened to be holding the phone.
+     */
+    fun canApproveTransfer(session: SessionProfile, toSite: String?): Boolean =
+        canUploadRoster(session) && hasSiteAccess(session, toSite)
+
     /**
      * A human-readable reason a site-scoped action was refused, for showing the user something
      * more useful than a generic failure.

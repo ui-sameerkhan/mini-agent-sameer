@@ -401,6 +401,119 @@ test("sharing the roster does NOT share the attendance behind it", async () => {
   await assertFails(getDoc(doc(db, "attendance/2026-09-08_W-B")));
 });
 
+// ---------------------------------------------------------------------------------------------
+// transferRequests — moving a worker from one site's roster to another's.
+//
+// The whole point of this collection is that head office is NOT in the loop, so the rules are
+// the only thing standing between "the foreman at the gate can fix the roster" and "any foreman
+// can move any worker onto any project". Each test below pins one half of that.
+// ---------------------------------------------------------------------------------------------
+
+await seed(async (db) => {
+  // A pending transfer pulling W-B (rostered SITE-B) towards SITE-A, and one the other way.
+  await setDoc(doc(db, "transferRequests/T-INTO-A"), {
+    workerId: "W-B", workerName: "Worker B", designation: "Mason",
+    fromSite: "SITE-B", toSite: "SITE-A", requestedBy: "fa@ktc.test", status: "pending",
+  });
+  await setDoc(doc(db, "transferRequests/T-INTO-B"), {
+    workerId: "W-A", workerName: "Worker A", designation: "Carpenter",
+    fromSite: "SITE-A", toSite: "SITE-B", requestedBy: "tkb@ktc.test", status: "pending",
+  });
+});
+
+test("a foreman raises a transfer INTO their own site", async () => {
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "transferRequests/T-NEW-A"), {
+    workerId: "W-B", workerName: "Worker B", fromSite: "SITE-B", toSite: "SITE-A",
+    requestedBy: "fa@ktc.test", status: "pending",
+  }));
+});
+
+test("a foreman cannot push a worker ONTO a site they do not hold", async () => {
+  // The dangerous direction: moving someone else's crew, or dumping a worker on another project.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-PUSH"), {
+    workerId: "W-A", workerName: "Worker A", fromSite: "SITE-A", toSite: "SITE-B",
+    requestedBy: "fa@ktc.test", status: "pending",
+  }));
+});
+
+test("a transfer cannot be born already approved", async () => {
+  // Otherwise "raise a request" would be a self-approval with extra steps.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-PREAPPROVED"), {
+    workerId: "W-B", workerName: "Worker B", fromSite: "SITE-B", toSite: "SITE-A",
+    requestedBy: "fa@ktc.test", status: "approved",
+  }));
+});
+
+test("a foreman cannot approve the transfer they raised", async () => {
+  // Approving rewrites the roster, so it takes roster authority — which a foreman has not got.
+  const db = as("uid-foreman-a", "fa@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-INTO-A"), {
+    status: "approved", approvedBy: "fa@ktc.test",
+  }, { merge: true }));
+});
+
+test("the receiving site's timekeeper approves a transfer into their site", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "transferRequests/T-INTO-B"), {
+    status: "approved", approvedBy: "tkb@ktc.test",
+  }, { merge: true }));
+});
+
+test("a timekeeper cannot decide a transfer into someone else's site", async () => {
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-INTO-A"), {
+    status: "rejected", rejectedBy: "tkb@ktc.test",
+  }, { merge: true }));
+});
+
+test("approving actually lets the timekeeper move the roster row across", async () => {
+  // The approval and the roster write are two operations; both have to be permitted or the
+  // request would approve while the worker stayed on the site they left.
+  const db = as("uid-tk-b", "tkb@ktc.test");
+  await assertSucceeds(setDoc(doc(db, "workers/W-A"), {
+    id: "W-A", name: "Worker A", designation: "Carpenter", site: "SITE-B",
+  }));
+  // ...but not the reverse: they cannot push a worker onto SITE-A's roster.
+  await assertFails(setDoc(doc(db, "workers/W-B"), {
+    id: "W-B", name: "Worker B", designation: "Mason", site: "SITE-A",
+  }));
+});
+
+test("staff cannot raise transfers at all", async () => {
+  const db = as("uid-staff", "staff@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-STAFF"), {
+    workerId: "W-A", workerName: "Worker A", fromSite: "SITE-B", toSite: "SITE-A",
+    requestedBy: "staff@ktc.test", status: "pending",
+  }));
+});
+
+test("a disabled account cannot raise or decide transfers", async () => {
+  const db = as("uid-disabled", "gone@ktc.test");
+  await assertFails(setDoc(doc(db, "transferRequests/T-DISABLED"), {
+    workerId: "W-B", workerName: "Worker B", fromSite: "SITE-B", toSite: "SITE-A",
+    requestedBy: "gone@ktc.test", status: "pending",
+  }));
+  await assertFails(setDoc(doc(db, "transferRequests/T-INTO-A"), { status: "approved" }, { merge: true }));
+});
+
+test("both ends of a move can see it, but nobody can list the lot", async () => {
+  // Rules are not filters: an unconstrained list from a scoped account must be refused outright,
+  // not quietly trimmed. Each app query is a single equality so every document it returns passes.
+  const { query, where } = await import("firebase/firestore");
+  const db = as("uid-foreman-a", "fa@ktc.test");
+
+  await assertFails(getDocs(collection(db, "transferRequests")));
+  // Incoming — the queue SITE-A acts on.
+  await assertSucceeds(getDocs(query(collection(db, "transferRequests"), where("toSite", "==", "SITE-A"))));
+  // Outgoing — SITE-A losing someone; visible, because a headcount change should not be a surprise.
+  await assertSucceeds(getDocs(query(collection(db, "transferRequests"), where("fromSite", "==", "SITE-A"))));
+  // A move between two other sites stays out of reach.
+  await assertFails(getDocs(query(collection(db, "transferRequests"), where("toSite", "==", "SITE-B"))));
+});
+
 test.after(async () => {
   await testEnv.cleanup();
 });
