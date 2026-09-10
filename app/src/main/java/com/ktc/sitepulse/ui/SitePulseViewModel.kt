@@ -1284,11 +1284,23 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
                     is ParsedBiometric.ColumnsNotFound -> setStatus("biometricStatus", "❌ ${parsed.message}")
                     is ParsedBiometric.NoValidRows -> setStatus("biometricStatus", "❌ ${parsed.message}")
                     is ParsedBiometric.Ok -> {
-                        setStatus("biometricStatus", "⏳ Comparing ${parsed.punches.size} punches…")
+                        setStatus(
+                            "biometricStatus",
+                            "⏳ Comparing ${parsed.punches.size} punches across ${parsed.dates.size} " +
+                                if (parsed.dates.size == 1) "day…" else "days…",
+                        )
                         val scope = authorizedSites.value.map { it.code }
+                        val today = DateUtils.todayStrUtc()
                         val attendance = parsed.dates.flatMap { date ->
-                            if (s.hasAllSites) container.attendanceRepository.getForDate(date)
-                            else container.attendanceRepository.getForDateForSites(date, scope)
+                            when {
+                                // Today's records are already subscribed and in memory. Re-fetching
+                                // them would bill a second read of every one for no new information,
+                                // and the daily check — the one anybody actually runs every day — is
+                                // exactly this case. Costs nothing beyond what the app already holds.
+                                date == today -> todayAttendance.value
+                                s.hasAllSites -> container.attendanceRepository.getForDate(date)
+                                else -> container.attendanceRepository.getForDateForSites(date, scope)
+                            }
                         }
                         val summary = BiometricReconciliation.run(
                             attendance = attendance,
