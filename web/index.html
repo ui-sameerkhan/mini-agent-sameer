@@ -669,18 +669,57 @@ const $ = id => document.getElementById(id);
 // the app for. Loading it lazily on first use keeps the initial page load
 // fast for everyone, and admin-side Excel actions still work exactly the
 // same, just with a one-time small delay the first time they're used.
-let xlsxLoadPromise = null;
+/**
+ * Loads one third-party library on first use, trying each CDN in turn.
+ *
+ * Three things this gets right that a single-URL loader did not:
+ *
+ *  - More than one host. jsDelivr alone is a single point of failure: plenty of corporate
+ *    networks block it outright, and when that happened here the feature simply never worked,
+ *    with an error blaming the user's connection.
+ *  - A failure is not cached. The old loaders stored the rejected promise, so every retry
+ *    returned the same rejection instantly — "try again" was advice the code made impossible
+ *    to follow without reloading the page.
+ *  - The global is checked, not just the load event. A proxy or captive portal can answer a
+ *    script request with 200 and an HTML error page, which fires onload and defines nothing.
+ */
+const _libPromises = {};
+function loadLib(globalName, urls, label){
+  if(window[globalName]) return Promise.resolve();
+  if(_libPromises[globalName]) return _libPromises[globalName];
+
+  _libPromises[globalName] = (async () => {
+    let lastErr = null;
+    for(const url of urls){
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = () => window[globalName]
+            ? resolve()
+            : reject(new Error('loaded but did not define ' + globalName));
+          s.onerror = () => reject(new Error('could not reach ' + new URL(url).host));
+          document.head.appendChild(s);
+        });
+        return;
+      } catch(e){ lastErr = e; }
+    }
+    // Clear the cache before throwing, so the next attempt genuinely retries.
+    _libPromises[globalName] = null;
+    throw new Error(
+      'Could not load the ' + label + ' library (' + (lastErr && lastErr.message) + '). ' +
+      'If this keeps happening, your network may be blocking the CDN — ask IT to allow ' +
+      'cdn.jsdelivr.net, unpkg.com or cdnjs.cloudflare.com.'
+    );
+  })();
+  return _libPromises[globalName];
+}
+
 function ensureXLSX(){
-  if(window.XLSX) return Promise.resolve();
-  if(xlsxLoadPromise) return xlsxLoadPromise;
-  xlsxLoadPromise = new Promise((resolve, reject)=>{
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js';
-    s.onload = () => resolve();
-    s.onerror = () => { xlsxLoadPromise = null; reject(new Error('Could not load the Excel library — check your connection and try again.')); };
-    document.head.appendChild(s);
-  });
-  return xlsxLoadPromise;
+  return loadLib('XLSX', [
+    'https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js',
+    'https://unpkg.com/xlsx-js-style/dist/xlsx.bundle.js',
+  ], 'Excel');
 }
 const todayStr = () => new Date().toISOString().slice(0,10);
 const fmtTime = iso => { try { return new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); } catch(e){ return "—"; } };
@@ -3001,42 +3040,40 @@ window.saveBulkLeave = async function(){
 // own) — scanning just fills the same Worker ID field manual entry would, generation just
 // encodes a worker's existing ID into an image. Libraries are lazy-loaded on first use, same
 // pattern as ensureXLSX() above, so most people who never touch this feature pay nothing for it.
-let qrLibsPromise = null;
-function ensureQRLibs(){
-  if(window.QRCode && window.jsQR) return Promise.resolve();
-  if(qrLibsPromise) return qrLibsPromise;
-  qrLibsPromise = Promise.all([
-    new Promise((resolve,reject)=>{
-      if(window.QRCode) return resolve();
-      const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-      s.onload=()=>resolve(); s.onerror=()=>reject(new Error("Could not load the QR library — check your connection and try again."));
-      document.head.appendChild(s);
-    }),
-    new Promise((resolve,reject)=>{
-      if(window.jsQR) return resolve();
-      const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-      s.onload=()=>resolve(); s.onerror=()=>reject(new Error("Could not load the barcode scanner library — check your connection and try again."));
-      document.head.appendChild(s);
-    }),
-  ]);
-  return qrLibsPromise;
+/**
+ * Generating a badge and scanning one are separate libraries, and are loaded separately.
+ *
+ * They used to share a loader that waited for both. Viewing a worker's QR badge needs only the
+ * generator, but it waited on the scanner too — so if the scanner library failed to load, the
+ * badge would not display either, for no reason at all.
+ */
+function ensureQrGenerator(){
+  return loadLib('QRCode', [
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
+    'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js',
+  ], 'QR');
 }
-let jsPdfPromise = null;
+
+function ensureQrScanner(){
+  return loadLib('jsQR', [
+    'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+    'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js',
+  ], 'barcode scanner');
+}
 function ensureJsPDF(){
-  if(window.jspdf) return Promise.resolve();
-  if(jsPdfPromise) return jsPdfPromise;
-  jsPdfPromise = new Promise((resolve,reject)=>{
-    const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
-    s.onload=()=>resolve(); s.onerror=()=>{ jsPdfPromise=null; reject(new Error("Could not load the PDF library — check your connection and try again.")); };
-    document.head.appendChild(s);
-  });
-  return jsPdfPromise;
+  return loadLib('jspdf', [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+  ], 'PDF');
 }
 
 let qrScanStream = null, qrScanRaf = null, qrScanCallback = null, qrScanTargetId = null;
 window.openQrScan = async function(targetId, afterFn){
   qrScanTargetId = targetId; qrScanCallback = afterFn;
-  try { await ensureQRLibs(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
+  try { await ensureQrScanner(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
   $("qr-scan-status").textContent = "";
   $("qr-scan-modal").style.display="flex";
   const video = $("qr-video"), canvas = $("qr-canvas");
@@ -3074,7 +3111,7 @@ window.closeQrScan = function(){
 window.showWorkerQr = async function(id){
   const w = findWorker(id);
   if(!w) return;
-  try { await ensureQRLibs(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
+  try { await ensureQrGenerator(); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
   try {
     const dataUrl = await QRCode.toDataURL(String(w.id), { width: 300, margin: 1 });
     $("qr-show-title").textContent = "ID Badge QR — "+w.name;
@@ -3089,7 +3126,7 @@ window.bulkGenerateQr = async function(){
   if(!workers.length){ $("notice").innerHTML = '<div class="notice warn">No workers to generate badges for.</div>'; return; }
   if(!confirm("Generate a printable PDF of QR badges for all "+workers.length+" employee(s)?")) return;
   $("notice").innerHTML = '<div class="notice warn">⏳ Generating '+workers.length+' QR badge(s)…</div>';
-  try { await Promise.all([ensureQRLibs(), ensureJsPDF()]); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
+  try { await Promise.all([ensureQrGenerator(), ensureJsPDF()]); } catch(e){ $("notice").innerHTML = '<div class="notice warn">❌ '+e.message+'</div>'; return; }
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit:"pt", format:"a4" });
   const pageW=595, pageH=842, margin=24, cols=3, rows=4;
