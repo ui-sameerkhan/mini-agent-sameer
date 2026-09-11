@@ -708,15 +708,24 @@ function loadLib(globalName, urls, label){
     _libPromises[globalName] = null;
     throw new Error(
       'Could not load the ' + label + ' library (' + (lastErr && lastErr.message) + '). ' +
-      'If this keeps happening, your network may be blocking the CDN — ask IT to allow ' +
-      'cdn.jsdelivr.net, unpkg.com or cdnjs.cloudflare.com.'
+      'It ships with the app, so this usually means the vendor/ folder was left out of the ' +
+      'deployment — re-upload the full web build.'
     );
   })();
   return _libPromises[globalName];
 }
 
+// Local copy first, CDN only as a backstop.
+//
+// Serving these from the app's own origin is what makes them reliable: no third-party host to
+// be blocked, throttled, or to move a file. It also fixes them being pinned to URLs that can
+// 404 without warning — which is exactly what happened to the QR library, whose CDN path did
+// not exist in the version it asked for, on any of the three CDNs.
+//
+// The CDN entries stay as a fallback for the case where a deployment misses the vendor folder.
 function ensureXLSX(){
   return loadLib('XLSX', [
+    './vendor/xlsx.bundle.js',
     'https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js',
     'https://unpkg.com/xlsx-js-style/dist/xlsx.bundle.js',
   ], 'Excel');
@@ -3048,25 +3057,27 @@ window.saveBulkLeave = async function(){
  * badge would not display either, for no reason at all.
  */
 function ensureQrGenerator(){
+  // qrcode 1.5.1, not 1.5.3: 1.5.2 onwards dropped build/qrcode.min.js from the published
+  // package, so every CDN answered 404 for it and badges could never load.
   return loadLib('QRCode', [
-    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
-    'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js',
+    './vendor/qrcode.min.js',
+    // jsDelivr only: unpkg does not serve build/ for this package, which the URL test caught.
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js',
   ], 'QR');
 }
 
 function ensureQrScanner(){
   return loadLib('jsQR', [
+    './vendor/jsQR.js',
     'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
     'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js',
   ], 'barcode scanner');
 }
 function ensureJsPDF(){
   return loadLib('jspdf', [
+    './vendor/jspdf.umd.min.js',
     'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
     'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
   ], 'PDF');
 }
 

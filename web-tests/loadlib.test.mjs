@@ -41,7 +41,7 @@ let threw = null;
 try { await loadLib('LibC', ['https://a.test/z.js', 'https://b.test/z.js'], 'C'); }
 catch(e){ threw = e; }
 check('rejects when every CDN is down', !!threw);
-check('the error names the hosts IT would need to allow', /jsdelivr|unpkg|cdnjs/.test(threw.message));
+check('the error tells the deployer what is actually missing', /vendor\/ folder/.test(threw.message));
 
 behaviour = { 'https://a.test/z.js': 'ok' };
 await loadLib('LibC', ['https://a.test/z.js', 'https://b.test/z.js'], 'C');
@@ -53,5 +53,5 @@ const before = scripts.length;
 await loadLib('LibD', ['https://a.test/w.js'], 'D');
 check('an already-loaded library fetches nothing', scripts.length === before);
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+console.log(`  ${pass} passed, ${fail} failed`);
+if (fail) process.exitCode = 1;
