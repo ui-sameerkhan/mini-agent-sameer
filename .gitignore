@@ -12,3 +12,4 @@ captures/
 .kotlin/
 firestore-debug.log
 firebase-debug.log
+local.properties

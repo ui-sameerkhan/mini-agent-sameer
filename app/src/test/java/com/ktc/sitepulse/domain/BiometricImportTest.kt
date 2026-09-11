@@ -93,6 +93,97 @@ class BiometricImportTest {
         assertTrue(r is ParsedBiometric.ColumnsNotFound)
     }
 
+    // ---- The real 8127 export ---------------------------------------------------------------
+    //
+    // Shape taken from an actual file: five rows of company letterhead above the headings,
+    // "Emp.Code"/"Emp.Name" rather than "Employee ID", a JobCode column, no Date column at all,
+    // and punches as datetimes rendered by the ERP's own cell format ("11-Sep-2026 06:57 AM").
+    // Every one of these broke the first version of this parser.
+
+    private fun realShape(vararg rows: List<String>) = RawTable(
+        headers = listOf("S.No", "Emp.Code", "Emp.Name", "JobCode", "Punch In", "Punch Out", "SHIFT_TYPE"),
+        rows = rows.map { r ->
+            listOf("S.No", "Emp.Code", "Emp.Name", "JobCode", "Punch In", "Punch Out", "SHIFT_TYPE")
+                .mapIndexed { i, h -> h to (r.getOrNull(i) ?: "") }.toMap()
+        },
+    )
+
+    @Test
+    fun `reads the real 8127 export`() {
+        val t = realShape(
+            listOf("1", "5900", "Naveen kumar", "C-26-923", "11-Sep-2026 06:57 AM", "11-Sep-2026 06:57 AM", "DAY"),
+            listOf("2", "3985", "Almar Atig Gomez", "C-26-923", "11-Sep-2026 07:15 AM", "11-Sep-2026 07:15 AM", "DAY"),
+        )
+        val r = BiometricImport.parse(t, "2026-01-01") as ParsedBiometric.Ok
+        assertEquals(2, r.punches.size)
+        val p = r.punches.first { it.workerId == "5900" }
+        assertEquals("the date must come from the punch, not the operator's selected date", "2026-09-11", p.date)
+        assertEquals("06:57", p.punchIn)
+        assertEquals("Naveen kumar", p.name)
+        assertEquals("C-26-923", p.jobCode)
+        assertEquals(listOf("C-26-923"), r.jobCodes)
+    }
+
+    @Test
+    fun `an evening punch is not read as morning`() {
+        // The export prints 12-hour times with AM/PM. Dropping the marker would file a night
+        // shift's 6pm punch as 6am and flag the man as a discrepancy.
+        val t = realShape(listOf("1", "77", "Night Man", "C-26-923", "11-Sep-2026 06:15 PM", "", "NIGHT"))
+        val r = BiometricImport.parse(t, "2026-01-01") as ParsedBiometric.Ok
+        assertEquals("18:15", r.punches.single().punchIn)
+    }
+
+    @Test
+    fun `the header row is found beneath the letterhead`() {
+        // The five letterhead rows, then the real headings — as the ERP prints it.
+        val sheet = listOf(
+            listOf("KTC International Contracting LLC", "", "", "", "", "", "8092-Biometric Punch"),
+            listOf("PO BOX NO.28427", "", "", "", "", "", "@strFromDate: 2026-09-11"),
+            listOf("Business Bay, Dubai", "", "", "", "", "", "@strJobDocNo: C-26-923"),
+            listOf("Tel +971-4-5876599", "", "", "", "", "", "@strLoginID: Ajay.Kumar"),
+            listOf("www.ktcco.net", "", "", "", "", "", "11-Sep-2026 14:03:15"),
+            listOf("S.No", "Emp.Code", "Emp.Name", "JobCode", "Punch In", "Punch Out", "SHIFT_TYPE"),
+            listOf("1", "5900", "Naveen kumar", "C-26-923", "11-Sep-2026 06:57 AM", "", "DAY"),
+        )
+        assertEquals(5, SpreadsheetReader.findHeaderRow(sheet, BiometricImport.headerHints))
+    }
+
+    @Test
+    fun `a sheet whose headings really are on row one is left alone`() {
+        // The worker and roster imports rely on this; changing it would break working uploads.
+        val sheet = listOf(
+            listOf("Employee ID", "Employee Name", "Punch In"),
+            listOf("W-1", "Aslam", "07:02"),
+        )
+        assertEquals(0, SpreadsheetReader.findHeaderRow(sheet, BiometricImport.headerHints))
+    }
+
+    @Test
+    fun `a sheet nothing matches falls back to row one rather than guessing`() {
+        val sheet = listOf(listOf("Alpha", "Beta"), listOf("1", "2"))
+        assertEquals(0, SpreadsheetReader.findHeaderRow(sheet, BiometricImport.headerHints))
+    }
+
+    @Test
+    fun `datetime cells split into a date and a 24-hour time`() {
+        assertEquals("2026-09-11" to "06:57", BiometricImport.splitDateTime("11-Sep-2026 06:57 AM"))
+        assertEquals("2026-09-11" to "18:15", BiometricImport.splitDateTime("11-Sep-2026 06:15 PM"))
+        assertEquals("2026-09-11" to "06:57", BiometricImport.splitDateTime("2026-09-11 06:57:04"))
+        assertEquals("" to "07:02", BiometricImport.splitDateTime("07:02"))
+        assertEquals("2026-09-11" to "", BiometricImport.splitDateTime("11-Sep-2026"))
+        assertEquals("" to "", BiometricImport.splitDateTime(""))
+    }
+
+    @Test
+    fun `the duplicated row the real export contained collapses to one`() {
+        val t = realShape(
+            listOf("1", "4807", "Dup Man", "C-26-923", "11-Sep-2026 05:44 AM", "11-Sep-2026 05:44 AM", "DAY"),
+            listOf("2", "4807", "Dup Man", "C-26-923", "11-Sep-2026 05:44 AM", "11-Sep-2026 05:44 AM", "DAY"),
+        )
+        val r = BiometricImport.parse(t, "2026-09-11") as ParsedBiometric.Ok
+        assertEquals(1, r.punches.size)
+    }
+
     @Test
     fun `date formats an ERP might print`() {
         assertEquals("2026-09-01", DateUtils.normaliseDate("2026-09-01"))

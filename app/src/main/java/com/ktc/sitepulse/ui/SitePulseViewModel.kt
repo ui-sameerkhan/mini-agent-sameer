@@ -1319,7 +1319,9 @@ class SitePulseViewModel(application: Application) : AndroidViewModel(applicatio
             setStatus("biometricStatus", "⏳ Reading the biometric report…")
             try {
                 val ctx = getApplication<Application>()
-                val table = SpreadsheetReader.read(ctx, uri, fileName)
+                // Hints, so the reader looks past the five rows of company letterhead the real
+                // 8127 export prints above its column headings.
+                val table = SpreadsheetReader.read(ctx, uri, fileName, BiometricImport.headerHints)
                 when (val parsed = BiometricImport.parse(table, fallbackDate)) {
                     is ParsedBiometric.ColumnsNotFound -> setStatus("biometricStatus", "❌ ${parsed.message}")
                     is ParsedBiometric.NoValidRows -> setStatus("biometricStatus", "❌ ${parsed.message}")

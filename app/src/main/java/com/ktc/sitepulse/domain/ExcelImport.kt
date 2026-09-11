@@ -16,23 +16,69 @@ data class RawTable(val headers: List<String>, val rows: List<Map<String, String
  * XLSX.utils.sheet_to_json(sheet, {defval:""}) behavior (blank cells -> "").
  */
 object SpreadsheetReader {
-    fun read(context: Context, uri: Uri, fileName: String): RawTable {
+    /**
+     * @param headerHints column names the caller expects, normalised the same way
+     *   [ColumnMatcher] does. When given, the header row is *searched for* rather than assumed
+     *   to be the first row — a report printed on company letterhead puts its real headers
+     *   several rows down, and reading the letterhead as headers finds no columns at all.
+     *   With no hints the behaviour is exactly as before: the first row is the header row.
+     */
+    fun read(context: Context, uri: Uri, fileName: String, headerHints: List<String> = emptyList()): RawTable {
         val isCsv = fileName.lowercase().endsWith(".csv")
-        return if (isCsv) readCsv(context, uri) else readXlsx(context, uri)
+        return if (isCsv) readCsv(context, uri, headerHints) else readXlsx(context, uri, headerHints)
     }
 
-    private fun readXlsx(context: Context, uri: Uri): RawTable {
+    /**
+     * Index of the row that carries the column headings.
+     *
+     * Returns 0 when no hint matches, so a file this does not recognise behaves exactly as it
+     * did before rather than guessing and silently reading the wrong row as headers.
+     */
+    fun findHeaderRow(rows: List<List<String>>, hints: List<String>, searchDepth: Int = 25): Int {
+        if (hints.isEmpty()) return 0
+        val wanted = hints.map { ColumnMatcher.normalize(it) }.toSet()
+        for (i in 0 until minOf(rows.size, searchDepth)) {
+            val matches = rows[i].count { ColumnMatcher.normalize(it) in wanted }
+            if (matches > 0) return i
+        }
+        return 0
+    }
+
+    private fun readXlsx(context: Context, uri: Uri, headerHints: List<String>): RawTable {
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "Unable to open file" }
+            return readXlsxStream(input, headerHints)
+        }
+    }
+
+    /**
+     * The workbook half of [readXlsx], with no Android types in sight — so a test can feed it a
+     * real export and check what POI actually produces, rather than what one assumes it will.
+     * The cell formatting in particular is the ERP's, not ours, and worth observing directly.
+     */
+    fun readXlsxStream(input: java.io.InputStream, headerHints: List<String> = emptyList()): RawTable {
+        run {
             WorkbookFactory.create(input).use { wb ->
                 val sheet = wb.getSheetAt(0)
                 val fmt = DataFormatter()
-                val headerRow = sheet.getRow(sheet.firstRowNum) ?: return RawTable(emptyList(), emptyList())
+
+                // Read enough of the top of the sheet to locate the headings.
+                val scanEnd = minOf(sheet.lastRowNum, sheet.firstRowNum + 24)
+                val scanned = (sheet.firstRowNum..scanEnd).map { r ->
+                    val row = sheet.getRow(r)
+                    if (row == null) emptyList()
+                    else (0 until row.lastCellNum.coerceAtLeast(0)).map { c ->
+                        fmt.formatCellValue(row.getCell(c)).trim()
+                    }
+                }
+                val headerIdx = sheet.firstRowNum + findHeaderRow(scanned, headerHints)
+
+                val headerRow = sheet.getRow(headerIdx) ?: return RawTable(emptyList(), emptyList())
                 val headers = (0 until headerRow.lastCellNum.coerceAtLeast(0)).map { c ->
                     fmt.formatCellValue(headerRow.getCell(c)).trim()
                 }
                 val rows = mutableListOf<Map<String, String>>()
-                for (r in (sheet.firstRowNum + 1)..sheet.lastRowNum) {
+                for (r in (headerIdx + 1)..sheet.lastRowNum) {
                     val row = sheet.getRow(r) ?: continue
                     val map = LinkedHashMap<String, String>()
                     var anyNonBlank = false
@@ -49,14 +95,16 @@ object SpreadsheetReader {
         }
     }
 
-    private fun readCsv(context: Context, uri: Uri): RawTable {
+    private fun readCsv(context: Context, uri: Uri, headerHints: List<String>): RawTable {
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "Unable to open file" }
             val reader = BufferedReader(InputStreamReader(input, Charsets.UTF_8))
             val lines = reader.readLines()
             if (lines.isEmpty()) return RawTable(emptyList(), emptyList())
-            val headers = parseCsvLine(lines[0]).map { it.trim() }
-            val rows = lines.drop(1).mapNotNull { line ->
+            val parsed = lines.take(25).map { parseCsvLine(it).map { c -> c.trim() } }
+            val headerIdx = findHeaderRow(parsed, headerHints)
+            val headers = parseCsvLine(lines[headerIdx]).map { it.trim() }
+            val rows = lines.drop(headerIdx + 1).mapNotNull { line ->
                 if (line.isBlank()) return@mapNotNull null
                 val cells = parseCsvLine(line)
                 val map = LinkedHashMap<String, String>()
