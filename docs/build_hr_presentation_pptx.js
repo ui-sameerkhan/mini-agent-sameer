@@ -271,25 +271,61 @@ function caption(s, text, y, color) {
   heading(s, "Proof the man was there", { sub: "Location is checked by the system, not asserted by a person" });
 
   const rows = [
-    ["Every project carries its own geofence", "Super Admin sets each project's coordinates and radius. A tight compound and a spread-out site get different limits."],
-    ["Distance is recorded, not just pass or fail", "Each record keeps how far from the site centre the phone actually was, so a borderline check-in can be reviewed later."],
-    ["Off-roster arrivals are flagged", "If a worker is marked at a project other than the one his roster shows, the record is flagged as a site deviation for review."],
-    ["Office staff have their own wider radius", "Set separately per site, so office staff are not held to a gate-level fence while the crew is."],
+    ["Fake GPS apps are refused outright", "Android reports a spoofed fix; the check-in is rejected and the attempt recorded.", RED],
+    ["Every project carries its own geofence", "Coordinates and radius per project, so a tight compound and a spread-out site differ.", BLUEMD],
+    ["Distance is recorded, not just pass or fail", "How far from the site centre the phone was, so a borderline check-in can be reviewed.", NAVY],
+    ["Off-roster arrivals are flagged", "Marked at a project other than his roster? Flagged as a site deviation for review.", BLUEMD],
+    ["Office staff have a wider radius", "Set per site, so office staff are not held to a gate-level fence while the crew is.", NAVY],
   ];
 
-  let y = 1.5;
-  rows.forEach(([t, d], i) => {
-    badge(s, M, y + 0.06, 0.34, String(i + 1), i % 2 === 0 ? BLUEMD : NAVY);
+  let y = 1.42;
+  rows.forEach(([t, d, col], i) => {
+    badge(s, M, y + 0.04, 0.34, String(i + 1), col);
     body(s, t, M + 0.56, y, 8.44, 0.3, { size: 13.5, bold: true });
-    body(s, d, M + 0.56, y + 0.32, 8.44, 0.44, { size: 11, color: MUTED });
-    y += 0.94;
+    body(s, d, M + 0.56, y + 0.32, 8.44, 0.3, { size: 11, color: MUTED });
+    y += 0.74;
   });
 
-  s.addNotes("This slide answers the first question HR always asks: how do we know the man was on site? The answer is that the phone had to be inside the fence before the record could be written at all.");
+  caption(s, "A spoofed location is treated as its own kind of refusal, logged the same way an outside-the-fence attempt is.", 5.02);
+
+  s.addNotes("This answers the first question HR asks: how do we know the man was on site? The phone had to be inside the fence before the record could be written at all — and a fake-GPS app does not get past it, because Android itself flags a mock fix and the app rejects it.");
 }
 
 // =============================================================================================
-// 7 — Six roles
+// 7 — ERP biometric cross-check
+// =============================================================================================
+{
+  const s = lightSlide();
+  heading(s, "Checked against the biometric", { sub: "The one question a geofence cannot settle, answered by the ERP" });
+
+  const steps = [
+    ["1", "Upload", "The ERP 8127 report goes straight into the app — employee ID, name, punch in and out.", BLUEMD],
+    ["2", "Compare", "Every marked record is matched against the punches for the same day, worker by worker.", NAVY],
+    ["3", "Record", "Who ran the check, when, and what it found is kept — so daily verification is evidenced.", GREEN],
+  ];
+  steps.forEach(([n, title, text, col], i) => {
+    const x = M + i * 3.09;
+    card(s, x, 1.45, 2.82, 1.9, PAPER);
+    badge(s, x + 0.24, 1.68, 0.5, n, col);
+    body(s, title, x + 0.24, 2.32, 2.36, 0.32, { size: 15, bold: true });
+    body(s, text, x + 0.24, 2.68, 2.36, 0.85, { size: 10.5, color: MUTED });
+  });
+
+  card(s, M, 3.52, 4.35, 1.45, "FDF3F2");
+  badge(s, M + 0.24, 3.76, 0.42, "!", RED);
+  body(s, "Marked present, never punched", M + 0.78, 3.74, 3.3, 0.3, { size: 13, bold: true });
+  body(s, "Listed for review with the name of whoever marked him. The reverse is caught too: punched but never marked, which costs the worker a day.", M + 0.78, 4.06, 3.3, 0.86, { size: 10.5, color: MUTED });
+
+  card(s, 5.15, 3.52, 4.35, 1.45, PAPER);
+  badge(s, 5.39, 3.76, 0.42, "i", NAVY);
+  body(s, "Honest about its limits", 5.93, 3.74, 3.3, 0.3, { size: 13, bold: true });
+  body(s, "It finds a bad mark afterwards rather than stopping one, and only covers workers a reader reaches — the app says so on screen when coverage is low.", 5.93, 4.06, 3.3, 0.86, { size: 10.5, color: MUTED });
+
+  s.addNotes("GPS proves a phone was on site. It cannot prove the man whose badge was scanned was standing next to it — the biometric can, because he had to put his own finger on a reader.\n\nThis is a detective control, not a preventive one, and it is worth saying so plainly. It does not stop a bad mark at the gate; it makes one findable. That is usually enough, because a foreman who knows the check runs daily does not make the mark.\n\nIf asked about coverage: where there is no reader on a project, the app reports that the biometric did not cover those men rather than listing them as discrepancies.");
+}
+
+// =============================================================================================
+// 8 — Six roles
 // =============================================================================================
 {
   const s = lightSlide();
@@ -329,7 +365,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 8 — Site transfers
+// 9 — Site transfers
 // =============================================================================================
 {
   const s = lightSlide();
@@ -365,7 +401,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 9 — Reports
+// 10 — Reports
 // =============================================================================================
 {
   const s = lightSlide();
@@ -395,7 +431,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 10 — Dashboard
+// 11 — Dashboard
 // =============================================================================================
 {
   const s = lightSlide();
@@ -437,7 +473,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 11 — Security (dark)
+// 12 — Security (dark)
 // =============================================================================================
 {
   const s = darkSlide();
@@ -462,7 +498,7 @@ function caption(s, text, y, color) {
     x: 6.62, y: 1.62, w: 2.88, h: 2.62, rectRadius: 0.09,
     fill: { color: "0A2050" }, line: { color: "1B3468", width: 1 },
   });
-  s.addText("48", {
+  s.addText("56", {
     x: 6.62, y: 2.0, w: 2.88, h: 1.0, fontFace: HEAD, fontSize: 60, bold: true,
     color: GOLD, align: "center", isTextBox: true, margin: 0,
   });
@@ -470,7 +506,7 @@ function caption(s, text, y, color) {
     x: 6.72, y: 2.96, w: 2.68, h: 0.3, fontFace: BODY, fontSize: 12, bold: true,
     color: WHITE, align: "center", isTextBox: true, margin: 0,
   });
-  s.addText("Each one checks a permission that must be granted — and one that must be refused. All 48 pass.", {
+  s.addText("Each one checks a permission that must be granted — and one that must be refused. All 56 pass.", {
     x: 6.86, y: 3.3, w: 2.4, h: 0.8, fontFace: BODY, fontSize: 10, color: "B9C7DE",
     align: "center", isTextBox: true, margin: 0, lineSpacingMultiple: 1.1,
   });
@@ -481,7 +517,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 12 — Scale, with the measured chart
+// 13 — Scale, with the measured chart
 // =============================================================================================
 {
   const s = lightSlide();
@@ -533,7 +569,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 13 — Benefits for HR
+// 14 — Benefits for HR
 // =============================================================================================
 {
   const s = lightSlide();
@@ -561,7 +597,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 14 — Cost and what's next
+// 15 — Cost and what's next
 // =============================================================================================
 {
   const s = lightSlide();
@@ -573,7 +609,7 @@ function caption(s, text, y, color) {
   body(s, "At 4,000 workers this is projected to sit well inside a USD 100 per month budget.", M + 0.26, 2.88, 3.85, 0.42, { size: 11, bold: true, color: GREEN });
 
   const next = [
-    ["Push notifications", "Alerts for transfers, arrivals and leave — needs one server function switched on."],
+    ["Broadcast notifications", "Alerts for transfers, arrivals and leave. The daily biometric reminder already works."],
     ["Photo on check-in", "An optional photo stored with the attendance record."],
     ["Power BI / Excel reporting", "Live connection for HR's own analysis, without touching the app."],
     ["ERP roster sync", "Roster arriving automatically from the ERP instead of an Excel upload."],
@@ -590,7 +626,7 @@ function caption(s, text, y, color) {
 
   card(s, M, 3.68, 4.35, 1.35, PAPER);
   body(s, "Already live today", M + 0.26, 3.86, 3.85, 0.28, { size: 12, bold: true, color: NAVY });
-  body(s, "GPS check-in, QR badges, five roles, site scoping, transfers, leave, holidays, dashboards, Excel reports, and full backup and restore.", M + 0.26, 4.18, 3.85, 0.72, { size: 10.5, color: MUTED });
+  body(s, "GPS check-in, QR badges, ERP biometric cross-check, five roles, site scoping, transfers, leave, holidays, dashboards, Excel reports and full backup.", M + 0.26, 4.18, 3.85, 0.72, { size: 10.5, color: MUTED });
 
   caption(s, "Cost figure is a projection based on expected usage, not a quoted price.", 5.0);
 
@@ -598,7 +634,7 @@ function caption(s, text, y, color) {
 }
 
 // =============================================================================================
-// 15 — Close (dark)
+// 16 — Close (dark)
 // =============================================================================================
 {
   const s = darkSlide();
@@ -614,7 +650,7 @@ function caption(s, text, y, color) {
     isTextBox: true, margin: 0, lineSpacingMultiple: 1.15,
   });
 
-  const marks = [["4,000", "workers supported"], ["5", "roles"], ["48", "security tests passing"]];
+  const marks = [["4,000", "workers supported"], ["5", "roles"], ["56", "security tests passing"]];
   marks.forEach(([v, l], i) => {
     const x = M + i * 3.05;
     s.addText(v, { x, y: 3.62, w: 2.8, h: 0.6, fontFace: HEAD, fontSize: 32, bold: true, color: GOLD, isTextBox: true, margin: 0 });
