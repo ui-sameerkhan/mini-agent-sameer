@@ -42,3 +42,9 @@ Production: `npm run build && npm start` with env vars:
 - **Phase 3:** mobile app, AI matching, analytics.
 - Admin editing of categories/cities/languages is in `lib/data.ts` (needs a deploy).
 - Translations were written without a native review — have speakers check them. Privacy/Terms are drafts; get a UAE lawyer to review for PDPL compliance. Add rate limiting (e.g. at the reverse proxy) and virus-scanning of uploads before real launch.
+
+## Deploy from a phone (no computer)
+1. Merge this branch (or keep it) on GitHub.
+2. On render.com choose **New → Blueprint**, connect the GitHub repo and pick this branch.
+3. Type an admin password when asked, then deploy. You get a public https link.
+4. `SHUGHL_DEMO=1` is for trying it out only. Remove it before real users (and connect an SMS provider).

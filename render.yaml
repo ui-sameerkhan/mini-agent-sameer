@@ -1,0 +1,23 @@
+# One-tap deploy on Render (https://render.com). The disk keeps your database and uploads.
+services:
+  - type: web
+    name: shughl
+    runtime: node
+    plan: starter            # persistent disks need a paid plan (about $7/month)
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    disk:
+      name: shughl-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@shughl.local
+      - key: ADMIN_PASSWORD
+        sync: false           # Render asks you to type this when you deploy
+      - key: SHUGHL_DEMO       # TRY-OUT MODE: demo jobs + login code shown on screen. Delete this before real users.
+        value: "1"
